@@ -1,6 +1,11 @@
 apiVersion: nourspeed.io/v1alpha1
 kind: XKvm
 metadata:
-  name: my-first-vm
+  name: my-centos7-vm
 spec:
-  name: "Test-VM"
+  name: my-centos7-vm
+  storagePoolPath: "/var/lib/libvirt/images/my-environment"
+  networkName: "br0"
+  providerConfigRef: "libvirt-host1"
+  memory: 4096
+  vcpu: 4

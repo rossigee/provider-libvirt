@@ -1,0 +1,11 @@
+apiVersion: nourspeed.io/v1alpha1
+kind: XKvm
+metadata:
+  name: database-server-host2
+spec:
+  name: database-server-host2
+  storagePoolPath: "/data/libvirt/images"
+  networkName: "br0"
+  providerConfigRef: "libvirt-host2"
+  memory: 8192
+  vcpu: 4
