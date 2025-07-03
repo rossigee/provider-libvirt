@@ -15,11 +15,10 @@ up ctp provider install nourspeed/provider-libvirt:v0.1.0
 
 ### Multi-Instance Support
 
-This provider supports managing multiple libvirt instances from a single Kubernetes cluster. See the [multi-instance examples](examples/multi-instance/) for configuration details.
-
-### Validation Webhooks
-
-Optional validation webhooks prevent cross-instance reference errors. See the [validation documentation](docs/validation.md) for setup instructions.
+This provider supports managing multiple libvirt instances from a single Kubernetes cluster. Key features include:
+- **Automatic naming** to prevent resource collisions - see [naming strategy](docs/naming-strategy.md)
+- **Validation webhooks** to prevent cross-instance reference errors - see [validation docs](docs/validation.md)
+- **Example configurations** - see [multi-instance examples](examples/multi-instance/)
 
 Alternatively, you can use declarative installation:
 ```
