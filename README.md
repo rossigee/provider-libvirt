@@ -13,6 +13,14 @@ to the [latest release](https://marketplace.upbound.io/providers/nourspeed/provi
 up ctp provider install nourspeed/provider-libvirt:v0.1.0
 ```
 
+### Multi-Instance Support
+
+This provider supports managing multiple libvirt instances from a single Kubernetes cluster. See the [multi-instance examples](examples/multi-instance/) for configuration details.
+
+### Validation Webhooks
+
+Optional validation webhooks prevent cross-instance reference errors. See the [validation documentation](docs/validation.md) for setup instructions.
+
 Alternatively, you can use declarative installation:
 ```
 cat <<EOF | kubectl apply -f -
