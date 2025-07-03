@@ -32,6 +32,7 @@ import (
 	"github.com/nourspeed/provider-libvirt/internal/clients"
 	"github.com/nourspeed/provider-libvirt/internal/controller"
 	"github.com/nourspeed/provider-libvirt/internal/features"
+	"github.com/nourspeed/provider-libvirt/internal/webhook"
 )
 
 func main() {
@@ -50,6 +51,8 @@ func main() {
 		namespace                  = app.Flag("namespace", "Namespace used to set as default scope in default secret store config.").Default("crossplane-system").Envar("POD_NAMESPACE").String()
 		enableExternalSecretStores = app.Flag("enable-external-secret-stores", "Enable support for ExternalSecretStores.").Default("false").Envar("ENABLE_EXTERNAL_SECRET_STORES").Bool()
 		enableManagementPolicies   = app.Flag("enable-management-policies", "Enable support for Management Policies.").Default("true").Envar("ENABLE_MANAGEMENT_POLICIES").Bool()
+		enableWebhooks             = app.Flag("enable-webhooks", "Enable validation webhooks.").Default("false").Envar("ENABLE_WEBHOOKS").Bool()
+		webhookPort                = app.Flag("webhook-port", "Webhook server port.").Default("9443").Int()
 	)
 
 	kingpin.MustParse(app.Parse(os.Args[1:]))
@@ -117,6 +120,12 @@ func main() {
 	if *enableManagementPolicies {
 		o.Features.Enable(features.EnableBetaManagementPolicies)
 		log.Info("Beta feature enabled", "flag", features.EnableBetaManagementPolicies)
+	}
+
+	if *enableWebhooks {
+		mgr.GetWebhookServer().Port = *webhookPort
+		log.Info("Webhooks enabled", "port", *webhookPort)
+		kingpin.FatalIfError(webhook.Setup(mgr), "Cannot setup webhooks")
 	}
 
 	kingpin.FatalIfError(controller.Setup(mgr, o), "Cannot setup Libvirt controllers")
