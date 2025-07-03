@@ -6,6 +6,6 @@ spec:
   forProvider:
     name: cluster-crossplane
     type: dir
-    path: /home/rnour/cluster_crossplane
+    path: /var/lib/libvirt/images/cluster-crossplane
   providerConfigRef:
     name: default

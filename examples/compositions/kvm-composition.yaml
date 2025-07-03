@@ -27,9 +27,9 @@ spec:
           forProvider:
             name: cluster-crossplane
             type: dir
-            path: /home/rnour/cluster_crossplane
+            path: $(spec.storagePoolPath)
           providerConfigRef:
-            name: default
+            name: $(spec.providerConfigRef)
       readinessChecks:
         - type: None
     - name: crossplane-volume
@@ -43,7 +43,7 @@ spec:
             source: https://cloud.centos.org/centos/7/images/CentOS-7-x86_64-GenericCloud.qcow2
             format: qcow2
           providerConfigRef:
-            name: default
+            name: $(spec.providerConfigRef)
       readinessChecks:
         - type: None
     - name: commoninit
@@ -83,7 +83,7 @@ spec:
                   shell: /bin/bash
                   groups: wheel
           providerConfigRef:
-            name: default
+            name: $(spec.providerConfigRef)
       readinessChecks:
         - type: None
     - name: domain
@@ -93,14 +93,14 @@ spec:
         spec:
           forProvider:
             name: centos7-vm-crossplane
-            memory: 2048
-            vcpu: 2
+            memory: $(spec.memory)
+            vcpu: $(spec.vcpu)
             qemuAgent: false
             networkInterface:
-              - networkName: "default"
+              - networkName: $(spec.networkName)
                 waitForLease: true
             disk:
-              - volumeId: "/home/rnour/cluster_crossplane/centos7"
+              - volumeId: "$(spec.storagePoolPath)/centos7"
             cloudinitRef:
               name: commoninit
             console:
@@ -112,6 +112,6 @@ spec:
                 listenType: "address"
                 autoport: true
           providerConfigRef:
-            name: default
+            name: $(spec.providerConfigRef)
       readinessChecks:
         - type: None

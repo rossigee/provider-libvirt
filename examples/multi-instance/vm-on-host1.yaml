@@ -1,0 +1,11 @@
+apiVersion: nourspeed.io/v1alpha1
+kind: XKvm
+metadata:
+  name: web-server-host1
+spec:
+  name: web-server-host1
+  storagePoolPath: "/srv/libvirt/storage"
+  networkName: "default"
+  providerConfigRef: "libvirt-host1"
+  memory: 2048
+  vcpu: 2

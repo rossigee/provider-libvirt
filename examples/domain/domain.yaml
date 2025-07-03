@@ -12,7 +12,7 @@ spec:
       - networkName: "default"
         waitForLease: true
     disk:
-     - volumeId: "/home/rnour/cluster_crossplane/centos7"
+     - volumeId: "/var/lib/libvirt/images/cluster-crossplane/centos7"
     cloudinitRef:
       name: commoninit
     console:

@@ -18,5 +18,28 @@ spec:
               properties:
                 name:
                   type: string
+                  description: "VM name"
+                storagePoolPath:
+                  type: string
+                  description: "Path for the libvirt storage pool"
+                  default: "/var/lib/libvirt/images/cluster-crossplane"
+                networkName:
+                  type: string
+                  description: "Libvirt network name to connect to"
+                  default: "default"
+                providerConfigRef:
+                  type: string
+                  description: "ProviderConfig reference name"
+                  default: "default"
+                memory:
+                  type: integer
+                  description: "Memory in MB"
+                  default: 2048
+                vcpu:
+                  type: integer
+                  description: "Number of vCPUs"
+                  default: 2
+              required:
+                - name
       served: true
       referenceable: true
