@@ -1,0 +1,39 @@
+# Example 1: VM on host1 with automatic naming
+apiVersion: nourspeed.io/v1alpha1
+kind: XKvm
+metadata:
+  name: webserver  # Simple name - will be prefixed automatically
+spec:
+  name: webserver-vm  # This is the libvirt VM name
+  storagePoolPath: "/var/lib/libvirt/images"
+  networkName: "default"
+  providerConfigRef: "libvirt-host1"
+  memory: 2048
+  vcpu: 2
+---
+# Example 2: Same VM name but on host2 - no collision!
+apiVersion: nourspeed.io/v1alpha1
+kind: XKvm
+metadata:
+  name: webserver  # Same K8s name but will become libvirt-host2-webserver
+  namespace: team-b  # Different namespace
+spec:
+  name: webserver-vm  # Same libvirt VM name is OK on different host
+  storagePoolPath: "/data/vms"
+  networkName: "br0"
+  providerConfigRef: "libvirt-host2"
+  memory: 4096
+  vcpu: 4
+---
+# Example 3: Database server on host1
+apiVersion: nourspeed.io/v1alpha1
+kind: XKvm
+metadata:
+  name: database
+spec:
+  name: postgres-primary
+  storagePoolPath: "/var/lib/libvirt/images"
+  networkName: "default"
+  providerConfigRef: "libvirt-host1"
+  memory: 8192
+  vcpu: 4

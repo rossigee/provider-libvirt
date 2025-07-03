@@ -1,0 +1,258 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: centos7-vm-multiinstance
+  labels:
+    # This composition supports multi-instance deployments
+    libvirt.nourspeed.io/multi-instance: "true"
+spec:
+  compositeTypeRef:
+    apiVersion: nourspeed.io/v1alpha1
+    kind: XKvm
+  resources:
+    - name: libvirt-provider-config
+      base:
+        apiVersion: libvirt.nourspeed.io/v1beta1
+        kind: ProviderConfig
+        spec:
+          source: Secret
+          secretRef:
+            name: example-creds
+            namespace: crossplane-system
+            key: credentials
+      patches:
+        # Use the providerConfigRef from the claim
+        - fromFieldPath: spec.providerConfigRef
+          toFieldPath: metadata.name
+      readinessChecks:
+        - type: None
+    - name: crossplane-pool
+      base:
+        apiVersion: pool.nourspeed.io/v1alpha1
+        kind: Pool
+        spec:
+          forProvider:
+            type: dir
+      patches:
+        # Name the K8s resource with instance prefix
+        - type: CombineFromComposite
+          combine:
+            variables:
+              - fromFieldPath: spec.providerConfigRef
+              - fromFieldPath: metadata.name
+            strategy: string
+            string:
+              fmt: "%s-pool-%s"
+          toFieldPath: metadata.name
+        # Use the original name for libvirt
+        - type: CombineFromComposite
+          combine:
+            variables:
+              - fromFieldPath: metadata.name
+            strategy: string
+            string:
+              fmt: "pool-%s"
+          toFieldPath: spec.forProvider.name
+        # Set the path
+        - fromFieldPath: spec.storagePoolPath
+          toFieldPath: spec.forProvider.path
+        # Set provider config ref
+        - fromFieldPath: spec.providerConfigRef
+          toFieldPath: spec.providerConfigRef.name
+        # Add labels for tracking
+        - type: CombineFromComposite
+          combine:
+            variables:
+              - fromFieldPath: spec.providerConfigRef
+            strategy: string
+            string:
+              fmt: "%s"
+          toFieldPath: metadata.labels[libvirt.nourspeed.io/instance]
+        # Store original name in annotation
+        - type: CombineFromComposite
+          combine:
+            variables:
+              - fromFieldPath: metadata.name
+            strategy: string
+            string:
+              fmt: "pool-%s"
+          toFieldPath: metadata.annotations[libvirt.nourspeed.io/original-name]
+      readinessChecks:
+        - type: None
+    - name: crossplane-volume
+      base:
+        apiVersion: volume.nourspeed.io/v1alpha1
+        kind: Volume
+        spec:
+          forProvider:
+            source: https://cloud.centos.org/centos/7/images/CentOS-7-x86_64-GenericCloud.qcow2
+            format: qcow2
+      patches:
+        # Name the K8s resource with instance prefix
+        - type: CombineFromComposite
+          combine:
+            variables:
+              - fromFieldPath: spec.providerConfigRef
+              - fromFieldPath: metadata.name
+            strategy: string
+            string:
+              fmt: "%s-volume-%s"
+          toFieldPath: metadata.name
+        # Use the original name for libvirt
+        - type: CombineFromComposite
+          combine:
+            variables:
+              - fromFieldPath: metadata.name
+            strategy: string
+            string:
+              fmt: "volume-%s"
+          toFieldPath: spec.forProvider.name
+        # Reference the pool
+        - type: CombineFromComposite
+          combine:
+            variables:
+              - fromFieldPath: metadata.name
+            strategy: string
+            string:
+              fmt: "pool-%s"
+          toFieldPath: spec.forProvider.pool
+        # Set provider config ref
+        - fromFieldPath: spec.providerConfigRef
+          toFieldPath: spec.providerConfigRef.name
+        # Add instance label
+        - fromFieldPath: spec.providerConfigRef
+          toFieldPath: metadata.labels[libvirt.nourspeed.io/instance]
+      readinessChecks:
+        - type: None
+    - name: commoninit
+      base:
+        apiVersion: cloudinit.nourspeed.io/v1alpha1
+        kind: Disk
+        spec:
+          forProvider:
+            userData: |
+              #cloud-config
+              ssh_pwauth: True
+              chpasswd:
+                list: |
+                   root: test
+                expire: False
+              users:
+                - name: admin
+                  ssh_authorized_keys:
+                    - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC... # Replace with actual key
+                  sudo: ['ALL=(ALL) NOPASSWD:ALL']
+                  shell: /bin/bash
+                  groups: wheel
+      patches:
+        # Name the K8s resource with instance prefix
+        - type: CombineFromComposite
+          combine:
+            variables:
+              - fromFieldPath: spec.providerConfigRef
+              - fromFieldPath: metadata.name
+            strategy: string
+            string:
+              fmt: "%s-cloudinit-%s"
+          toFieldPath: metadata.name
+        # Use a predictable name for libvirt
+        - type: CombineFromComposite
+          combine:
+            variables:
+              - fromFieldPath: metadata.name
+            strategy: string
+            string:
+              fmt: "cloudinit-%s.iso"
+          toFieldPath: spec.forProvider.name
+        # Reference the pool
+        - type: CombineFromComposite
+          combine:
+            variables:
+              - fromFieldPath: metadata.name
+            strategy: string
+            string:
+              fmt: "pool-%s"
+          toFieldPath: spec.forProvider.pool
+        # Set provider config ref
+        - fromFieldPath: spec.providerConfigRef
+          toFieldPath: spec.providerConfigRef.name
+        # Add instance label
+        - fromFieldPath: spec.providerConfigRef
+          toFieldPath: metadata.labels[libvirt.nourspeed.io/instance]
+      readinessChecks:
+        - type: None
+    - name: domain
+      base:
+        apiVersion: domain.nourspeed.io/v1alpha1
+        kind: Domain
+        spec:
+          forProvider:
+            qemuAgent: false
+            console:
+              - type: "pty"
+                targetType: "serial"
+                targetPort: "0"
+            graphics:
+              - type: "spice"
+                listenType: "address"
+                autoport: true
+      patches:
+        # Name the K8s resource with instance prefix
+        - type: CombineFromComposite
+          combine:
+            variables:
+              - fromFieldPath: spec.providerConfigRef
+              - fromFieldPath: metadata.name
+            strategy: string
+            string:
+              fmt: "%s-%s"
+          toFieldPath: metadata.name
+        # Use the original name for libvirt
+        - fromFieldPath: spec.name
+          toFieldPath: spec.forProvider.name
+        # Set memory and vcpu
+        - fromFieldPath: spec.memory
+          toFieldPath: spec.forProvider.memory
+        - fromFieldPath: spec.vcpu
+          toFieldPath: spec.forProvider.vcpu
+        # Configure network
+        - type: ToCompositeFieldPath
+          fromFieldPath: spec.networkName
+          toFieldPath: spec.forProvider.networkInterface[0].networkName
+          transforms:
+            - type: map
+              map:
+                "default": "default"
+                "br0": "br0"
+                "virbr0": "virbr0"
+        # Reference the volume
+        - type: CombineFromComposite
+          combine:
+            variables:
+              - fromFieldPath: spec.storagePoolPath
+              - fromFieldPath: metadata.name
+            strategy: string
+            string:
+              fmt: "%s/volume-%s"
+          toFieldPath: spec.forProvider.disk[0].volumeId
+        # Reference the cloudinit disk
+        - type: CombineFromComposite
+          combine:
+            variables:
+              - fromFieldPath: spec.providerConfigRef
+              - fromFieldPath: metadata.name
+            strategy: string
+            string:
+              fmt: "%s-cloudinit-%s"
+          toFieldPath: spec.forProvider.cloudinitRef.name
+        # Set provider config ref
+        - fromFieldPath: spec.providerConfigRef
+          toFieldPath: spec.providerConfigRef.name
+        # Add instance label
+        - fromFieldPath: spec.providerConfigRef
+          toFieldPath: metadata.labels[libvirt.nourspeed.io/instance]
+        # Store original name
+        - fromFieldPath: spec.name
+          toFieldPath: metadata.annotations[libvirt.nourspeed.io/original-name]
+      readinessChecks:
+        - type: None
