@@ -82,3 +82,30 @@ make e2e
 - `config/provider.go`: Main provider configuration and resource registration
 - `internal/clients/libvirt.go`: Terraform setup and credential extraction
 - `cmd/provider/main.go`: Provider binary entry point with CLI flags
+
+## Recent Updates and Known Issues
+
+### Webhook Validators
+- Webhook validators in `internal/webhook/` have been updated to return `(admission.Warnings, error)` tuples
+- Field names updated to follow Go conventions: `VolumeId` → `VolumeID`, `BaseVolumeId` → `BaseVolumeID`
+- Webhook server configuration fixed in main.go to properly set the port
+
+### Build Process
+- The xpkg build may show an error about missing Docker blob when using `make`
+- This is due to the `--controller` flag in the Upjet makefile trying to reference non-existent image layers
+- Despite the error, all build artifacts (binary, Docker image, xpkg) are created successfully
+- Workaround scripts available: `build-xpkg.sh`, `build.sh` for clean builds
+
+### Deployment
+- Use `deploy-to-cluster.sh` for automated deployment to Kubernetes clusters
+- Requires Crossplane to be installed (script will install if missing)
+- Provider expects libvirt URI credentials in a Secret (e.g., `qemu+ssh://user@host/system`)
+- Example manifests:
+  - `provider-install.yaml`: Provider installation with debug mode
+  - `providerconfig-example.yaml`: ProviderConfig template with credential setup
+  - `test-deployment.yaml`: Example Network resource for testing
+
+### Multi-Instance Support
+- Provider supports multiple libvirt instances via different ProviderConfigs
+- Resource naming includes instance identifiers to prevent collisions
+- Validation webhooks prevent cross-instance resource references

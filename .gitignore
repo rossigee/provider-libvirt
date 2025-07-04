@@ -1,0 +1,36 @@
+# Build output
+_output/
+build/
+*.xpkg
+
+# Cache directories
+.cache/
+*.cache
+
+# Generated binaries
+provider
+
+# Temporary and test files
+*.json
+test-*.yaml
+manual-*.yaml
+deploy-*.sh
+provider-install*.yaml
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Credentials and secrets
+*-credentials.yaml
+*-secret.yaml
+*.key
+*.pem
+*.crt

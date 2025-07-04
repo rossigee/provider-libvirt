@@ -18,7 +18,6 @@ package webhook
 
 import (
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	domainv1alpha1 "github.com/nourspeed/provider-libvirt/apis/domain/v1alpha1"
 	volumev1alpha1 "github.com/nourspeed/provider-libvirt/apis/volume/v1alpha1"

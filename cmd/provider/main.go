@@ -25,6 +25,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	ctrlwebhook "sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	"github.com/nourspeed/provider-libvirt/apis"
 	"github.com/nourspeed/provider-libvirt/apis/v1alpha1"
@@ -71,7 +72,7 @@ func main() {
 	cfg, err := ctrl.GetConfig()
 	kingpin.FatalIfError(err, "Cannot get API server rest config")
 
-	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
+	mgrOpts := ctrl.Options{
 		LeaderElection:   *leaderElection,
 		LeaderElectionID: "crossplane-leader-election-provider-libvirt",
 		Cache: cache.Options{
@@ -80,7 +81,15 @@ func main() {
 		LeaderElectionResourceLock: resourcelock.LeasesResourceLock,
 		LeaseDuration:              func() *time.Duration { d := 60 * time.Second; return &d }(),
 		RenewDeadline:              func() *time.Duration { d := 50 * time.Second; return &d }(),
-	})
+	}
+
+	if *enableWebhooks {
+		mgrOpts.WebhookServer = ctrlwebhook.NewServer(ctrlwebhook.Options{
+			Port: *webhookPort,
+		})
+	}
+
+	mgr, err := ctrl.NewManager(cfg, mgrOpts)
 	kingpin.FatalIfError(err, "Cannot create controller manager")
 	kingpin.FatalIfError(apis.AddToScheme(mgr.GetScheme()), "Cannot add Libvirt APIs to scheme")
 	o := tjcontroller.Options{
@@ -123,7 +132,6 @@ func main() {
 	}
 
 	if *enableWebhooks {
-		mgr.GetWebhookServer().Port = *webhookPort
 		log.Info("Webhooks enabled", "port", *webhookPort)
 		kingpin.FatalIfError(webhook.Setup(mgr), "Cannot setup webhooks")
 	}
