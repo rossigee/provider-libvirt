@@ -158,7 +158,7 @@ func TestValidateDomain(t *testing.T) {
 				},
 			},
 			want: want{
-				err: errors.New("invalid cloudinit reference: cloudinit disk test-cloudinit uses providerConfig provider-config-2, but domain uses providerConfig provider-config-1. Resources must use the same libvirt instance"),
+				err: errors.Wrap(errors.New("cloudinit disk test-cloudinit uses providerConfig provider-config-2, but domain uses providerConfig provider-config-1. Resources must use the same libvirt instance"), "invalid cloudinit reference"),
 			},
 		},
 		"InvalidDomainNoProviderConfig": {
