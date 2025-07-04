@@ -177,8 +177,37 @@ func truncateName(name string, maxLen int) string {
 		return name
 	}
 	
-	// Leave room for a truncation indicator
-	return name[:maxLen-4] + "-" + shortHash(name)[:3]
+	// Leave room for a hash suffix (e.g., "-abc")
+	if maxLen < 5 {
+		// If maxLen is too small, just truncate
+		return name[:maxLen]
+	}
+	
+	// Calculate hash of the full name for consistency
+	hash := 0
+	for i, c := range name {
+		hash = hash*31 + int(c) + i
+	}
+	// Take absolute value and use modulo to get 3 digits
+	if hash < 0 {
+		hash = -hash
+	}
+	hashStr := fmt.Sprintf("%03d", hash % 1000) // Always 3 digits with leading zeros
+	
+	// Truncate name and append hash
+	// Reserve 4 characters for "-XXX" suffix
+	truncateAt := maxLen - 4
+	if truncateAt < 1 {
+		truncateAt = 1
+	}
+	
+	result := name[:truncateAt] + "-" + hashStr
+	// Ensure we don't exceed maxLen
+	if len(result) > maxLen {
+		result = result[:maxLen]
+	}
+	
+	return result
 }
 
 // ParseStrategy converts a string to a Strategy
