@@ -39,29 +39,29 @@ func NewValidator(c client.Client) *Validator {
 }
 
 // ValidateCreate validates the Volume on creation
-func (v *Validator) ValidateCreate(ctx context.Context, obj runtime.Object) error {
+func (v *Validator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
 	volume, ok := obj.(*volumev1alpha1.Volume)
 	if !ok {
-		return errors.New("expected a Volume")
+		return nil, errors.New("expected a Volume")
 	}
 
-	return v.validateVolume(ctx, volume)
+	return nil, v.validateVolume(ctx, volume)
 }
 
 // ValidateUpdate validates the Volume on update
-func (v *Validator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) error {
+func (v *Validator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
 	volume, ok := newObj.(*volumev1alpha1.Volume)
 	if !ok {
-		return errors.New("expected a Volume")
+		return nil, errors.New("expected a Volume")
 	}
 
-	return v.validateVolume(ctx, volume)
+	return nil, v.validateVolume(ctx, volume)
 }
 
 // ValidateDelete validates the Volume on deletion
-func (v *Validator) ValidateDelete(ctx context.Context, obj runtime.Object) error {
+func (v *Validator) ValidateDelete(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
 	// No validation needed on delete
-	return nil
+	return nil, nil
 }
 
 // validateVolume performs the actual validation logic
@@ -84,8 +84,8 @@ func (v *Validator) validateVolume(ctx context.Context, volume *volumev1alpha1.V
 	}
 
 	// Validate base volume reference if present
-	if volume.Spec.ForProvider.BaseVolumeId != nil && *volume.Spec.ForProvider.BaseVolumeId != "" {
-		// BaseVolumeId is typically a path or ID, not a k8s reference
+	if volume.Spec.ForProvider.BaseVolumeID != nil && *volume.Spec.ForProvider.BaseVolumeID != "" {
+		// BaseVolumeID is typically a path or ID, not a k8s reference
 		// Future enhancement: could validate it exists on the same libvirt instance
 	}
 

@@ -1,0 +1,99 @@
+# ProviderConfig for nakamoto.golder.lan
+apiVersion: v1
+kind: Secret
+metadata:
+  name: libvirt-credentials-nakamoto
+  namespace: crossplane-system
+type: Opaque
+stringData:
+  credentials: |
+    {
+      "uri": "qemu+tls://nakamoto.golder.lan/system"
+    }
+---
+apiVersion: libvirt.nourspeed.io/v1beta1
+kind: ProviderConfig
+metadata:
+  name: nakamoto
+spec:
+  credentials:
+    source: Secret
+    secretRef:
+      namespace: crossplane-system
+      name: libvirt-credentials-nakamoto
+      key: credentials
+---
+# ProviderConfig for timewarp-001.timewarp.lan
+apiVersion: v1
+kind: Secret
+metadata:
+  name: libvirt-credentials-timewarp-001
+  namespace: crossplane-system
+type: Opaque
+stringData:
+  credentials: |
+    {
+      "uri": "qemu+tls://timewarp-001.timewarp.lan/system"
+    }
+---
+apiVersion: libvirt.nourspeed.io/v1beta1
+kind: ProviderConfig
+metadata:
+  name: timewarp-001
+spec:
+  credentials:
+    source: Secret
+    secretRef:
+      namespace: crossplane-system
+      name: libvirt-credentials-timewarp-001
+      key: credentials
+---
+# ProviderConfig for thefed.golder.lan
+apiVersion: v1
+kind: Secret
+metadata:
+  name: libvirt-credentials-thefed
+  namespace: crossplane-system
+type: Opaque
+stringData:
+  credentials: |
+    {
+      "uri": "qemu+tls://thefed.golder.lan/system"
+    }
+---
+apiVersion: libvirt.nourspeed.io/v1beta1
+kind: ProviderConfig
+metadata:
+  name: thefed
+spec:
+  credentials:
+    source: Secret
+    secretRef:
+      namespace: crossplane-system
+      name: libvirt-credentials-thefed
+      key: credentials
+---
+# ProviderConfig for fullreserve.golder.lan
+apiVersion: v1
+kind: Secret
+metadata:
+  name: libvirt-credentials-fullreserve
+  namespace: crossplane-system
+type: Opaque
+stringData:
+  credentials: |
+    {
+      "uri": "qemu+tls://fullreserve.golder.lan/system"
+    }
+---
+apiVersion: libvirt.nourspeed.io/v1beta1
+kind: ProviderConfig
+metadata:
+  name: fullreserve
+spec:
+  credentials:
+    source: Secret
+    secretRef:
+      namespace: crossplane-system
+      name: libvirt-credentials-fullreserve
+      key: credentials

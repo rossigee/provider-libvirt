@@ -27,7 +27,6 @@ import (
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	domainv1alpha1 "github.com/nourspeed/provider-libvirt/apis/domain/v1alpha1"
 	cloudinitv1alpha1 "github.com/nourspeed/provider-libvirt/apis/cloudinit/v1alpha1"
-	"github.com/nourspeed/provider-libvirt/apis/v1beta1"
 )
 
 // Validator validates Domain resources
@@ -41,29 +40,29 @@ func NewValidator(c client.Client) *Validator {
 }
 
 // ValidateCreate validates the Domain on creation
-func (v *Validator) ValidateCreate(ctx context.Context, obj runtime.Object) error {
+func (v *Validator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
 	domain, ok := obj.(*domainv1alpha1.Domain)
 	if !ok {
-		return errors.New("expected a Domain")
+		return nil, errors.New("expected a Domain")
 	}
 
-	return v.validateDomain(ctx, domain)
+	return nil, v.validateDomain(ctx, domain)
 }
 
 // ValidateUpdate validates the Domain on update
-func (v *Validator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) error {
+func (v *Validator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
 	domain, ok := newObj.(*domainv1alpha1.Domain)
 	if !ok {
-		return errors.New("expected a Domain")
+		return nil, errors.New("expected a Domain")
 	}
 
-	return v.validateDomain(ctx, domain)
+	return nil, v.validateDomain(ctx, domain)
 }
 
 // ValidateDelete validates the Domain on deletion
-func (v *Validator) ValidateDelete(ctx context.Context, obj runtime.Object) error {
+func (v *Validator) ValidateDelete(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
 	// No validation needed on delete
-	return nil
+	return nil, nil
 }
 
 // validateDomain performs the actual validation logic
@@ -88,10 +87,10 @@ func (v *Validator) validateDomain(ctx context.Context, domain *domainv1alpha1.D
 	// Validate volume references in disk configurations
 	if domain.Spec.ForProvider.Disk != nil {
 		for i, disk := range domain.Spec.ForProvider.Disk {
-			if disk.VolumeId != nil && *disk.VolumeId != "" {
-				// For now, we just log a warning since VolumeId is a path, not a reference
+			if disk.VolumeID != nil && *disk.VolumeID != "" {
+				// For now, we just log a warning since VolumeID is a path, not a reference
 				// In a future enhancement, we could validate that the path exists on the target libvirt host
-				_ = fmt.Sprintf("disk[%d] references volume path: %s", i, *disk.VolumeId)
+				_ = fmt.Sprintf("disk[%d] references volume path: %s", i, *disk.VolumeID)
 			}
 		}
 	}

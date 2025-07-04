@@ -72,6 +72,7 @@ XPKG_REG_ORGS ?= xpkg.upbound.io/upbound
 XPKG_REG_ORGS_NO_PROMOTE ?= xpkg.upbound.io/upbound
 XPKGS = $(PROJECT_NAME)
 -include build/makelib/xpkg.mk
+-include Makefile.xpkg
 
 # ====================================================================================
 # Fallthrough
@@ -89,7 +90,8 @@ fallthrough: submodules
 
 # NOTE(hasheddan): we force image building to happen prior to xpkg build so that
 # we ensure image is present in daemon.
-xpkg.build.provider-libvirt: do.build.images
+# Commented out - handled in Makefile.xpkg
+# xpkg.build.provider-libvirt: do.build.images
 
 # NOTE(hasheddan): we ensure up is installed prior to running platform-specific
 # build steps in parallel to avoid encountering an installation race condition.
