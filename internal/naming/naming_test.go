@@ -68,7 +68,7 @@ func TestGenerateName(t *testing.T) {
 			strategy:       StrategyPrefixProvider,
 			libvirtName:    "very-long-vm-name-that-exceeds-kubernetes-limits-for-resource-names",
 			providerConfig: "libvirt-host1",
-			want:           "libvirt-host1-very-long-vm-name-that-exceeds-kubernet-463", // truncated with hash
+			want:           "libvirt-host1-very-long-vm-name-that-exceeds-kubernetes-lim-218", // truncated to 63 chars with hash
 		},
 		{
 			name:           "CollapseMultipleHyphens",
