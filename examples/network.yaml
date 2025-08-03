@@ -1,0 +1,192 @@
+apiVersion: libvirt.crossplane.io/v1alpha1
+kind: Network
+metadata:
+  name: default-nat-network
+spec:
+  providerConfigRef:
+    name: default
+  forProvider:
+    name: default
+    mode: nat
+    autoStart: true
+    bridge:
+      name: virbr0
+      stp:
+        enabled: true
+        forwardDelay: 0
+    domain:
+      name: default.local
+    ip:
+      address: 192.168.122.1/24
+      family: ipv4
+    dhcp:
+      enabled: true
+      range:
+        start: 192.168.122.2
+        end: 192.168.122.254
+    dns:
+      enable: true
+      forwarders:
+        - address: 8.8.8.8
+        - address: 8.8.4.4
+    forward:
+      mode: nat
+      managed: true
+  deletionPolicy: Delete
+---
+apiVersion: libvirt.crossplane.io/v1alpha1
+kind: Network
+metadata:
+  name: isolated-network
+spec:
+  providerConfigRef:
+    name: default
+  forProvider:
+    name: isolated-net
+    mode: isolated
+    autoStart: false
+    bridge:
+      name: virbr1
+    ip:
+      address: 10.0.0.1/24
+      family: ipv4
+    dhcp:
+      enabled: true
+      range:
+        start: 10.0.0.10
+        end: 10.0.0.100
+      hosts:
+        - mac: "52:54:00:12:34:56"
+          name: test-vm
+          ip: 10.0.0.50
+    dns:
+      enable: true
+      hosts:
+        - ip: 10.0.0.50
+          hostname: test-vm.local
+  deletionPolicy: Delete
+---
+apiVersion: libvirt.crossplane.io/v1alpha1
+kind: Network
+metadata:
+  name: bridge-network
+spec:
+  providerConfigRef:
+    name: default
+  forProvider:
+    name: br0
+    mode: bridge
+    bridge:
+      name: br0
+    forward:
+      mode: bridge
+      interfaces:
+        - dev: eth0
+  deletionPolicy: Delete
+---
+apiVersion: libvirt.crossplane.io/v1alpha1
+kind: Network
+metadata:
+  name: routed-network
+spec:
+  providerConfigRef:
+    name: default
+  forProvider:
+    name: routed-net
+    mode: routed
+    ip:
+      address: 172.16.0.1/24
+      family: ipv4
+    dhcp:
+      enabled: true
+      range:
+        start: 172.16.0.10
+        end: 172.16.0.200
+    forward:
+      mode: route
+      dev: eth0
+    dns:
+      enable: true
+      forwarders:
+        - domain: company.local
+          address: 192.168.1.10
+        - address: 1.1.1.1
+      srv:
+        - service: ldap
+          protocol: tcp
+          target: ldap.company.local
+          port: 389
+          priority: 10
+          weight: 5
+      txt:
+        - name: _service._tcp
+          value: "path=/service"
+  deletionPolicy: Delete
+---
+apiVersion: libvirt.crossplane.io/v1alpha1
+kind: Network
+metadata:
+  name: enterprise-network
+spec:
+  providerConfigRef:
+    name: default
+  forProvider:
+    name: enterprise
+    mode: nat
+    autoStart: true
+    bridge:
+      name: virbr2
+      mac: "52:54:00:ab:cd:ef"
+      stp:
+        enabled: true
+        priority: 32768
+        forwardDelay: 15
+        helloTime: 2
+        maxAge: 20
+    domain:
+      name: enterprise.local
+      localOnly: true
+    ip:
+      address: 10.10.0.1/16
+      family: ipv4
+    dhcp:
+      enabled: true
+      range:
+        start: 10.10.1.1
+        end: 10.10.254.254
+      hosts:
+        - mac: "52:54:00:11:11:11"
+          name: server1
+          ip: 10.10.0.10
+        - mac: "52:54:00:22:22:22"
+          name: server2
+          ip: 10.10.0.11
+      bootp:
+        file: "pxelinux.0"
+        server: 10.10.0.5
+    dns:
+      enable: true
+      forwarders:
+        - domain: enterprise.local
+          address: 10.10.0.5
+          port: 53
+        - address: 9.9.9.9
+          port: 53
+      hosts:
+        - ip: 10.10.0.5
+          hostname: dns.enterprise.local
+        - ip: 10.10.0.10
+          hostname: server1.enterprise.local
+        - ip: 10.10.0.11
+          hostname: server2.enterprise.local
+    forward:
+      mode: nat
+      managed: true
+      nat:
+        ports:
+          - start: 1024
+            end: 65535
+        addresses:
+          - start: 10.10.0.1
+            end: 10.10.0.1
+  deletionPolicy: Delete

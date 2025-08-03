@@ -1,0 +1,119 @@
+# Example demonstrating cross-resource integration with Domain referencing Volume and Network resources
+---
+# First, create a StoragePool
+apiVersion: libvirt.crossplane.io/v1alpha1
+kind: StoragePool
+metadata:
+  name: vm-storage-pool
+spec:
+  forProvider:
+    name: vm-pool
+    type: dir
+    path: /var/lib/libvirt/images/vm-pool
+    autostart: true
+  providerConfigRef:
+    name: default
+---
+# Create a Volume in the StoragePool
+apiVersion: libvirt.crossplane.io/v1alpha1
+kind: Volume
+metadata:
+  name: ubuntu-vm-disk
+spec:
+  forProvider:
+    name: ubuntu-vm-disk.qcow2
+    poolName: vm-pool  # References the StoragePool above
+    format: qcow2
+    capacity: 21474836480  # 20GB
+    baseVolumeId: ""  # Create blank volume
+  providerConfigRef:
+    name: default
+---
+# Create a Virtual Network
+apiVersion: libvirt.crossplane.io/v1alpha1
+kind: Network
+metadata:
+  name: vm-network
+spec:
+  forProvider:
+    name: vm-network
+    mode: nat
+    addresses:
+      - "192.168.122.0/24"
+    dhcp:
+      enabled: true
+      range:
+        start: "192.168.122.100"
+        end: "192.168.122.254"
+    autostart: true
+  providerConfigRef:
+    name: default
+---
+# Create a Domain that references the Volume and Network
+apiVersion: libvirt.crossplane.io/v1alpha1
+kind: Domain
+metadata:
+  name: ubuntu-vm-with-refs
+spec:
+  forProvider:
+    name: ubuntu-vm-with-refs
+    memory: 2147483648  # 2GB
+    vcpu: 2
+    type: kvm
+    arch: x86_64
+    running: true
+    autostart: false
+    boot:
+      - hd
+      - cdrom
+    # Disk with Volume reference (preferred method)
+    disk:
+      - volumeRef:
+          name: ubuntu-vm-disk  # References the Volume resource above
+        type: virtio
+        bootOrder: 1
+        device: vda
+    # Network interface with Network reference (preferred method)
+    networkInterface:
+      - networkRef:
+          name: vm-network  # References the Network resource above
+        model: virtio
+        waitForLease: true
+    console:
+      type: pty
+    graphics:
+      type: spice
+      listenAddress: "127.0.0.1"
+      autoport: true
+  providerConfigRef:
+    name: default
+---
+# Alternative Domain showing backward compatibility with direct paths
+apiVersion: libvirt.crossplane.io/v1alpha1
+kind: Domain
+metadata:
+  name: ubuntu-vm-legacy
+spec:
+  forProvider:
+    name: ubuntu-vm-legacy
+    memory: 1073741824  # 1GB
+    vcpu: 1
+    type: kvm
+    running: true
+    # Disk with direct file path (legacy method)
+    disk:
+      - file: /var/lib/libvirt/images/legacy-vm.qcow2
+        type: virtio
+        device: vda
+    # Network interface with direct network name (legacy method)
+    networkInterface:
+      - networkName: default
+        model: virtio
+    console:
+      type: pty
+    graphics:
+      type: vnc
+      listenAddress: "0.0.0.0"
+      autoport: true
+  providerConfigRef:
+    name: default

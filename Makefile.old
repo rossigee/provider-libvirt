@@ -1,0 +1,63 @@
+# ====================================================================================
+# Setup Project
+
+PROJECT_NAME := provider-libvirt
+PROJECT_REPO := github.com/rossigee/$(PROJECT_NAME)
+
+# ====================================================================================
+# Build Options
+
+export CGO_ENABLED := 0
+GOLANGCILINT_VERSION := 2.3.0
+# Removed dependency on makelib/common.mk to avoid missing file error
+
+# ====================================================================================
+# Targets
+
+# Run against the configured Kubernetes cluster in ~/.kube/config
+run: generate
+	go run ./cmd/provider
+
+# Build manager binary
+build: generate
+	go build -o bin/provider ./cmd/provider
+
+# Generate code
+generate:
+	go generate ./...
+
+# Download dependencies
+mod-download:
+	go mod download
+
+# Run tests
+test: generate
+	go test ./... -coverprofile cover.out
+
+# Run linting
+lint:
+	@which golangci-lint > /dev/null || curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b ./bin v$(GOLANGCILINT_VERSION)
+	golangci-lint run --timeout 5m ./...
+
+# Build the docker image
+docker-build:
+	docker build -t $(PROJECT_NAME):latest .
+
+# Install CRDs into a cluster
+install-crds: generate
+	kubectl apply -f config/crd/bases/
+
+# Deploy the provider to the cluster
+deploy: docker-build
+	kubectl apply -f config/
+
+# Uninstall CRDs from a cluster
+uninstall-crds:
+	kubectl delete -f config/crd/bases/
+
+# Clean up
+clean:
+	rm -f bin/provider
+	rm -f cover.out
+
+.PHONY: run build generate mod-download test lint docker-build install-crds deploy uninstall-crds clean

@@ -1,0 +1,72 @@
+apiVersion: libvirt.crossplane.io/v1alpha1
+kind: Volume
+metadata:
+  name: example-volume
+spec:
+  providerConfigRef:
+    name: default
+  forProvider:
+    name: example-volume
+    pool: default
+    capacity: 10737418240  # 10GB in bytes
+    format: qcow2
+    allocation: 1073741824  # 1GB initial allocation (sparse)
+  deletionPolicy: Delete
+---
+apiVersion: libvirt.crossplane.io/v1alpha1
+kind: Volume
+metadata:
+  name: example-volume-with-backing
+spec:
+  providerConfigRef:
+    name: default
+  forProvider:
+    name: example-backing-volume
+    pool: default
+    capacity: 5368709120   # 5GB in bytes
+    format: qcow2
+    backingStore:
+      path: /var/lib/libvirt/images/base-image.qcow2
+      format: qcow2
+  deletionPolicy: Delete
+---
+apiVersion: libvirt.crossplane.io/v1alpha1
+kind: Volume
+metadata:
+  name: cloned-volume
+spec:
+  providerConfigRef:
+    name: default
+  forProvider:
+    name: cloned-volume
+    pool: default
+    capacity: 10737418240  # 10GB in bytes
+    format: qcow2
+    source:
+      volume: example-volume
+      pool: default
+  deletionPolicy: Delete
+---
+apiVersion: libvirt.crossplane.io/v1alpha1
+kind: Volume
+metadata:
+  name: encrypted-volume
+spec:
+  providerConfigRef:
+    name: default
+  forProvider:
+    name: encrypted-volume
+    pool: default
+    capacity: 21474836480  # 20GB in bytes
+    format: qcow2
+    encryption:
+      format: luks
+      secret:
+        type: passphrase
+        usage: volume-encryption
+    target:
+      permissions:
+        owner: 107   # qemu user
+        group: 107   # qemu group
+        mode: 0600   # rw-------
+  deletionPolicy: Delete

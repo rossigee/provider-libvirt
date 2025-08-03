@@ -1,0 +1,224 @@
+apiVersion: libvirt.crossplane.io/v1alpha1
+kind: StoragePool
+metadata:
+  name: default-dir-pool
+spec:
+  providerConfigRef:
+    name: default
+  forProvider:
+    name: default
+    type: dir
+    autoStart: true
+    target:
+      path: /var/lib/libvirt/images
+      permissions:
+        owner: 107   # qemu user
+        group: 107   # qemu group
+        mode: 0755   # rwxr-xr-x
+  deletionPolicy: Delete
+---
+apiVersion: libvirt.crossplane.io/v1alpha1
+kind: StoragePool
+metadata:
+  name: filesystem-pool
+spec:
+  providerConfigRef:
+    name: default
+  forProvider:
+    name: fs-pool
+    type: fs
+    autoStart: true
+    target:
+      path: /mnt/storage-pool
+      permissions:
+        owner: 107
+        group: 107
+        mode: 0755
+    source:
+      device:
+        path: /dev/sdb1
+      format:
+        type: ext4
+  deletionPolicy: Delete
+---
+apiVersion: libvirt.crossplane.io/v1alpha1
+kind: StoragePool
+metadata:
+  name: nfs-pool
+spec:
+  providerConfigRef:
+    name: default
+  forProvider:
+    name: nfs-storage
+    type: netfs
+    autoStart: true
+    target:
+      path: /mnt/nfs-pool
+    source:
+      host:
+        name: nfs.example.com
+        port: 2049
+      dir: /exports/libvirt
+      format:
+        type: nfs
+  deletionPolicy: Delete
+---
+apiVersion: libvirt.crossplane.io/v1alpha1
+kind: StoragePool
+metadata:
+  name: iscsi-pool
+spec:
+  providerConfigRef:
+    name: default
+  forProvider:
+    name: iscsi-storage
+    type: iscsi
+    autoStart: false
+    target:
+      path: /dev/disk/by-path
+    source:
+      host:
+        name: iscsi.example.com
+        port: 3260
+      device:
+        path: iqn.2021-01.com.example:target1
+      auth:
+        type: chap
+        username: libvirt-user
+        secret:
+          type: iscsi
+          usage: libvirt-iscsi-secret
+  deletionPolicy: Delete
+---
+apiVersion: libvirt.crossplane.io/v1alpha1
+kind: StoragePool
+metadata:
+  name: logical-pool
+spec:
+  providerConfigRef:
+    name: default
+  forProvider:
+    name: lvm-pool
+    type: logical
+    autoStart: true
+    target:
+      path: /dev/vg-libvirt
+    source:
+      name: vg-libvirt
+      format:
+        type: lvm2
+      device:
+        path: /dev/sdc
+        freeExtents:
+          start: 0
+          end: 1023
+  deletionPolicy: Delete
+---
+apiVersion: libvirt.crossplane.io/v1alpha1
+kind: StoragePool
+metadata:
+  name: disk-pool
+spec:
+  providerConfigRef:
+    name: default
+  forProvider:
+    name: disk-storage
+    type: disk
+    autoStart: true
+    target:
+      path: /dev/sdd
+    source:
+      device:
+        path: /dev/sdd
+        partTable: gpt
+  deletionPolicy: Delete
+---
+apiVersion: libvirt.crossplane.io/v1alpha1
+kind: StoragePool
+metadata:
+  name: rbd-pool
+spec:
+  providerConfigRef:
+    name: default
+  forProvider:
+    name: ceph-rbd
+    type: rbd
+    autoStart: true
+    target:
+      path: /var/lib/libvirt/images/rbd
+    source:
+      name: libvirt-pool
+      host:
+        name: ceph-mon1.example.com
+        port: 6789
+      auth:
+        type: ceph
+        username: libvirt
+        secret:
+          type: ceph
+          uuid: 2ec115d7-3a88-3ceb-bc12-67c7b6e4c5e7
+  deletionPolicy: Delete
+---
+apiVersion: libvirt.crossplane.io/v1alpha1
+kind: StoragePool
+metadata:
+  name: gluster-pool
+spec:
+  providerConfigRef:
+    name: default
+  forProvider:
+    name: gluster-storage
+    type: gluster
+    autoStart: true
+    target:
+      path: /var/lib/libvirt/images/gluster
+    source:
+      name: gv0
+      host:
+        name: gluster1.example.com
+        port: 24007
+      dir: /libvirt-images
+  deletionPolicy: Delete
+---
+apiVersion: libvirt.crossplane.io/v1alpha1
+kind: StoragePool
+metadata:
+  name: zfs-pool
+spec:
+  providerConfigRef:
+    name: default
+  forProvider:
+    name: zfs-storage
+    type: zfs
+    autoStart: true
+    target:
+      path: /zfs-pool/libvirt
+    source:
+      name: zfs-pool/libvirt
+      device:
+        path: /dev/sde
+  deletionPolicy: Delete
+---
+apiVersion: libvirt.crossplane.io/v1alpha1
+kind: StoragePool
+metadata:
+  name: encrypted-pool
+spec:
+  providerConfigRef:
+    name: default
+  forProvider:
+    name: encrypted-storage
+    type: dir
+    autoStart: true
+    target:
+      path: /var/lib/libvirt/encrypted
+      permissions:
+        owner: 107
+        group: 107
+        mode: 0700
+      encryption:
+        format: luks
+        secret:
+          type: passphrase
+          usage: encrypted-storage-secret
+  deletionPolicy: Delete

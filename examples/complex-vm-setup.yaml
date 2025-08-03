@@ -1,0 +1,189 @@
+# Complex VM setup demonstrating advanced cross-resource features
+---
+# High-performance StoragePool for VM system disks
+apiVersion: libvirt.crossplane.io/v1alpha1
+kind: StoragePool
+metadata:
+  name: ssd-storage-pool
+spec:
+  forProvider:
+    name: ssd-pool
+    type: dir
+    path: /var/lib/libvirt/images/ssd-pool
+    autostart: true
+  providerConfigRef:
+    name: default
+---
+# Standard StoragePool for VM data disks
+apiVersion: libvirt.crossplane.io/v1alpha1
+kind: StoragePool
+metadata:
+  name: data-storage-pool
+spec:
+  forProvider:
+    name: data-pool
+    type: dir
+    path: /var/lib/libvirt/images/data-pool
+    autostart: true
+  providerConfigRef:
+    name: default
+---
+# System disk volume (fast SSD)
+apiVersion: libvirt.crossplane.io/v1alpha1
+kind: Volume
+metadata:
+  name: web-server-system-disk
+spec:
+  forProvider:
+    name: web-server-system.qcow2
+    poolName: ssd-pool
+    format: qcow2
+    capacity: 32212254720  # 30GB
+  providerConfigRef:
+    name: default
+---
+# Data disk volume (larger capacity)
+apiVersion: libvirt.crossplane.io/v1alpha1
+kind: Volume
+metadata:
+  name: web-server-data-disk
+spec:
+  forProvider:
+    name: web-server-data.qcow2
+    poolName: data-pool
+    format: qcow2
+    capacity: 107374182400  # 100GB
+  providerConfigRef:
+    name: default
+---
+# DMZ network for web servers
+apiVersion: libvirt.crossplane.io/v1alpha1
+kind: Network
+metadata:
+  name: dmz-network
+spec:
+  forProvider:
+    name: dmz-network
+    mode: nat
+    addresses:
+      - "10.0.1.0/24"
+    dhcp:
+      enabled: true
+      range:
+        start: "10.0.1.100"
+        end: "10.0.1.200"
+    autostart: true
+  providerConfigRef:
+    name: default
+---
+# Management network for administrative access
+apiVersion: libvirt.crossplane.io/v1alpha1
+kind: Network
+metadata:
+  name: mgmt-network
+spec:
+  forProvider:
+    name: mgmt-network
+    mode: nat
+    addresses:
+      - "10.0.10.0/24"
+    dhcp:
+      enabled: true
+      range:
+        start: "10.0.10.50"
+        end: "10.0.10.100"
+    autostart: true
+  providerConfigRef:
+    name: default
+---
+# Multi-disk, multi-network web server VM
+apiVersion: libvirt.crossplane.io/v1alpha1
+kind: Domain
+metadata:
+  name: web-server-vm
+spec:
+  forProvider:
+    name: web-server-vm
+    memory: 4294967296  # 4GB
+    vcpu: 4
+    type: kvm
+    arch: x86_64
+    running: true
+    autostart: true
+    boot:
+      - hd
+    # Multiple disks with different purposes
+    disk:
+      # System disk (high performance SSD)
+      - volumeRef:
+          name: web-server-system-disk
+        type: virtio
+        device: vda
+        bootOrder: 1
+        wwn: "0x50014ee20b2a5599"
+      # Data disk (larger capacity)
+      - volumeRef:
+          name: web-server-data-disk
+        type: virtio
+        device: vdb
+        wwn: "0x50014ee20b2a559a"
+    # Multiple network interfaces
+    networkInterface:
+      # Primary interface on DMZ network
+      - networkRef:
+          name: dmz-network
+        model: virtio
+        device: eth0
+        waitForLease: true
+      # Management interface on management network
+      - networkRef:
+          name: mgmt-network
+        model: virtio
+        device: eth1
+        waitForLease: true
+    console:
+      type: pty
+    graphics:
+      type: spice
+      listenAddress: "127.0.0.1"
+      autoport: true
+  providerConfigRef:
+    name: default
+---
+# Database server VM with dedicated resources
+apiVersion: libvirt.crossplane.io/v1alpha1
+kind: Domain
+metadata:
+  name: database-server-vm
+spec:
+  forProvider:
+    name: database-server-vm
+    memory: 8589934592  # 8GB
+    vcpu: 6
+    type: kvm
+    arch: x86_64
+    running: true
+    autostart: true
+    boot:
+      - hd
+    # Single high-performance disk
+    disk:
+      - volumeRef:
+          name: web-server-system-disk  # Reusing system disk type
+        type: virtio
+        device: vda
+        bootOrder: 1
+    # Only management network access
+    networkInterface:
+      - networkRef:
+          name: mgmt-network
+        model: virtio
+        waitForLease: true
+    console:
+      type: pty
+    graphics:
+      type: spice
+      listenAddress: "127.0.0.1"
+      autoport: true
+  providerConfigRef:
+    name: default

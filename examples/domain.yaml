@@ -1,0 +1,54 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: libvirt-credentials
+  namespace: crossplane-system
+type: Opaque
+data:
+  # echo '{"uri":"qemu+tcp://libvirt-host:16509/system"}' | base64 -w 0
+  credentials: eyJ1cmkiOiJxZW11K3RjcDovL2xpYnZpcnQtaG9zdDoxNjUwOS9zeXN0ZW0ifQ==
+---
+apiVersion: libvirt.crossplane.io/v1alpha1
+kind: ProviderConfig
+metadata:
+  name: default
+spec:
+  credentials:
+    source: Secret
+    secretRef:
+      namespace: crossplane-system
+      name: libvirt-credentials
+      key: credentials
+---
+apiVersion: libvirt.crossplane.io/v1alpha1
+kind: Domain
+metadata:
+  name: example-vm
+spec:
+  providerConfigRef:
+    name: default
+  forProvider:
+    name: example-vm
+    memory: 2147483648  # 2GB in bytes
+    vcpu: 2
+    type: kvm
+    arch: x86_64
+    running: true
+    autostart: false
+    boot:
+      - hd
+      - cdrom
+    disk:
+      - file: /var/lib/libvirt/images/example-vm.qcow2
+        type: virtio
+    networkInterface:
+      - networkName: default
+        model: virtio
+        waitForLease: true
+    console:
+      type: pty
+    graphics:
+      type: spice
+      listenAddress: 127.0.0.1
+      autoport: true
+  deletionPolicy: Delete
