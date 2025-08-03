@@ -1,12 +1,9 @@
-# Use distroless as minimal base image
 FROM gcr.io/distroless/static:nonroot
 
-WORKDIR /
+ARG TARGETOS
+ARG TARGETARCH
 
-# Copy the pre-built binary from the bin directory
-COPY bin/provider .
+ADD bin/${TARGETOS}_${TARGETARCH}/provider /usr/local/bin/provider
 
-# Use non-root user from distroless
 USER 65532:65532
-
-ENTRYPOINT ["/provider"]
+ENTRYPOINT ["/usr/local/bin/provider"]
