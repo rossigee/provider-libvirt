@@ -299,10 +299,10 @@ func (c *external) Update(ctx context.Context, mg resource.Managed) (managed.Ext
 	return managed.ExternalUpdate{}, nil
 }
 
-func (c *external) Delete(ctx context.Context, mg resource.Managed) error {
+func (c *external) Delete(ctx context.Context, mg resource.Managed) (managed.ExternalDelete, error) {
 	cr, ok := mg.(*v1alpha1.StoragePool)
 	if !ok {
-		return errors.New(errNotStoragePool)
+		return managed.ExternalDelete{}, errors.New(errNotStoragePool)
 	}
 
 	cr.SetConditions(xpv1.Deleting())
@@ -311,30 +311,35 @@ func (c *external) Delete(ctx context.Context, mg resource.Managed) error {
 	pool, err := c.service.StoragePoolLookupByName(poolName)
 	if err != nil {
 		if isStoragePoolNotFound(err) {
-			return nil // Already deleted
+			return managed.ExternalDelete{}, nil // Already deleted
 		}
-		return errors.Wrap(err, errDeleteStoragePool)
+		return managed.ExternalDelete{}, errors.Wrap(err, errDeleteStoragePool)
 	}
 
 	// Stop storage pool if it's running
 	active, err := c.service.StoragePoolIsActive(pool)
 	if err != nil {
-		return errors.Wrap(err, errDeleteStoragePool)
+		return managed.ExternalDelete{}, errors.Wrap(err, errDeleteStoragePool)
 	}
 
 	if active == 1 {
 		err = c.service.StoragePoolDestroy(pool)
 		if err != nil {
-			return errors.Wrap(err, errStopStoragePool)
+			return managed.ExternalDelete{}, errors.Wrap(err, errStopStoragePool)
 		}
 	}
 
 	// Undefine storage pool (delete persistent configuration)
 	err = c.service.StoragePoolUndefine(pool)
 	if err != nil {
-		return errors.Wrap(err, errDeleteStoragePool)
+		return managed.ExternalDelete{}, errors.Wrap(err, errDeleteStoragePool)
 	}
 
+	return managed.ExternalDelete{}, nil
+}
+
+func (c *external) Disconnect(ctx context.Context) error {
+	// Nothing to disconnect for libvirt client
 	return nil
 }
 

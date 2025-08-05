@@ -342,40 +342,44 @@ func (e *mockNetworkExternal) Update(ctx context.Context, mg resource.Managed) (
 	return managed.ExternalUpdate{}, nil
 }
 
-func (e *mockNetworkExternal) Delete(ctx context.Context, mg resource.Managed) error {
+func (e *mockNetworkExternal) Delete(ctx context.Context, mg resource.Managed) (managed.ExternalDelete, error) {
 	cr, ok := mg.(*v1alpha1.Network)
 	if !ok {
-		return errors.New(errNotNetwork)
+		return managed.ExternalDelete{}, errors.New(errNotNetwork)
 	}
 
 	networkName := cr.Spec.ForProvider.Name
 	network, err := e.mockService.NetworkLookupByName(networkName)
 	if err != nil {
 		if isNetworkNotFound(err) {
-			return nil // Already deleted
+			return managed.ExternalDelete{}, nil // Already deleted
 		}
-		return errors.Wrap(err, errDeleteNetwork)
+		return managed.ExternalDelete{}, errors.Wrap(err, errDeleteNetwork)
 	}
 
 	// Stop network if it's running
 	active, err := e.mockService.NetworkIsActive(network)
 	if err != nil {
-		return errors.Wrap(err, errDeleteNetwork)
+		return managed.ExternalDelete{}, errors.Wrap(err, errDeleteNetwork)
 	}
 
 	if active == 1 {
 		err = e.mockService.NetworkDestroy(network)
 		if err != nil {
-			return errors.Wrap(err, errStopNetwork)
+			return managed.ExternalDelete{}, errors.Wrap(err, errStopNetwork)
 		}
 	}
 
 	// Undefine network
 	err = e.mockService.NetworkUndefine(network)
 	if err != nil {
-		return errors.Wrap(err, errDeleteNetwork)
+		return managed.ExternalDelete{}, errors.Wrap(err, errDeleteNetwork)
 	}
 
+	return managed.ExternalDelete{}, nil
+}
+
+func (e *mockNetworkExternal) Disconnect(ctx context.Context) error {
 	return nil
 }
 
@@ -724,7 +728,7 @@ func TestNetworkExternal_Delete(t *testing.T) {
 
 			e := createMockNetworkExternal(mockService)
 
-			err := e.Delete(context.Background(), tt.network)
+			_, err := e.Delete(context.Background(), tt.network)
 
 			if tt.wantErr {
 				if err == nil {

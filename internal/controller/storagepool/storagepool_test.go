@@ -413,40 +413,44 @@ func (e *mockStoragePoolExternal) Update(ctx context.Context, mg resource.Manage
 	return managed.ExternalUpdate{}, nil
 }
 
-func (e *mockStoragePoolExternal) Delete(ctx context.Context, mg resource.Managed) error {
+func (e *mockStoragePoolExternal) Delete(ctx context.Context, mg resource.Managed) (managed.ExternalDelete, error) {
 	cr, ok := mg.(*v1alpha1.StoragePool)
 	if !ok {
-		return errors.New(errNotStoragePool)
+		return managed.ExternalDelete{}, errors.New(errNotStoragePool)
 	}
 
 	poolName := cr.Spec.ForProvider.Name
 	pool, err := e.mockService.StoragePoolLookupByName(poolName)
 	if err != nil {
 		if isStoragePoolNotFound(err) {
-			return nil // Already deleted
+			return managed.ExternalDelete{}, nil // Already deleted
 		}
-		return errors.Wrap(err, errDeleteStoragePool)
+		return managed.ExternalDelete{}, errors.Wrap(err, errDeleteStoragePool)
 	}
 
 	// Stop pool if it's running
 	active, err := e.mockService.StoragePoolIsActive(pool)
 	if err != nil {
-		return errors.Wrap(err, errDeleteStoragePool)
+		return managed.ExternalDelete{}, errors.Wrap(err, errDeleteStoragePool)
 	}
 
 	if active == 1 {
 		err = e.mockService.StoragePoolDestroy(pool)
 		if err != nil {
-			return errors.Wrap(err, errStopStoragePool)
+			return managed.ExternalDelete{}, errors.Wrap(err, errStopStoragePool)
 		}
 	}
 
 	// Undefine pool
 	err = e.mockService.StoragePoolUndefine(pool)
 	if err != nil {
-		return errors.Wrap(err, errDeleteStoragePool)
+		return managed.ExternalDelete{}, errors.Wrap(err, errDeleteStoragePool)
 	}
 
+	return managed.ExternalDelete{}, nil
+}
+
+func (e *mockStoragePoolExternal) Disconnect(ctx context.Context) error {
 	return nil
 }
 
@@ -880,7 +884,7 @@ func TestStoragePoolExternal_Delete(t *testing.T) {
 
 			e := createMockStoragePoolExternal(mockService)
 
-			err := e.Delete(context.Background(), tt.pool)
+			_, err := e.Delete(context.Background(), tt.pool)
 
 			if tt.wantErr {
 				if err == nil {

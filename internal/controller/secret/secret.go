@@ -221,25 +221,30 @@ func (c *external) Update(ctx context.Context, mg resource.Managed) (managed.Ext
 	return managed.ExternalUpdate{}, nil
 }
 
-func (c *external) Delete(ctx context.Context, mg resource.Managed) error {
+func (c *external) Delete(ctx context.Context, mg resource.Managed) (managed.ExternalDelete, error) {
 	cr, ok := mg.(*v1alpha1.Secret)
 	if !ok {
-		return errors.New(errNotSecret)
+		return managed.ExternalDelete{}, errors.New(errNotSecret)
 	}
 
 	cr.Status.SetConditions(xpv1.Deleting())
 
 	if cr.Status.AtProvider.UUID == "" {
-		return nil
+		return managed.ExternalDelete{}, nil
 	}
 
 	uuidBytes, err := clients.StringToUUID(cr.Status.AtProvider.UUID)
 	if err != nil {
-		return errors.Wrap(err, "invalid UUID format")
+		return managed.ExternalDelete{}, errors.Wrap(err, "invalid UUID format")
 	}
 	
 	secret := libvirt.Secret{UUID: uuidBytes}
-	return errors.Wrap(c.service.SecretUndefine(secret), errDeleteSecret)
+	return managed.ExternalDelete{}, errors.Wrap(c.service.SecretUndefine(secret), errDeleteSecret)
+}
+
+func (c *external) Disconnect(ctx context.Context) error {
+	// Nothing to disconnect for libvirt client
+	return nil
 }
 
 // Helper functions

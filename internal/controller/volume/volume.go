@@ -252,10 +252,10 @@ func (c *external) Update(ctx context.Context, mg resource.Managed) (managed.Ext
 	return managed.ExternalUpdate{}, nil
 }
 
-func (c *external) Delete(ctx context.Context, mg resource.Managed) error {
+func (c *external) Delete(ctx context.Context, mg resource.Managed) (managed.ExternalDelete, error) {
 	cr, ok := mg.(*v1alpha1.Volume)
 	if !ok {
-		return errors.New(errNotVolume)
+		return managed.ExternalDelete{}, errors.New(errNotVolume)
 	}
 
 	cr.SetConditions(xpv1.Deleting())
@@ -266,25 +266,30 @@ func (c *external) Delete(ctx context.Context, mg resource.Managed) error {
 	pool, err := c.service.StoragePool(poolName)
 	if err != nil {
 		if isPoolNotFound(err) {
-			return nil // Pool doesn't exist, volume is already gone
+			return managed.ExternalDelete{}, nil // Pool doesn't exist, volume is already gone
 		}
-		return errors.Wrap(err, errDeleteVolume)
+		return managed.ExternalDelete{}, errors.Wrap(err, errDeleteVolume)
 	}
 
 	volume, err := c.service.StorageVolLookupByName(pool, volumeName)
 	if err != nil {
 		if isVolumeNotFound(err) {
-			return nil // Already deleted
+			return managed.ExternalDelete{}, nil // Already deleted
 		}
-		return errors.Wrap(err, errDeleteVolume)
+		return managed.ExternalDelete{}, errors.Wrap(err, errDeleteVolume)
 	}
 
 	// Delete volume
 	err = c.service.StorageVolDelete(volume, libvirt.StorageVolDeleteNormal)
 	if err != nil {
-		return errors.Wrap(err, errDeleteVolume)
+		return managed.ExternalDelete{}, errors.Wrap(err, errDeleteVolume)
 	}
 
+	return managed.ExternalDelete{}, nil
+}
+
+func (c *external) Disconnect(ctx context.Context) error {
+	// Nothing to disconnect for libvirt client
 	return nil
 }
 

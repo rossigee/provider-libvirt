@@ -339,38 +339,42 @@ func (e *mockExternal) Update(ctx context.Context, mg resource.Managed) (managed
 	return managed.ExternalUpdate{}, nil
 }
 
-func (e *mockExternal) Delete(ctx context.Context, mg resource.Managed) error {
+func (e *mockExternal) Delete(ctx context.Context, mg resource.Managed) (managed.ExternalDelete, error) {
 	cr, ok := mg.(*v1alpha1.Domain)
 	if !ok {
-		return errors.New(errNotDomain)
+		return managed.ExternalDelete{}, errors.New(errNotDomain)
 	}
 
 	domainName := cr.Spec.ForProvider.Name
 	domain, err := e.mockService.DomainLookupByName(domainName)
 	if err != nil {
 		if isNotFound(err) {
-			return nil // Already deleted
+			return managed.ExternalDelete{}, nil // Already deleted
 		}
-		return errors.Wrap(err, errDeleteDomain)
+		return managed.ExternalDelete{}, errors.Wrap(err, errDeleteDomain)
 	}
 
 	state, _, err := e.mockService.DomainGetState(domain, 0)
 	if err != nil {
-		return errors.Wrap(err, errDeleteDomain)
+		return managed.ExternalDelete{}, errors.Wrap(err, errDeleteDomain)
 	}
 
 	if libvirt.DomainState(state) == libvirt.DomainRunning {
 		err = e.mockService.DomainDestroy(domain)
 		if err != nil {
-			return errors.Wrap(err, errDeleteDomain)
+			return managed.ExternalDelete{}, errors.Wrap(err, errDeleteDomain)
 		}
 	}
 
 	err = e.mockService.DomainUndefine(domain)
 	if err != nil {
-		return errors.Wrap(err, errDeleteDomain)
+		return managed.ExternalDelete{}, errors.Wrap(err, errDeleteDomain)
 	}
 
+	return managed.ExternalDelete{}, nil
+}
+
+func (e *mockExternal) Disconnect(ctx context.Context) error {
 	return nil
 }
 
@@ -703,7 +707,7 @@ func TestExternal_Delete(t *testing.T) {
 			
 			e := createMockExternal(mockClient)
 			
-			err := e.Delete(tt.args.ctx, tt.args.mg)
+			_, err := e.Delete(tt.args.ctx, tt.args.mg)
 			
 			if tt.wantErr {
 				if err == nil {

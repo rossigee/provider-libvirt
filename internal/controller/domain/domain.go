@@ -247,10 +247,10 @@ func (c *external) Update(ctx context.Context, mg resource.Managed) (managed.Ext
 	return managed.ExternalUpdate{}, nil
 }
 
-func (c *external) Delete(ctx context.Context, mg resource.Managed) error {
+func (c *external) Delete(ctx context.Context, mg resource.Managed) (managed.ExternalDelete, error) {
 	cr, ok := mg.(*v1alpha1.Domain)
 	if !ok {
-		return errors.New(errNotDomain)
+		return managed.ExternalDelete{}, errors.New(errNotDomain)
 	}
 
 	cr.SetConditions(xpv1.Deleting())
@@ -259,30 +259,35 @@ func (c *external) Delete(ctx context.Context, mg resource.Managed) error {
 	domain, err := c.service.DomainLookupByName(domainName)
 	if err != nil {
 		if isNotFound(err) {
-			return nil // Already deleted
+			return managed.ExternalDelete{}, nil // Already deleted
 		}
-		return errors.Wrap(err, errDeleteDomain)
+		return managed.ExternalDelete{}, errors.Wrap(err, errDeleteDomain)
 	}
 
 	// Stop domain if running
 	state, _, err := c.service.DomainGetState(domain, 0)
 	if err != nil {
-		return errors.Wrap(err, errDeleteDomain)
+		return managed.ExternalDelete{}, errors.Wrap(err, errDeleteDomain)
 	}
 
 	if libvirt.DomainState(state) == libvirt.DomainRunning {
 		err = c.service.DomainDestroy(domain)
 		if err != nil {
-			return errors.Wrap(err, errDeleteDomain)
+			return managed.ExternalDelete{}, errors.Wrap(err, errDeleteDomain)
 		}
 	}
 
 	// Undefine (delete) domain
 	err = c.service.DomainUndefine(domain)
 	if err != nil {
-		return errors.Wrap(err, errDeleteDomain)
+		return managed.ExternalDelete{}, errors.Wrap(err, errDeleteDomain)
 	}
 
+	return managed.ExternalDelete{}, nil
+}
+
+func (c *external) Disconnect(ctx context.Context) error {
+	// Nothing to disconnect for libvirt client
 	return nil
 }
 

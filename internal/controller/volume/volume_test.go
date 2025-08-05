@@ -325,10 +325,10 @@ func (e *mockVolumeExternal) Update(ctx context.Context, mg resource.Managed) (m
 	return managed.ExternalUpdate{}, nil
 }
 
-func (e *mockVolumeExternal) Delete(ctx context.Context, mg resource.Managed) error {
+func (e *mockVolumeExternal) Delete(ctx context.Context, mg resource.Managed) (managed.ExternalDelete, error) {
 	cr, ok := mg.(*v1alpha1.Volume)
 	if !ok {
-		return errors.New(errNotVolume)
+		return managed.ExternalDelete{}, errors.New(errNotVolume)
 	}
 
 	volumeName := cr.Spec.ForProvider.Name
@@ -337,24 +337,28 @@ func (e *mockVolumeExternal) Delete(ctx context.Context, mg resource.Managed) er
 	pool, err := e.mockService.StoragePool(poolName)
 	if err != nil {
 		if isPoolNotFound(err) {
-			return nil
+			return managed.ExternalDelete{}, nil
 		}
-		return errors.Wrap(err, errDeleteVolume)
+		return managed.ExternalDelete{}, errors.Wrap(err, errDeleteVolume)
 	}
 
 	volume, err := e.mockService.StorageVolLookupByName(pool, volumeName)
 	if err != nil {
 		if isVolumeNotFound(err) {
-			return nil
+			return managed.ExternalDelete{}, nil
 		}
-		return errors.Wrap(err, errDeleteVolume)
+		return managed.ExternalDelete{}, errors.Wrap(err, errDeleteVolume)
 	}
 
 	err = e.mockService.StorageVolDelete(volume, libvirt.StorageVolDeleteNormal)
 	if err != nil {
-		return errors.Wrap(err, errDeleteVolume)
+		return managed.ExternalDelete{}, errors.Wrap(err, errDeleteVolume)
 	}
 
+	return managed.ExternalDelete{}, nil
+}
+
+func (e *mockVolumeExternal) Disconnect(ctx context.Context) error {
 	return nil
 }
 
