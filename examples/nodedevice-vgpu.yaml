@@ -1,0 +1,302 @@
+# vGPU Example - NVIDIA GRID vGPU for Multi-Tenant GPU Sharing
+#
+# This example demonstrates creating mediated devices (mdev) for GPU virtualization
+# using NVIDIA GRID technology to share a single GPU across multiple VMs.
+
+apiVersion: v1
+kind: Secret
+metadata:
+  name: libvirt-conn-vgpu
+  namespace: default
+type: Opaque
+data:
+  credentials: ewogICJ1cmkiOiAicWVtdTovLy9zeXN0ZW0iCn0K  # {"uri": "qemu:///system"}
+
+---
+apiVersion: libvirt.crossplane.io/v1alpha1
+kind: ProviderConfig
+metadata:
+  name: default-vgpu
+spec:
+  credentials:
+    source: Secret
+    secretRef:
+      namespace: default
+      name: libvirt-conn-vgpu
+      key: credentials
+
+---
+# vGPU instance 1 - High-performance profile for CAD workstation
+apiVersion: libvirt.crossplane.io/v1alpha1
+kind: NodeDevice
+metadata:
+  name: vgpu-cad-workstation
+  annotations:
+    description: "NVIDIA vGPU instance for CAD workstation with 8GB memory"
+spec:
+  forProvider:
+    type: mdev
+    mediatedDevice:
+      parent: "pci_0000_01_00_0"  # Physical NVIDIA Tesla V100
+      type: "nvidia-222"           # GRID V100-8Q profile (8GB)
+      uuid: "a297db4a-f4c2-11e6-90f6-d3b88d6c9525"
+    persistent: true
+    autostart: true
+    managed: true
+  providerConfigRef:
+    name: default-vgpu
+
+---
+# vGPU instance 2 - Medium performance profile for development
+apiVersion: libvirt.crossplane.io/v1alpha1
+kind: NodeDevice
+metadata:
+  name: vgpu-dev-workstation
+  annotations:
+    description: "NVIDIA vGPU instance for development work with 4GB memory"
+spec:
+  forProvider:
+    type: mdev
+    mediatedDevice:
+      parent: "pci_0000_01_00_0"  # Same physical GPU
+      type: "nvidia-223"           # GRID V100-4Q profile (4GB)
+      # UUID auto-generated if not specified
+    persistent: true
+    autostart: true
+    managed: true
+  providerConfigRef:
+    name: default-vgpu
+
+---
+# vGPU instance 3 - Light profile for testing
+apiVersion: libvirt.crossplane.io/v1alpha1
+kind: NodeDevice
+metadata:
+  name: vgpu-test-workstation
+  annotations:
+    description: "NVIDIA vGPU instance for testing with 2GB memory"
+spec:
+  forProvider:
+    type: mdev
+    mediatedDevice:
+      parent: "pci_0000_01_00_0"  # Same physical GPU
+      type: "nvidia-224"           # GRID V100-2Q profile (2GB)
+    persistent: true
+    autostart: false             # Manual start for testing
+    managed: true
+  providerConfigRef:
+    name: default-vgpu
+
+---
+# CAD Workstation Domain using vGPU
+apiVersion: libvirt.crossplane.io/v1alpha1
+kind: Domain
+metadata:
+  name: cad-workstation
+spec:
+  forProvider:
+    name: cad-workstation
+    memory: 16777216000  # 16 GB
+    vcpu: 8
+    type: kvm
+    arch: x86_64
+    machine: pc-q35-6.2
+    running: true
+    autostart: false
+
+    boot: ["hd"]
+
+    disk:
+    - volumeRef:
+        name: cad-os-volume
+      type: virtio
+      device: vda
+      bootOrder: 1
+    - volumeRef:
+        name: cad-projects-volume
+      type: virtio
+      device: vdb
+
+    networkInterface:
+    - networkRef:
+        name: workstation-network
+      model: virtio
+      device: eth0
+      waitForLease: true
+
+    # Graphics configuration for vGPU
+    graphics:
+      type: spice
+      listenType: address
+      listenAddress: "0.0.0.0"
+      autoport: true
+
+    # vGPU assignment
+    hostDevices:
+    - nodeDeviceRef:
+        name: vgpu-cad-workstation
+      type: mdev
+      managed: true
+
+  providerConfigRef:
+    name: default-vgpu
+
+---
+# Development Workstation Domain using different vGPU instance
+apiVersion: libvirt.crossplane.io/v1alpha1
+kind: Domain
+metadata:
+  name: dev-workstation
+spec:
+  forProvider:
+    name: dev-workstation
+    memory: 8589934592   # 8 GB
+    vcpu: 4
+    type: kvm
+    arch: x86_64
+    machine: pc-q35-6.2
+    running: true
+    autostart: false
+
+    boot: ["hd"]
+
+    disk:
+    - volumeRef:
+        name: dev-os-volume
+      type: virtio
+      device: vda
+      bootOrder: 1
+
+    networkInterface:
+    - networkRef:
+        name: workstation-network
+      model: virtio
+      device: eth0
+      waitForLease: true
+
+    graphics:
+      type: spice
+      listenType: address
+      listenAddress: "0.0.0.0"
+      autoport: true
+
+    # Different vGPU instance
+    hostDevices:
+    - nodeDeviceRef:
+        name: vgpu-dev-workstation
+      type: mdev
+      managed: true
+
+  providerConfigRef:
+    name: default-vgpu
+
+---
+# Shared storage pool for workstation volumes
+apiVersion: libvirt.crossplane.io/v1alpha1
+kind: StoragePool
+metadata:
+  name: workstation-storage
+spec:
+  forProvider:
+    name: workstation-storage
+    type: dir
+    target:
+      path: /var/lib/libvirt/images/workstations
+      permissions:
+        owner: 107
+        group: 107
+        mode: "0711"
+  providerConfigRef:
+    name: default-vgpu
+
+---
+# CAD workstation OS volume
+apiVersion: libvirt.crossplane.io/v1alpha1
+kind: Volume
+metadata:
+  name: cad-os-volume
+spec:
+  forProvider:
+    name: cad-workstation-os.qcow2
+    storagePoolRef:
+      name: workstation-storage
+    capacity: 107374182400  # 100 GB
+    format: qcow2
+    source:
+      url: "https://cloud-images.ubuntu.com/jammy/current/jammy-desktop-amd64.img"
+      format: qcow2
+  providerConfigRef:
+    name: default-vgpu
+
+---
+# CAD projects data volume
+apiVersion: libvirt.crossplane.io/v1alpha1
+kind: Volume
+metadata:
+  name: cad-projects-volume
+spec:
+  forProvider:
+    name: cad-workstation-data.qcow2
+    storagePoolRef:
+      name: workstation-storage
+    capacity: 536870912000  # 500 GB
+    format: qcow2
+  providerConfigRef:
+    name: default-vgpu
+
+---
+# Development workstation OS volume
+apiVersion: libvirt.crossplane.io/v1alpha1
+kind: Volume
+metadata:
+  name: dev-os-volume
+spec:
+  forProvider:
+    name: dev-workstation-os.qcow2
+    storagePoolRef:
+      name: workstation-storage
+    capacity: 53687091200   # 50 GB
+    format: qcow2
+    source:
+      url: "https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.img"
+      format: qcow2
+  providerConfigRef:
+    name: default-vgpu
+
+---
+# Shared network for workstations
+apiVersion: libvirt.crossplane.io/v1alpha1
+kind: Network
+metadata:
+  name: workstation-network
+spec:
+  forProvider:
+    name: workstation-network
+    bridge:
+      name: virbr2
+      stp:
+        on: false
+    domain:
+      name: workstation.local
+    ip:
+    - address: 192.168.200.1
+      netmask: 255.255.255.0
+      dhcp:
+        range:
+          start: 192.168.200.10
+          end: 192.168.200.100
+        hosts:
+        - mac: "52:54:00:ca:d0:01"
+          name: cad-workstation
+          ip: 192.168.200.10
+        - mac: "52:54:00:de:v0:01"
+          name: dev-workstation
+          ip: 192.168.200.20
+    forward:
+      mode: nat
+      nat:
+        ports:
+        - start: 1024
+          end: 65535
+  providerConfigRef:
+    name: default-vgpu

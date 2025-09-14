@@ -1,0 +1,199 @@
+# GPU Passthrough Example - NVIDIA RTX 4090 for ML Workloads
+#
+# This example demonstrates how to configure a PCI GPU device for passthrough
+# to a virtual machine for high-performance ML/AI workloads.
+
+apiVersion: v1
+kind: Secret
+metadata:
+  name: libvirt-conn-gpu
+  namespace: default
+type: Opaque
+data:
+  credentials: ewogICJ1cmkiOiAicWVtdTovLy9zeXN0ZW0iCn0K  # {"uri": "qemu:///system"}
+
+---
+apiVersion: libvirt.crossplane.io/v1alpha1
+kind: ProviderConfig
+metadata:
+  name: default-gpu
+spec:
+  credentials:
+    source: Secret
+    secretRef:
+      namespace: default
+      name: libvirt-conn-gpu
+      key: credentials
+
+---
+# NodeDevice for NVIDIA RTX 4090 GPU passthrough
+apiVersion: libvirt.crossplane.io/v1alpha1
+kind: NodeDevice
+metadata:
+  name: gpu-nvidia-rtx4090
+  annotations:
+    description: "NVIDIA RTX 4090 GPU for ML workstation passthrough"
+spec:
+  forProvider:
+    type: pci
+    pciAddress:
+      domain: "0x0000"
+      bus: "0x01"
+      slot: "0x00"
+      function: "0x0"
+    detached: true
+    driver: "vfio-pci"
+    managed: true
+    persistent: true
+  providerConfigRef:
+    name: default-gpu
+
+---
+# Domain that uses the GPU for ML workloads
+apiVersion: libvirt.crossplane.io/v1alpha1
+kind: Domain
+metadata:
+  name: ml-workstation
+spec:
+  forProvider:
+    name: ml-workstation
+    memory: 34359738368  # 32 GB
+    vcpu: 16
+    type: kvm
+    arch: x86_64
+    machine: pc-q35-6.2
+    running: true
+    autostart: false
+
+    # Boot from the OS disk
+    boot: ["hd"]
+
+    # Storage configuration
+    disk:
+    - volumeRef:
+        name: ml-os-volume
+      type: virtio
+      device: vda
+      bootOrder: 1
+    - volumeRef:
+        name: ml-data-volume
+      type: virtio
+      device: vdb
+
+    # Network configuration
+    networkInterface:
+    - networkRef:
+        name: ml-network
+      model: virtio
+      device: eth0
+      waitForLease: true
+
+    # Console and graphics
+    console:
+      type: pty
+      targetType: serial
+    graphics:
+      type: spice
+      listenType: address
+      listenAddress: "0.0.0.0"
+      autoport: true
+
+    # Host device assignments - GPU passthrough
+    hostDevices:
+    - nodeDeviceRef:
+        name: gpu-nvidia-rtx4090
+      type: pci
+      managed: true
+
+  providerConfigRef:
+    name: default-gpu
+
+---
+# Storage pool for ML workstation volumes
+apiVersion: libvirt.crossplane.io/v1alpha1
+kind: StoragePool
+metadata:
+  name: ml-storage
+spec:
+  forProvider:
+    name: ml-storage
+    type: dir
+    target:
+      path: /var/lib/libvirt/images/ml-workstation
+      permissions:
+        owner: 107  # libvirt-qemu
+        group: 107
+        mode: "0711"
+  providerConfigRef:
+    name: default-gpu
+
+---
+# OS volume for ML workstation
+apiVersion: libvirt.crossplane.io/v1alpha1
+kind: Volume
+metadata:
+  name: ml-os-volume
+spec:
+  forProvider:
+    name: ml-workstation-os.qcow2
+    storagePoolRef:
+      name: ml-storage
+    capacity: 107374182400  # 100 GB
+    format: qcow2
+    # Source from Ubuntu Server cloud image
+    source:
+      url: "https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.img"
+      format: qcow2
+  providerConfigRef:
+    name: default-gpu
+
+---
+# Data volume for ML datasets and models
+apiVersion: libvirt.crossplane.io/v1alpha1
+kind: Volume
+metadata:
+  name: ml-data-volume
+spec:
+  forProvider:
+    name: ml-workstation-data.qcow2
+    storagePoolRef:
+      name: ml-storage
+    capacity: 1099511627776  # 1 TB
+    format: qcow2
+  providerConfigRef:
+    name: default-gpu
+
+---
+# Network for ML workstation
+apiVersion: libvirt.crossplane.io/v1alpha1
+kind: Network
+metadata:
+  name: ml-network
+spec:
+  forProvider:
+    name: ml-network
+    bridge:
+      name: virbr1
+      stp:
+        on: false
+    domain:
+      name: ml.local
+    ip:
+    - address: 192.168.100.1
+      netmask: 255.255.255.0
+      dhcp:
+        range:
+          start: 192.168.100.10
+          end: 192.168.100.100
+        hosts:
+        - mac: "52:54:00:12:34:56"
+          name: ml-workstation
+          ip: 192.168.100.50
+    forward:
+      mode: nat
+      nat:
+        ports:
+        - start: 1024
+          end: 65535
+  providerConfigRef:
+    name: default-gpu

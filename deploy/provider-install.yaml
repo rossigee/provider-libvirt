@@ -1,0 +1,54 @@
+apiVersion: pkg.crossplane.io/v1
+kind: Provider
+metadata:
+  name: provider-libvirt
+spec:
+  package: ghcr.io/rossigee/provider-libvirt:v0.2.1
+  runtimeConfigRef:
+    name: provider-libvirt-runtime-config
+---
+apiVersion: pkg.crossplane.io/v1beta1
+kind: DeploymentRuntimeConfig
+metadata:
+  name: provider-libvirt-runtime-config
+spec:
+  deploymentTemplate:
+    spec:
+      selector: {}
+      replicas: 1
+      template:
+        spec:
+          containers:
+          - name: package-runtime
+            args:
+            - --debug
+            resources:
+              requests:
+                memory: 128Mi
+                cpu: 100m
+              limits:
+                memory: 512Mi
+                cpu: 500m
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: libvirt-credentials
+  namespace: crossplane-system
+type: Opaque
+data:
+  # Base64 encoded libvirt connection URI
+  # Example: qemu+ssh://user@libvirt-host/system
+  uri: cXVlbXUrc3NoOi8vdXNlckBsaWJ2aXJ0LWhvc3Qvc3lzdGVt
+---
+apiVersion: libvirt.crossplane.io/v1beta1
+kind: ProviderConfig
+metadata:
+  name: default
+spec:
+  credentials:
+    source: Secret
+    secretRef:
+      namespace: crossplane-system
+      name: libvirt-credentials
+      key: uri

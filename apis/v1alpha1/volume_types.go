@@ -268,65 +268,6 @@ type VolumeList struct {
 	Items           []Volume `json:"items"`
 }
 
-// GetCondition of this Volume.
-func (mg *Volume) GetCondition(ct xpv1.ConditionType) xpv1.Condition {
-	return mg.Status.GetCondition(ct)
-}
-
-// SetConditions of this Volume.
-func (mg *Volume) SetConditions(c ...xpv1.Condition) {
-	mg.Status.SetConditions(c...)
-}
-
-// GetDeletionPolicy of this Volume.
-func (mg *Volume) GetDeletionPolicy() xpv1.DeletionPolicy {
-	return mg.Spec.DeletionPolicy
-}
-
-// SetDeletionPolicy of this Volume.
-func (mg *Volume) SetDeletionPolicy(r xpv1.DeletionPolicy) {
-	mg.Spec.DeletionPolicy = r
-}
-
-// GetProviderConfigReference of this Volume.
-func (mg *Volume) GetProviderConfigReference() *xpv1.Reference {
-	return mg.Spec.ProviderConfigReference
-}
-
-// SetProviderConfigReference of this Volume.
-func (mg *Volume) SetProviderConfigReference(r *xpv1.Reference) {
-	mg.Spec.ProviderConfigReference = r
-}
-
-// GetPublishConnectionDetailsTo of this Volume.
-func (mg *Volume) GetPublishConnectionDetailsTo() *xpv1.PublishConnectionDetailsTo {
-	return mg.Spec.PublishConnectionDetailsTo
-}
-
-// SetPublishConnectionDetailsTo of this Volume.
-func (mg *Volume) SetPublishConnectionDetailsTo(r *xpv1.PublishConnectionDetailsTo) {
-	mg.Spec.PublishConnectionDetailsTo = r
-}
-
-// GetManagementPolicies of this Volume.
-func (mg *Volume) GetManagementPolicies() xpv1.ManagementPolicies {
-	return mg.Spec.ManagementPolicies
-}
-
-// SetManagementPolicies of this Volume.
-func (mg *Volume) SetManagementPolicies(r xpv1.ManagementPolicies) {
-	mg.Spec.ManagementPolicies = r
-}
-
-// GetWriteConnectionSecretToReference of this Volume.
-func (mg *Volume) GetWriteConnectionSecretToReference() *xpv1.SecretReference {
-	return mg.Spec.WriteConnectionSecretToReference
-}
-
-// SetWriteConnectionSecretToReference of this Volume.
-func (mg *Volume) SetWriteConnectionSecretToReference(r *xpv1.SecretReference) {
-	mg.Spec.WriteConnectionSecretToReference = r
-}
 
 // VolumeGroupKind is the GroupKind for Volume
 var VolumeGroupKind = schema.GroupKind{

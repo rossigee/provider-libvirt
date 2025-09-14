@@ -9,9 +9,7 @@ package test
 
 import (
 	"context"
-	"fmt"
 	"testing"
-	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -25,11 +23,6 @@ import (
 	"github.com/rossigee/provider-libvirt/apis/v1alpha1"
 )
 
-const (
-	testTimeout        = 30 * time.Second
-	reconcileInterval  = 1 * time.Second
-	maxRetries        = 10
-)
 
 // TestCrossResourceIntegration tests the complete cross-resource workflow:
 // StoragePool → Volume → Network → Domain with references
@@ -620,7 +613,3 @@ func createTestScheme() *runtime.Scheme {
 	return scheme
 }
 
-// Helper function to wait for resource to be ready (for future real libvirt tests)
-func waitForResourceReady(ctx context.Context, client client.Client, obj client.Object, timeout time.Duration) error {
-	return fmt.Errorf("waitForResourceReady not implemented - would check resource conditions")
-}

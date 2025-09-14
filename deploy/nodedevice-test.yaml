@@ -1,0 +1,56 @@
+# Test NodeDevice implementation - GPU Passthrough for ML Workload
+# This example demonstrates the new NodeDevice resource for hardware passthrough
+apiVersion: nodedevice.libvirt.crossplane.io/v1alpha1
+kind: NodeDevice
+metadata:
+  name: gpu-passthrough-test
+spec:
+  forProvider:
+    name: pci_0000_01_00_0  # NVIDIA GPU PCI address
+    type: pci
+    pciAddress:
+      domain: "0x0000"
+      bus: "0x01"
+      slot: "0x00"
+      function: "0x0"
+    detached: true          # Detach from host for VM usage
+    driver: vfio-pci        # VFIO driver for passthrough
+  providerConfigRef:
+    name: default
+  deletionPolicy: Delete
+---
+# Test USB passthrough for security token
+apiVersion: nodedevice.libvirt.crossplane.io/v1alpha1
+kind: NodeDevice
+metadata:
+  name: usb-security-token
+spec:
+  forProvider:
+    name: usb_1d6b_0002_0000_00_14_0_1_4
+    type: usb
+    usbDevice:
+      vendorID: "1d6b"
+      productID: "0002"
+      bus: 1
+      device: 4
+    detached: false         # Keep attached to host, selective passthrough
+  providerConfigRef:
+    name: default
+  deletionPolicy: Delete
+---
+# Test mediated device (vGPU) creation
+apiVersion: nodedevice.libvirt.crossplane.io/v1alpha1
+kind: NodeDevice
+metadata:
+  name: vgpu-instance
+spec:
+  forProvider:
+    type: mdev
+    mediatedDevice:
+      parent: pci_0000_02_00_0    # Physical GPU for vGPU
+      type: nvidia-63             # NVIDIA GRID vGPU type
+      uuid: 12345678-1234-1234-1234-123456789abc
+    persistent: true              # Persistent across reboots
+  providerConfigRef:
+    name: default
+  deletionPolicy: Delete

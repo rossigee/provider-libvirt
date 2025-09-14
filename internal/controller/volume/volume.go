@@ -117,7 +117,7 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 
 	// Get storage pool
 	poolName := cr.Spec.ForProvider.Pool
-	pool, err := c.service.StoragePool(poolName)
+	pool, err := c.service.StoragePoolLookupByName(poolName)
 	if err != nil {
 		return managed.ExternalObservation{}, errors.Wrap(err, errDescribeVolume)
 	}
@@ -179,7 +179,7 @@ func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.Ext
 
 	// Get storage pool
 	poolName := cr.Spec.ForProvider.Pool
-	pool, err := c.service.StoragePool(poolName)
+	pool, err := c.service.StoragePoolLookupByName(poolName)
 	if err != nil {
 		return managed.ExternalCreation{}, errors.Wrap(err, errCreateVolume)
 	}
@@ -225,7 +225,7 @@ func (c *external) Update(ctx context.Context, mg resource.Managed) (managed.Ext
 	volumeName := meta.GetExternalName(cr)
 	poolName := cr.Spec.ForProvider.Pool
 	
-	pool, err := c.service.StoragePool(poolName)
+	pool, err := c.service.StoragePoolLookupByName(poolName)
 	if err != nil {
 		return managed.ExternalUpdate{}, errors.Wrap(err, errUpdateVolume)
 	}
@@ -263,7 +263,7 @@ func (c *external) Delete(ctx context.Context, mg resource.Managed) (managed.Ext
 	volumeName := meta.GetExternalName(cr)
 	poolName := cr.Spec.ForProvider.Pool
 
-	pool, err := c.service.StoragePool(poolName)
+	pool, err := c.service.StoragePoolLookupByName(poolName)
 	if err != nil {
 		if isPoolNotFound(err) {
 			return managed.ExternalDelete{}, nil // Pool doesn't exist, volume is already gone
@@ -461,7 +461,7 @@ func (c *external) handleVolumeSource(ctx context.Context, cr *v1alpha1.Volume, 
 		sourcePool := pool
 		if source.Pool != "" {
 			var err error
-			sourcePool, err = c.service.StoragePool(source.Pool)
+			sourcePool, err = c.service.StoragePoolLookupByName(source.Pool)
 			if err != nil {
 				return errors.Wrap(err, "cannot find source pool")
 			}

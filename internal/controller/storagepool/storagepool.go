@@ -398,24 +398,6 @@ func getStoragePoolConnectionDetails(cr *v1alpha1.StoragePool, pool libvirt.Stor
 	return cd
 }
 
-func parseStoragePoolType(xml string) string {
-	// This is a simplified XML parser
-	// In production, you'd want a proper XML parser
-
-	// Look for <pool type='...'>
-	start := strings.Index(xml, "<pool type='")
-	if start == -1 {
-		return "unknown"
-	}
-
-	start += 12 // length of "<pool type='"
-	end := strings.Index(xml[start:], "'")
-	if end == -1 {
-		return "unknown"
-	}
-
-	return xml[start : start+end]
-}
 
 func convertStoragePoolVolumes(libvirtVolumes []libvirt.StorageVol, service *clients.LibvirtClient) []v1alpha1.StoragePoolVolume {
 	volumes := make([]v1alpha1.StoragePoolVolume, len(libvirtVolumes))

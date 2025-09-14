@@ -10,7 +10,7 @@ PLATFORMS ?= linux_amd64 linux_arm64
 
 # Setup Go
 # Override golangci-lint version for modern Go support
-GOLANGCILINT_VERSION ?= 2.3.1
+GOLANGCILINT_VERSION ?= 2.4.0
 NPROCS ?= 1
 GO_TEST_PARALLEL := $(shell echo $$(( $(NPROCS) / 2 )))
 GO_STATIC_PACKAGES = $(GO_PROJECT)/cmd/provider
@@ -23,10 +23,12 @@ GO111MODULE = on
 UP_VERSION = v0.28.0
 UP_CHANNEL = stable
 UPTEST_VERSION = v0.11.1
+CROSSPLANE_CLI_VERSION = v2.0.2
 -include build/makelib/k8s_tools.mk
 
 # Setup Images
 IMAGES = provider-libvirt
+REGISTRY_ORGS = ghcr.io/rossigee
 -include build/makelib/imagelight.mk
 
 # Setup XPKG - Standardized registry configuration
@@ -35,7 +37,7 @@ XPKG_REG_ORGS ?= ghcr.io/rossigee
 XPKG_REG_ORGS_NO_PROMOTE ?= ghcr.io/rossigee
 
 # Optional registries (can be enabled via environment variables)
-# To enable Harbor: export ENABLE_HARBOR_PUBLISH=true make publish XPKG_REG_ORGS=harbor.golder.lan/library
+# Harbor publishing has been removed - using only ghcr.io/rossigee
 # To enable Upbound: export ENABLE_UPBOUND_PUBLISH=true make publish XPKG_REG_ORGS=xpkg.upbound.io/crossplane-contrib
 XPKGS = provider-libvirt
 -include build/makelib/xpkg.mk
@@ -45,7 +47,7 @@ XPKGS = provider-libvirt
 xpkg.build.provider-libvirt: do.build.images
 
 # Setup Package Metadata
-CROSSPLANE_VERSION = 1.19.0
+CROSSPLANE_VERSION = 2.0.2
 -include build/makelib/local.xpkg.mk
 -include build/makelib/controlplane.mk
 

@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/digitalocean/go-libvirt"
+	"github.com/digitalocean/go-libvirt/socket/dialers"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -57,7 +58,7 @@ type LibvirtClient struct {
 // Close closes the libvirt connection
 func (c *LibvirtClient) Close() error {
 	if c.Libvirt != nil {
-		if err := c.Libvirt.Disconnect(); err != nil {
+		if err := c.Disconnect(); err != nil {
 			return err
 		}
 	}
@@ -108,7 +109,7 @@ func GetLibvirtClient(ctx context.Context, kube client.Client, mg resource.Manag
 	}
 
 	return &LibvirtClient{
-		Libvirt: libvirt.New(conn),
+		Libvirt: libvirt.NewWithDialer(dialers.NewAlreadyConnected(conn)),
 		conn:    conn,
 		uri:     uri,
 	}, nil
@@ -169,7 +170,7 @@ func NewLibvirtClient(creds LibvirtCredentials) (*LibvirtClient, error) {
 	}
 
 	return &LibvirtClient{
-		Libvirt: libvirt.New(conn),
+		Libvirt: libvirt.NewWithDialer(dialers.NewAlreadyConnected(conn)),
 		conn:    conn,
 		uri:     uri,
 	}, nil

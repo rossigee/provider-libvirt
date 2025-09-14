@@ -62,7 +62,7 @@ func (m *mockNetworkService) NetworkLookupByName(name string) (libvirt.Network, 
 
 func (m *mockNetworkService) NetworkIsActive(net libvirt.Network) (int32, error) {
 	for _, network := range m.networks {
-		if network.Network.Name == net.Name {
+		if network.Name == net.Name {
 			return network.active, nil
 		}
 	}
@@ -71,7 +71,7 @@ func (m *mockNetworkService) NetworkIsActive(net libvirt.Network) (int32, error)
 
 func (m *mockNetworkService) NetworkIsPersistent(net libvirt.Network) (int32, error) {
 	for _, network := range m.networks {
-		if network.Network.Name == net.Name {
+		if network.Name == net.Name {
 			return network.persistent, nil
 		}
 	}
@@ -84,7 +84,7 @@ func (m *mockNetworkService) NetworkGetAutostart(net libvirt.Network) (int32, er
 	}
 
 	for _, network := range m.networks {
-		if network.Network.Name == net.Name {
+		if network.Name == net.Name {
 			return network.autostart, nil
 		}
 	}
@@ -97,7 +97,7 @@ func (m *mockNetworkService) NetworkSetAutostart(net libvirt.Network, autostart 
 	}
 
 	for _, network := range m.networks {
-		if network.Network.Name == net.Name {
+		if network.Name == net.Name {
 			network.autostart = autostart
 			return nil
 		}
@@ -107,7 +107,7 @@ func (m *mockNetworkService) NetworkSetAutostart(net libvirt.Network, autostart 
 
 func (m *mockNetworkService) NetworkGetXMLDesc(net libvirt.Network, flags uint32) (string, error) {
 	for _, network := range m.networks {
-		if network.Network.Name == net.Name {
+		if network.Name == net.Name {
 			return network.xml, nil
 		}
 	}
@@ -145,7 +145,7 @@ func (m *mockNetworkService) NetworkCreate(net libvirt.Network) error {
 	}
 
 	for _, network := range m.networks {
-		if network.Network.Name == net.Name {
+		if network.Name == net.Name {
 			network.active = 1
 			return nil
 		}
@@ -159,7 +159,7 @@ func (m *mockNetworkService) NetworkDestroy(net libvirt.Network) error {
 	}
 
 	for _, network := range m.networks {
-		if network.Network.Name == net.Name {
+		if network.Name == net.Name {
 			network.active = 0
 			return nil
 		}
@@ -173,7 +173,7 @@ func (m *mockNetworkService) NetworkUndefine(net libvirt.Network) error {
 	}
 
 	for name, network := range m.networks {
-		if network.Network.Name == net.Name {
+		if network.Name == net.Name {
 			delete(m.networks, name)
 			return nil
 		}

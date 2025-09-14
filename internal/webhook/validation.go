@@ -180,27 +180,6 @@ func validateVcpuCount(vcpu int, fldPath *field.Path) field.ErrorList {
 	return allErrs
 }
 
-// validateNetworkCIDR validates CIDR notation
-func validateNetworkCIDR(cidr string, fldPath *field.Path) field.ErrorList {
-	var allErrs field.ErrorList
-
-	if cidr == "" {
-		return allErrs // CIDR is optional in some contexts
-	}
-
-	_, network, err := net.ParseCIDR(cidr)
-	if err != nil {
-		allErrs = append(allErrs, field.Invalid(fldPath, cidr, "invalid CIDR notation"))
-		return allErrs
-	}
-
-	// Check for common network ranges
-	if network.IP.IsLoopback() {
-		allErrs = append(allErrs, field.Invalid(fldPath, cidr, "loopback networks are not allowed"))
-	}
-
-	return allErrs
-}
 
 // validateIPAddress validates IP address format
 func validateIPAddress(ip string, fldPath *field.Path) field.ErrorList {

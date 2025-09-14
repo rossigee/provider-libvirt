@@ -153,10 +153,8 @@ func (v *ValidationWebhook) validateNetworkDomain(domain *v1alpha1.NetworkDomain
 		}
 	}
 
-	// Validate local only setting
-	if domain.LocalOnly != nil {
-		// No specific validation needed for boolean
-	}
+	// Validate local only setting - no specific validation needed for boolean
+	_ = domain.LocalOnly
 
 	return allErrs
 }
@@ -266,9 +264,8 @@ func (v *ValidationWebhook) validateNetworkDNS(dns *v1alpha1.NetworkDNS, fldPath
 	var allErrs field.ErrorList
 
 	// Validate enable setting
-	if dns.Enable != nil {
-		// No specific validation needed for boolean
-	}
+	// No specific validation needed for boolean DNS enable setting
+	_ = dns.Enable
 
 	// Note: Complex DNS validation removed as many fields don't exist in current API
 	// Basic DNS enable validation is sufficient for now

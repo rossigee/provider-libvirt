@@ -237,65 +237,6 @@ type SecretList struct {
 	Items           []Secret `json:"items"`
 }
 
-// GetCondition of this Secret.
-func (mg *Secret) GetCondition(ct xpv1.ConditionType) xpv1.Condition {
-	return mg.Status.GetCondition(ct)
-}
-
-// SetConditions of this Secret.
-func (mg *Secret) SetConditions(c ...xpv1.Condition) {
-	mg.Status.SetConditions(c...)
-}
-
-// GetDeletionPolicy of this Secret.
-func (mg *Secret) GetDeletionPolicy() xpv1.DeletionPolicy {
-	return mg.Spec.DeletionPolicy
-}
-
-// SetDeletionPolicy of this Secret.
-func (mg *Secret) SetDeletionPolicy(r xpv1.DeletionPolicy) {
-	mg.Spec.DeletionPolicy = r
-}
-
-// GetProviderConfigReference of this Secret.
-func (mg *Secret) GetProviderConfigReference() *xpv1.Reference {
-	return mg.Spec.ProviderConfigReference
-}
-
-// SetProviderConfigReference of this Secret.
-func (mg *Secret) SetProviderConfigReference(r *xpv1.Reference) {
-	mg.Spec.ProviderConfigReference = r
-}
-
-// GetPublishConnectionDetailsTo of this Secret.
-func (mg *Secret) GetPublishConnectionDetailsTo() *xpv1.PublishConnectionDetailsTo {
-	return mg.Spec.PublishConnectionDetailsTo
-}
-
-// SetPublishConnectionDetailsTo of this Secret.
-func (mg *Secret) SetPublishConnectionDetailsTo(r *xpv1.PublishConnectionDetailsTo) {
-	mg.Spec.PublishConnectionDetailsTo = r
-}
-
-// GetManagementPolicies of this Secret.
-func (mg *Secret) GetManagementPolicies() xpv1.ManagementPolicies {
-	return mg.Spec.ManagementPolicies
-}
-
-// SetManagementPolicies of this Secret.
-func (mg *Secret) SetManagementPolicies(r xpv1.ManagementPolicies) {
-	mg.Spec.ManagementPolicies = r
-}
-
-// GetWriteConnectionSecretToReference of this Secret.
-func (mg *Secret) GetWriteConnectionSecretToReference() *xpv1.SecretReference {
-	return mg.Spec.WriteConnectionSecretToReference
-}
-
-// SetWriteConnectionSecretToReference of this Secret.
-func (mg *Secret) SetWriteConnectionSecretToReference(r *xpv1.SecretReference) {
-	mg.Spec.WriteConnectionSecretToReference = r
-}
 
 // SecretGroupKind is the GroupKind for Secret
 var SecretGroupKind = schema.GroupKind{

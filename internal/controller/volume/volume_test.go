@@ -76,7 +76,7 @@ func (m *mockVolumeService) StorageVolLookupByName(pool libvirt.StoragePool, nam
 	// Find the pool
 	var poolName string
 	for pName, p := range m.pools {
-		if p.StoragePool.Name == pool.Name {
+		if p.Name == pool.Name {
 			poolName = pName
 			break
 		}
@@ -147,7 +147,7 @@ func (m *mockVolumeService) StorageVolCreateXML(pool libvirt.StoragePool, xml st
 	
 	// Find pool and add volume
 	for _, p := range m.pools {
-		if p.StoragePool.Name == pool.Name {
+		if p.Name == pool.Name {
 			p.volumes[name] = volume
 			m.volumes[key] = volume
 			break

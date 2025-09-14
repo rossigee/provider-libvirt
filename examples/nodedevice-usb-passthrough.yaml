@@ -1,0 +1,408 @@
+# USB Device Passthrough Example - Security Token and Camera
+#
+# This example demonstrates USB device passthrough for specialized hardware
+# including security tokens, cameras, and other USB peripherals.
+
+apiVersion: v1
+kind: Secret
+metadata:
+  name: libvirt-conn-usb
+  namespace: default
+type: Opaque
+data:
+  credentials: ewogICJ1cmkiOiAicWVtdTovLy9zeXN0ZW0iCn0K  # {"uri": "qemu:///system"}
+
+---
+apiVersion: libvirt.crossplane.io/v1alpha1
+kind: ProviderConfig
+metadata:
+  name: default-usb
+spec:
+  credentials:
+    source: Secret
+    secretRef:
+      namespace: default
+      name: libvirt-conn-usb
+      key: credentials
+
+---
+# USB Security Token - YubiKey 5 NFC
+apiVersion: libvirt.crossplane.io/v1alpha1
+kind: NodeDevice
+metadata:
+  name: yubikey-security-token
+  annotations:
+    description: "YubiKey 5 NFC security token for VM authentication"
+spec:
+  forProvider:
+    type: usb
+    usbDevice:
+      vendorId: "0x1050"   # Yubico vendor ID
+      productId: "0x0407"  # YubiKey 5 NFC product ID
+    detached: false        # Keep attached to host by default
+    managed: true
+    persistent: true
+  providerConfigRef:
+    name: default-usb
+
+---
+# USB Camera - Logitech C920 HD Pro Webcam
+apiVersion: libvirt.crossplane.io/v1alpha1
+kind: NodeDevice
+metadata:
+  name: webcam-logitech-c920
+  annotations:
+    description: "Logitech C920 HD Pro Webcam for video conferencing VM"
+spec:
+  forProvider:
+    type: usb
+    usbDevice:
+      vendorId: "0x046d"   # Logitech vendor ID
+      productId: "0x082d"  # C920 HD Pro product ID
+    detached: false
+    managed: true
+    persistent: true
+  providerConfigRef:
+    name: default-usb
+
+---
+# USB Storage Device - SanDisk USB 3.0 Flash Drive
+apiVersion: libvirt.crossplane.io/v1alpha1
+kind: NodeDevice
+metadata:
+  name: usb-storage-sandisk
+  annotations:
+    description: "SanDisk USB 3.0 flash drive for secure data transfer"
+spec:
+  forProvider:
+    type: usb
+    usbDevice:
+      vendorId: "0x0781"   # SanDisk vendor ID
+      productId: "0x5581"  # USB 3.0 flash drive product ID
+    detached: false
+    managed: true
+    persistent: true
+  providerConfigRef:
+    name: default-usb
+
+---
+# Secure Development Workstation with USB token access
+apiVersion: libvirt.crossplane.io/v1alpha1
+kind: Domain
+metadata:
+  name: secure-dev-workstation
+spec:
+  forProvider:
+    name: secure-dev-workstation
+    memory: 8589934592   # 8 GB
+    vcpu: 4
+    type: kvm
+    arch: x86_64
+    machine: pc-q35-6.2
+    running: true
+    autostart: false
+
+    boot: ["hd"]
+
+    disk:
+    - volumeRef:
+        name: secure-dev-os-volume
+      type: virtio
+      device: vda
+      bootOrder: 1
+
+    networkInterface:
+    - networkRef:
+        name: secure-network
+      model: virtio
+      device: eth0
+      waitForLease: true
+
+    console:
+      type: pty
+      targetType: serial
+
+    graphics:
+      type: spice
+      listenType: address
+      listenAddress: "127.0.0.1"  # Localhost only for security
+      autoport: true
+
+    # USB device assignments for security and development
+    hostDevices:
+    - nodeDeviceRef:
+        name: yubikey-security-token
+      type: usb
+      managed: true
+      # YubiKey for 2FA and code signing
+
+  providerConfigRef:
+    name: default-usb
+
+---
+# Video Conference Workstation with camera access
+apiVersion: libvirt.crossplane.io/v1alpha1
+kind: Domain
+metadata:
+  name: video-conf-workstation
+spec:
+  forProvider:
+    name: video-conf-workstation
+    memory: 4294967296   # 4 GB
+    vcpu: 2
+    type: kvm
+    arch: x86_64
+    machine: pc-q35-6.2
+    running: false       # Start manually for meetings
+    autostart: false
+
+    boot: ["hd"]
+
+    disk:
+    - volumeRef:
+        name: video-conf-os-volume
+      type: virtio
+      device: vda
+      bootOrder: 1
+
+    networkInterface:
+    - networkRef:
+        name: conference-network
+      model: virtio
+      device: eth0
+      waitForLease: true
+
+    graphics:
+      type: spice
+      listenType: address
+      listenAddress: "0.0.0.0"
+      autoport: true
+
+    # USB camera and audio device access
+    hostDevices:
+    - nodeDeviceRef:
+        name: webcam-logitech-c920
+      type: usb
+      managed: true
+      # High-quality webcam for video calls
+
+  providerConfigRef:
+    name: default-usb
+
+---
+# File Transfer Workstation with USB storage access
+apiVersion: libvirt.crossplane.io/v1alpha1
+kind: Domain
+metadata:
+  name: file-transfer-workstation
+spec:
+  forProvider:
+    name: file-transfer-workstation
+    memory: 2147483648   # 2 GB - minimal for file operations
+    vcpu: 2
+    type: kvm
+    arch: x86_64
+    machine: pc-q35-6.2
+    running: false       # Manual start for file transfers
+    autostart: false
+
+    boot: ["hd"]
+
+    disk:
+    - volumeRef:
+        name: file-transfer-os-volume
+      type: virtio
+      device: vda
+      bootOrder: 1
+
+    networkInterface:
+    - networkRef:
+        name: isolated-network
+      model: virtio
+      device: eth0
+      waitForLease: true
+
+    graphics:
+      type: vnc
+      listenType: address
+      listenAddress: "127.0.0.1"
+      autoport: true
+
+    # USB storage device for secure file transfers
+    hostDevices:
+    - nodeDeviceRef:
+        name: usb-storage-sandisk
+      type: usb
+      managed: true
+      # Dedicated USB storage for air-gapped transfers
+
+  providerConfigRef:
+    name: default-usb
+
+---
+# Storage pool for USB-related workstations
+apiVersion: libvirt.crossplane.io/v1alpha1
+kind: StoragePool
+metadata:
+  name: usb-workstation-storage
+spec:
+  forProvider:
+    name: usb-workstation-storage
+    type: dir
+    target:
+      path: /var/lib/libvirt/images/usb-workstations
+      permissions:
+        owner: 107
+        group: 107
+        mode: "0711"
+  providerConfigRef:
+    name: default-usb
+
+---
+# Secure development workstation OS volume
+apiVersion: libvirt.crossplane.io/v1alpha1
+kind: Volume
+metadata:
+  name: secure-dev-os-volume
+spec:
+  forProvider:
+    name: secure-dev-os.qcow2
+    storagePoolRef:
+      name: usb-workstation-storage
+    capacity: 53687091200  # 50 GB
+    format: qcow2
+    source:
+      url: "https://cloud-images.ubuntu.com/jammy/current/jammy-desktop-amd64.img"
+      format: qcow2
+  providerConfigRef:
+    name: default-usb
+
+---
+# Video conference workstation OS volume
+apiVersion: libvirt.crossplane.io/v1alpha1
+kind: Volume
+metadata:
+  name: video-conf-os-volume
+spec:
+  forProvider:
+    name: video-conf-os.qcow2
+    storagePoolRef:
+      name: usb-workstation-storage
+    capacity: 32212254720  # 30 GB
+    format: qcow2
+    source:
+      url: "https://cloud-images.ubuntu.com/jammy/current/jammy-desktop-amd64.img"
+      format: qcow2
+  providerConfigRef:
+    name: default-usb
+
+---
+# File transfer workstation OS volume
+apiVersion: libvirt.crossplane.io/v1alpha1
+kind: Volume
+metadata:
+  name: file-transfer-os-volume
+spec:
+  forProvider:
+    name: file-transfer-os.qcow2
+    storagePoolRef:
+      name: usb-workstation-storage
+    capacity: 21474836480  # 20 GB - minimal install
+    format: qcow2
+    source:
+      url: "https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.img"
+      format: qcow2
+  providerConfigRef:
+    name: default-usb
+
+---
+# Secure network for development workstation
+apiVersion: libvirt.crossplane.io/v1alpha1
+kind: Network
+metadata:
+  name: secure-network
+spec:
+  forProvider:
+    name: secure-network
+    bridge:
+      name: virbr3
+      stp:
+        on: true
+    domain:
+      name: secure.local
+    ip:
+    - address: 192.168.10.1
+      netmask: 255.255.255.0
+      dhcp:
+        range:
+          start: 192.168.10.10
+          end: 192.168.10.20
+        hosts:
+        - mac: "52:54:00:se:c0:01"
+          name: secure-dev-workstation
+          ip: 192.168.10.10
+    forward:
+      mode: nat  # Limited internet access
+  providerConfigRef:
+    name: default-usb
+
+---
+# Conference network with full internet access
+apiVersion: libvirt.crossplane.io/v1alpha1
+kind: Network
+metadata:
+  name: conference-network
+spec:
+  forProvider:
+    name: conference-network
+    bridge:
+      name: virbr4
+      stp:
+        on: false
+    domain:
+      name: conf.local
+    ip:
+    - address: 192.168.20.1
+      netmask: 255.255.255.0
+      dhcp:
+        range:
+          start: 192.168.20.10
+          end: 192.168.20.50
+        hosts:
+        - mac: "52:54:00:vi:de:01"
+          name: video-conf-workstation
+          ip: 192.168.20.10
+    forward:
+      mode: nat
+  providerConfigRef:
+    name: default-usb
+
+---
+# Isolated network for file transfer workstation
+apiVersion: libvirt.crossplane.io/v1alpha1
+kind: Network
+metadata:
+  name: isolated-network
+spec:
+  forProvider:
+    name: isolated-network
+    bridge:
+      name: virbr5
+      stp:
+        on: false
+    domain:
+      name: isolated.local
+    ip:
+    - address: 192.168.30.1
+      netmask: 255.255.255.0
+      dhcp:
+        range:
+          start: 192.168.30.10
+          end: 192.168.30.20
+        hosts:
+        - mac: "52:54:00:fi:le:01"
+          name: file-transfer-workstation
+          ip: 192.168.30.10
+    # No forward configuration - isolated network
+  providerConfigRef:
+    name: default-usb

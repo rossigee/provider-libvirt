@@ -1,12 +1,14 @@
 module github.com/rossigee/provider-libvirt
 
-go 1.24.5
+go 1.25
 
 require (
 	github.com/alecthomas/kingpin/v2 v2.4.0
 	github.com/crossplane/crossplane-runtime v1.20.0
 	github.com/crossplane/crossplane-tools v0.0.0-20250731192036-00d407d8b7ec
 	github.com/digitalocean/go-libvirt v0.0.0-20240308204700-df736b2945cf
+	github.com/google/go-cmp v0.7.0
+	github.com/google/uuid v1.6.0
 	github.com/pkg/errors v0.9.1
 	k8s.io/api v0.32.3
 	k8s.io/apimachinery v0.32.3
@@ -37,9 +39,7 @@ require (
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/google/gnostic-models v0.6.8 // indirect
-	github.com/google/go-cmp v0.7.0 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
-	github.com/google/uuid v1.6.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect

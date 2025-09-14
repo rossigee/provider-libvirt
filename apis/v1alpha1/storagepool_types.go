@@ -358,65 +358,6 @@ type StoragePoolList struct {
 	Items           []StoragePool `json:"items"`
 }
 
-// GetCondition of this StoragePool.
-func (mg *StoragePool) GetCondition(ct xpv1.ConditionType) xpv1.Condition {
-	return mg.Status.GetCondition(ct)
-}
-
-// SetConditions of this StoragePool.
-func (mg *StoragePool) SetConditions(c ...xpv1.Condition) {
-	mg.Status.SetConditions(c...)
-}
-
-// GetDeletionPolicy of this StoragePool.
-func (mg *StoragePool) GetDeletionPolicy() xpv1.DeletionPolicy {
-	return mg.Spec.DeletionPolicy
-}
-
-// SetDeletionPolicy of this StoragePool.
-func (mg *StoragePool) SetDeletionPolicy(r xpv1.DeletionPolicy) {
-	mg.Spec.DeletionPolicy = r
-}
-
-// GetProviderConfigReference of this StoragePool.
-func (mg *StoragePool) GetProviderConfigReference() *xpv1.Reference {
-	return mg.Spec.ProviderConfigReference
-}
-
-// SetProviderConfigReference of this StoragePool.
-func (mg *StoragePool) SetProviderConfigReference(r *xpv1.Reference) {
-	mg.Spec.ProviderConfigReference = r
-}
-
-// GetPublishConnectionDetailsTo of this StoragePool.
-func (mg *StoragePool) GetPublishConnectionDetailsTo() *xpv1.PublishConnectionDetailsTo {
-	return mg.Spec.PublishConnectionDetailsTo
-}
-
-// SetPublishConnectionDetailsTo of this StoragePool.
-func (mg *StoragePool) SetPublishConnectionDetailsTo(r *xpv1.PublishConnectionDetailsTo) {
-	mg.Spec.PublishConnectionDetailsTo = r
-}
-
-// GetManagementPolicies of this StoragePool.
-func (mg *StoragePool) GetManagementPolicies() xpv1.ManagementPolicies {
-	return mg.Spec.ManagementPolicies
-}
-
-// SetManagementPolicies of this StoragePool.
-func (mg *StoragePool) SetManagementPolicies(r xpv1.ManagementPolicies) {
-	mg.Spec.ManagementPolicies = r
-}
-
-// GetWriteConnectionSecretToReference of this StoragePool.
-func (mg *StoragePool) GetWriteConnectionSecretToReference() *xpv1.SecretReference {
-	return mg.Spec.WriteConnectionSecretToReference
-}
-
-// SetWriteConnectionSecretToReference of this StoragePool.
-func (mg *StoragePool) SetWriteConnectionSecretToReference(r *xpv1.SecretReference) {
-	mg.Spec.WriteConnectionSecretToReference = r
-}
 
 // StoragePoolGroupKind is the GroupKind for StoragePool
 var StoragePoolGroupKind = schema.GroupKind{

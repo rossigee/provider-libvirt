@@ -12,7 +12,7 @@ permissions:
   id-token: write
 
 env:
-  GO_VERSION: '1.24.5'
+  GO_VERSION: '1.25.1'
   GOLANGCI_VERSION: 'latest'
   GOLANGCILINT_VERSION: '2.3.1'
   # Registry configuration
@@ -285,13 +285,6 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Login to Harbor Registry (Optional)
-        if: env.ENABLE_HARBOR_PUBLISH == 'true'
-        uses: docker/login-action@v3
-        with:
-          registry: harbor.golder.lan
-          username: ${{ secrets.HARBOR_USERNAME }}
-          password: ${{ secrets.HARBOR_PASSWORD }}
 
       - name: Build and Push to Primary Registry
         run: |
@@ -300,11 +293,6 @@ jobs:
           echo "Repository owner: ${{ github.repository_owner }}"
           make publish REGISTRY_ORGS="ghcr.io/${{ github.repository_owner }}"
 
-      - name: Build and Push to Harbor (Optional)
-        if: env.ENABLE_HARBOR_PUBLISH == 'true'
-        run: |
-          # Push to Harbor Registry
-          make publish REGISTRY_ORGS="harbor.golder.lan/library"
 
       - name: Build and Push to Upbound Registry (Optional)
         if: env.ENABLE_UPBOUND_PUBLISH == 'true'

@@ -479,65 +479,6 @@ type NetworkList struct {
 	Items           []Network `json:"items"`
 }
 
-// GetCondition of this Network.
-func (mg *Network) GetCondition(ct xpv1.ConditionType) xpv1.Condition {
-	return mg.Status.GetCondition(ct)
-}
-
-// SetConditions of this Network.
-func (mg *Network) SetConditions(c ...xpv1.Condition) {
-	mg.Status.SetConditions(c...)
-}
-
-// GetDeletionPolicy of this Network.
-func (mg *Network) GetDeletionPolicy() xpv1.DeletionPolicy {
-	return mg.Spec.DeletionPolicy
-}
-
-// SetDeletionPolicy of this Network.
-func (mg *Network) SetDeletionPolicy(r xpv1.DeletionPolicy) {
-	mg.Spec.DeletionPolicy = r
-}
-
-// GetProviderConfigReference of this Network.
-func (mg *Network) GetProviderConfigReference() *xpv1.Reference {
-	return mg.Spec.ProviderConfigReference
-}
-
-// SetProviderConfigReference of this Network.
-func (mg *Network) SetProviderConfigReference(r *xpv1.Reference) {
-	mg.Spec.ProviderConfigReference = r
-}
-
-// GetPublishConnectionDetailsTo of this Network.
-func (mg *Network) GetPublishConnectionDetailsTo() *xpv1.PublishConnectionDetailsTo {
-	return mg.Spec.PublishConnectionDetailsTo
-}
-
-// SetPublishConnectionDetailsTo of this Network.
-func (mg *Network) SetPublishConnectionDetailsTo(r *xpv1.PublishConnectionDetailsTo) {
-	mg.Spec.PublishConnectionDetailsTo = r
-}
-
-// GetManagementPolicies of this Network.
-func (mg *Network) GetManagementPolicies() xpv1.ManagementPolicies {
-	return mg.Spec.ManagementPolicies
-}
-
-// SetManagementPolicies of this Network.
-func (mg *Network) SetManagementPolicies(r xpv1.ManagementPolicies) {
-	mg.Spec.ManagementPolicies = r
-}
-
-// GetWriteConnectionSecretToReference of this Network.
-func (mg *Network) GetWriteConnectionSecretToReference() *xpv1.SecretReference {
-	return mg.Spec.WriteConnectionSecretToReference
-}
-
-// SetWriteConnectionSecretToReference of this Network.
-func (mg *Network) SetWriteConnectionSecretToReference(r *xpv1.SecretReference) {
-	mg.Spec.WriteConnectionSecretToReference = r
-}
 
 // NetworkGroupKind is the GroupKind for Network
 var NetworkGroupKind = schema.GroupKind{

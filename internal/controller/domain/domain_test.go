@@ -145,7 +145,7 @@ func (m *mockLibvirtService) DomainDefineXML(xml string) (libvirt.Domain, error)
 	// Generate UUID
 	for i := 0; i < 16; i++ {
 		domain.uuid[i] = byte(i)
-		domain.Domain.UUID[i] = byte(i)
+		domain.UUID[i] = byte(i)
 	}
 	
 	m.domains[domain.name] = domain
@@ -446,7 +446,7 @@ func TestExternal_Observe(t *testing.T) {
 				}
 				for i := 0; i < 16; i++ {
 					domain.uuid[i] = byte(i)
-					domain.Domain.UUID[i] = byte(i)
+					domain.UUID[i] = byte(i)
 				}
 				m.domains["test-domain"] = domain
 			},

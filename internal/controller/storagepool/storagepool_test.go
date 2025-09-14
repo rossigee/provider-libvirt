@@ -71,7 +71,7 @@ func (m *mockStoragePoolService) StoragePoolLookupByName(name string) (libvirt.S
 
 func (m *mockStoragePoolService) StoragePoolIsActive(pool libvirt.StoragePool) (int32, error) {
 	for _, p := range m.pools {
-		if p.StoragePool.Name == pool.Name {
+		if p.Name == pool.Name {
 			return p.active, nil
 		}
 	}
@@ -80,7 +80,7 @@ func (m *mockStoragePoolService) StoragePoolIsActive(pool libvirt.StoragePool) (
 
 func (m *mockStoragePoolService) StoragePoolIsPersistent(pool libvirt.StoragePool) (int32, error) {
 	for _, p := range m.pools {
-		if p.StoragePool.Name == pool.Name {
+		if p.Name == pool.Name {
 			return p.persistent, nil
 		}
 	}
@@ -93,7 +93,7 @@ func (m *mockStoragePoolService) StoragePoolGetAutostart(pool libvirt.StoragePoo
 	}
 
 	for _, p := range m.pools {
-		if p.StoragePool.Name == pool.Name {
+		if p.Name == pool.Name {
 			return p.autostart, nil
 		}
 	}
@@ -106,7 +106,7 @@ func (m *mockStoragePoolService) StoragePoolSetAutostart(pool libvirt.StoragePoo
 	}
 
 	for _, p := range m.pools {
-		if p.StoragePool.Name == pool.Name {
+		if p.Name == pool.Name {
 			p.autostart = autostart
 			return nil
 		}
@@ -116,7 +116,7 @@ func (m *mockStoragePoolService) StoragePoolSetAutostart(pool libvirt.StoragePoo
 
 func (m *mockStoragePoolService) StoragePoolGetInfo(pool libvirt.StoragePool) (uint8, uint64, uint64, uint64, error) {
 	for _, p := range m.pools {
-		if p.StoragePool.Name == pool.Name {
+		if p.Name == pool.Name {
 			return p.state, p.capacity, p.allocation, p.available, nil
 		}
 	}
@@ -125,7 +125,7 @@ func (m *mockStoragePoolService) StoragePoolGetInfo(pool libvirt.StoragePool) (u
 
 func (m *mockStoragePoolService) StoragePoolGetXMLDesc(pool libvirt.StoragePool, flags uint32) (string, error) {
 	for _, p := range m.pools {
-		if p.StoragePool.Name == pool.Name {
+		if p.Name == pool.Name {
 			return p.xml, nil
 		}
 	}
@@ -185,7 +185,7 @@ func (m *mockStoragePoolService) StoragePoolCreate(pool libvirt.StoragePool, fla
 	}
 
 	for _, p := range m.pools {
-		if p.StoragePool.Name == pool.Name {
+		if p.Name == pool.Name {
 			p.active = 1
 			p.state = uint8(libvirt.StoragePoolRunning)
 			return nil
@@ -200,7 +200,7 @@ func (m *mockStoragePoolService) StoragePoolDestroy(pool libvirt.StoragePool) er
 	}
 
 	for _, p := range m.pools {
-		if p.StoragePool.Name == pool.Name {
+		if p.Name == pool.Name {
 			p.active = 0
 			p.state = uint8(libvirt.StoragePoolInactive)
 			return nil
@@ -215,7 +215,7 @@ func (m *mockStoragePoolService) StoragePoolUndefine(pool libvirt.StoragePool) e
 	}
 
 	for name, p := range m.pools {
-		if p.StoragePool.Name == pool.Name {
+		if p.Name == pool.Name {
 			delete(m.pools, name)
 			delete(m.volumes, name)
 			return nil

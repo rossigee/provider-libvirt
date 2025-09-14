@@ -334,11 +334,7 @@ func isUpToDate(cr *v1alpha1.Domain, memory uint64, vcpu uint32, state int32) bo
 
 	// Check if running state matches
 	isRunning := libvirt.DomainState(state) == libvirt.DomainRunning
-	if isRunning != cr.Spec.ForProvider.Running {
-		return false
-	}
-
-	return true
+	return isRunning == cr.Spec.ForProvider.Running
 }
 
 func getConnectionDetails(cr *v1alpha1.Domain, domain libvirt.Domain) managed.ConnectionDetails {
@@ -471,10 +467,11 @@ func generateDomainXMLWithClient(cr *v1alpha1.Domain, kube client.Client) (strin
     <interface type='%s'>`, interfaceType)
 		
 		// Add source based on interface type
-		if interfaceType == "network" {
+		switch interfaceType {
+		case "network":
 			xml += fmt.Sprintf(`
       <source network='%s'/>`, networkSource)
-		} else if interfaceType == "bridge" {
+		case "bridge":
 			xml += fmt.Sprintf(`
       <source bridge='%s'/>`, networkSource)
 		}

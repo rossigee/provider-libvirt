@@ -1,0 +1,718 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.16.0
+  name: networks.libvirt.crossplane.io
+spec:
+  group: libvirt.crossplane.io
+  names:
+    kind: Network
+    listKind: NetworkList
+    plural: networks
+    singular: network
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .status.conditions[?(@.type=='Ready')].status
+      name: READY
+      type: string
+    - jsonPath: .status.conditions[?(@.type=='Synced')].status
+      name: SYNCED
+      type: string
+    - jsonPath: .spec.forProvider.mode
+      name: MODE
+      type: string
+    - jsonPath: .status.atProvider.active
+      name: ACTIVE
+      type: boolean
+    - jsonPath: .status.atProvider.bridgeName
+      name: BRIDGE
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: AGE
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: A Network is a libvirt virtual network.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: NetworkSpec defines the desired state of Network
+            properties:
+              deletionPolicy:
+                default: Delete
+                description: |-
+                  DeletionPolicy specifies what will happen to the underlying external
+                  when this managed resource is deleted - either "Delete" or "Orphan" the
+                  external resource.
+                  This field is planned to be deprecated in favor of the ManagementPolicies
+                  field in a future release. Currently, both could be set independently and
+                  non-default values would be honored if the feature flag is enabled.
+                  See the design doc for more information: https://github.com/crossplane/crossplane/blob/499895a25d1a1a0ba1604944ef98ac7a1a71f197/design/design-doc-observe-only-resources.md?plain=1#L223
+                enum:
+                - Orphan
+                - Delete
+                type: string
+              forProvider:
+                description: NetworkParameters are the configurable fields of a Network.
+                properties:
+                  autoStart:
+                    default: true
+                    description: AutoStart determines if network starts automatically
+                    type: boolean
+                  bridge:
+                    description: Bridge settings for the network
+                    properties:
+                      delay:
+                        description: Delay for bridge forwarding
+                        format: int32
+                        type: integer
+                      mac:
+                        description: MAC address of the bridge
+                        type: string
+                      name:
+                        description: Name of the bridge interface
+                        type: string
+                      stp:
+                        description: STP (Spanning Tree Protocol) configuration
+                        properties:
+                          enabled:
+                            default: true
+                            description: Enabled determines if STP is enabled
+                            type: boolean
+                          forwardDelay:
+                            description: Forward delay in seconds
+                            format: int32
+                            type: integer
+                          helloTime:
+                            description: Hello time in seconds
+                            format: int32
+                            type: integer
+                          maxAge:
+                            description: Max age in seconds
+                            format: int32
+                            type: integer
+                          priority:
+                            description: Priority for STP
+                            format: int32
+                            type: integer
+                        type: object
+                    type: object
+                  dhcp:
+                    description: DHCP configuration for the network
+                    properties:
+                      bootp:
+                        description: Bootp settings for network boot
+                        properties:
+                          file:
+                            description: File to serve for network boot
+                            type: string
+                          server:
+                            description: Server for network boot
+                            type: string
+                        type: object
+                      enabled:
+                        default: true
+                        description: Enabled determines if DHCP is enabled
+                        type: boolean
+                      hosts:
+                        description: Static host assignments
+                        items:
+                          description: NetworkDHCPHost represents static DHCP host
+                            assignment
+                          properties:
+                            id:
+                              description: ID for the host (alternative to MAC)
+                              type: string
+                            ip:
+                              description: IP address to assign to the host
+                              type: string
+                            mac:
+                              description: MAC address of the host
+                              type: string
+                            name:
+                              description: Name of the host
+                              type: string
+                          required:
+                          - ip
+                          - mac
+                          type: object
+                        type: array
+                      range:
+                        description: Range of IP addresses for DHCP
+                        properties:
+                          end:
+                            description: End IP address of the range
+                            type: string
+                          start:
+                            description: Start IP address of the range
+                            type: string
+                        required:
+                        - end
+                        - start
+                        type: object
+                    type: object
+                  dns:
+                    description: DNS configuration for the network
+                    properties:
+                      enable:
+                        default: true
+                        description: Enable DNS forwarding
+                        type: boolean
+                      forwarders:
+                        description: Forward DNS queries to these servers
+                        items:
+                          description: NetworkDNSForwarder represents DNS forwarder
+                            configuration
+                          properties:
+                            address:
+                              description: Address of the DNS server
+                              type: string
+                            domain:
+                              description: Domain to forward (empty for all)
+                              type: string
+                            port:
+                              default: 53
+                              description: Port of the DNS server
+                              format: int32
+                              type: integer
+                          required:
+                          - address
+                          type: object
+                        type: array
+                      hosts:
+                        description: DNS hostnames
+                        items:
+                          description: NetworkDNSHost represents DNS hostname record
+                          properties:
+                            hostname:
+                              description: Hostname
+                              type: string
+                            ip:
+                              description: IP address
+                              type: string
+                          required:
+                          - hostname
+                          - ip
+                          type: object
+                        type: array
+                      srv:
+                        description: SRV records
+                        items:
+                          description: NetworkDNSSRV represents DNS SRV record
+                          properties:
+                            domain:
+                              description: Domain
+                              type: string
+                            port:
+                              description: Port number
+                              format: int32
+                              maximum: 65535
+                              minimum: 1
+                              type: integer
+                            priority:
+                              default: 0
+                              description: Priority
+                              format: int32
+                              type: integer
+                            protocol:
+                              description: Protocol (tcp, udp)
+                              enum:
+                              - tcp
+                              - udp
+                              type: string
+                            service:
+                              description: Service name
+                              type: string
+                            target:
+                              description: Target hostname
+                              type: string
+                            weight:
+                              default: 0
+                              description: Weight
+                              format: int32
+                              type: integer
+                          required:
+                          - port
+                          - protocol
+                          - service
+                          - target
+                          type: object
+                        type: array
+                      txt:
+                        description: TXT records
+                        items:
+                          description: NetworkDNSTXT represents DNS TXT record
+                          properties:
+                            name:
+                              description: Name of the record
+                              type: string
+                            value:
+                              description: Value of the TXT record
+                              type: string
+                          required:
+                          - name
+                          - value
+                          type: object
+                        type: array
+                    type: object
+                  domain:
+                    description: Domain name for the network
+                    properties:
+                      localOnly:
+                        default: false
+                        description: LocalOnly determines if domain is local only
+                        type: boolean
+                      name:
+                        description: Name of the domain
+                        type: string
+                    required:
+                    - name
+                    type: object
+                  forward:
+                    description: Forward settings for NAT/routed networks
+                    properties:
+                      dev:
+                        description: Device to forward to
+                        type: string
+                      interfaces:
+                        description: Interfaces to forward to
+                        items:
+                          description: NetworkInterface represents interface for forwarding
+                          properties:
+                            connections:
+                              description: Connections (for bridge mode)
+                              format: int32
+                              type: integer
+                            dev:
+                              description: Device name
+                              type: string
+                          required:
+                          - dev
+                          type: object
+                        type: array
+                      managed:
+                        default: true
+                        description: Managed determines if libvirt manages the interface
+                        type: boolean
+                      mode:
+                        description: Mode of forwarding (nat, route, open, bridge)
+                        enum:
+                        - nat
+                        - route
+                        - open
+                        - bridge
+                        type: string
+                      nat:
+                        description: NAT configuration
+                        properties:
+                          addresses:
+                            description: Addresses for NAT
+                            items:
+                              description: NetworkNATAddress represents NAT address
+                                configuration
+                              properties:
+                                end:
+                                  description: End address of the range
+                                  type: string
+                                start:
+                                  description: Start address of the range
+                                  type: string
+                              required:
+                              - end
+                              - start
+                              type: object
+                            type: array
+                          ports:
+                            description: Port ranges for NAT
+                            items:
+                              description: NetworkNATPort represents NAT port configuration
+                              properties:
+                                end:
+                                  description: End port of the range
+                                  format: int32
+                                  maximum: 65535
+                                  minimum: 1
+                                  type: integer
+                                start:
+                                  description: Start port of the range
+                                  format: int32
+                                  maximum: 65535
+                                  minimum: 1
+                                  type: integer
+                              required:
+                              - end
+                              - start
+                              type: object
+                            type: array
+                        type: object
+                      pf:
+                        description: Physical function for SR-IOV
+                        properties:
+                          dev:
+                            description: Device name
+                            type: string
+                          vlan:
+                            description: VLAN configuration
+                            properties:
+                              id:
+                                description: VLAN ID
+                                format: int32
+                                maximum: 4094
+                                minimum: 1
+                                type: integer
+                              trunk:
+                                description: Trunk configuration
+                                type: boolean
+                            required:
+                            - id
+                            type: object
+                        required:
+                        - dev
+                        type: object
+                    required:
+                    - mode
+                    type: object
+                  ip:
+                    description: IP configuration for the network
+                    properties:
+                      address:
+                        description: Address of the network (CIDR notation)
+                        type: string
+                      family:
+                        default: ipv4
+                        description: Family of the IP address (ipv4, ipv6)
+                        enum:
+                        - ipv4
+                        - ipv6
+                        type: string
+                      local:
+                        default: false
+                        description: Local determines if this is a local-only address
+                        type: boolean
+                      netmask:
+                        description: Netmask for the network (alternative to CIDR)
+                        type: string
+                      prefix:
+                        description: Prefix length for the network (alternative to
+                          CIDR)
+                        format: int32
+                        maximum: 32
+                        minimum: 1
+                        type: integer
+                    required:
+                    - address
+                    type: object
+                  mode:
+                    description: Mode of the network (nat, bridge, isolated, routed,
+                      open)
+                    enum:
+                    - nat
+                    - bridge
+                    - isolated
+                    - routed
+                    - open
+                    type: string
+                  name:
+                    description: Name of the network
+                    type: string
+                required:
+                - mode
+                - name
+                type: object
+              managementPolicies:
+                default:
+                - '*'
+                description: |-
+                  THIS IS A BETA FIELD. It is on by default but can be opted out
+                  through a Crossplane feature flag.
+                  ManagementPolicies specify the array of actions Crossplane is allowed to
+                  take on the managed and external resources.
+                  This field is planned to replace the DeletionPolicy field in a future
+                  release. Currently, both could be set independently and non-default
+                  values would be honored if the feature flag is enabled. If both are
+                  custom, the DeletionPolicy field will be ignored.
+                  See the design doc for more information: https://github.com/crossplane/crossplane/blob/499895a25d1a1a0ba1604944ef98ac7a1a71f197/design/design-doc-observe-only-resources.md?plain=1#L223
+                  and this one: https://github.com/crossplane/crossplane/blob/444267e84783136daa93568b364a5f01228cacbe/design/one-pager-ignore-changes.md
+                items:
+                  description: |-
+                    A ManagementAction represents an action that the Crossplane controllers
+                    can take on an external resource.
+                  enum:
+                  - Observe
+                  - Create
+                  - Update
+                  - Delete
+                  - LateInitialize
+                  - '*'
+                  type: string
+                type: array
+              providerConfigRef:
+                default:
+                  name: default
+                description: |-
+                  ProviderConfigReference specifies how the provider that will be used to
+                  create, observe, update, and delete this managed resource should be
+                  configured.
+                properties:
+                  name:
+                    description: Name of the referenced object.
+                    type: string
+                  policy:
+                    description: Policies for referencing.
+                    properties:
+                      resolution:
+                        default: Required
+                        description: |-
+                          Resolution specifies whether resolution of this reference is required.
+                          The default is 'Required', which means the reconcile will fail if the
+                          reference cannot be resolved. 'Optional' means this reference will be
+                          a no-op if it cannot be resolved.
+                        enum:
+                        - Required
+                        - Optional
+                        type: string
+                      resolve:
+                        description: |-
+                          Resolve specifies when this reference should be resolved. The default
+                          is 'IfNotPresent', which will attempt to resolve the reference only when
+                          the corresponding field is not present. Use 'Always' to resolve the
+                          reference on every reconcile.
+                        enum:
+                        - Always
+                        - IfNotPresent
+                        type: string
+                    type: object
+                required:
+                - name
+                type: object
+              publishConnectionDetailsTo:
+                description: |-
+                  PublishConnectionDetailsTo specifies the connection secret config which
+                  contains a name, metadata and a reference to secret store config to
+                  which any connection details for this managed resource should be written.
+                  Connection details frequently include the endpoint, username,
+                  and password required to connect to the managed resource.
+                properties:
+                  configRef:
+                    default:
+                      name: default
+                    description: |-
+                      SecretStoreConfigRef specifies which secret store config should be used
+                      for this ConnectionSecret.
+                    properties:
+                      name:
+                        description: Name of the referenced object.
+                        type: string
+                      policy:
+                        description: Policies for referencing.
+                        properties:
+                          resolution:
+                            default: Required
+                            description: |-
+                              Resolution specifies whether resolution of this reference is required.
+                              The default is 'Required', which means the reconcile will fail if the
+                              reference cannot be resolved. 'Optional' means this reference will be
+                              a no-op if it cannot be resolved.
+                            enum:
+                            - Required
+                            - Optional
+                            type: string
+                          resolve:
+                            description: |-
+                              Resolve specifies when this reference should be resolved. The default
+                              is 'IfNotPresent', which will attempt to resolve the reference only when
+                              the corresponding field is not present. Use 'Always' to resolve the
+                              reference on every reconcile.
+                            enum:
+                            - Always
+                            - IfNotPresent
+                            type: string
+                        type: object
+                    required:
+                    - name
+                    type: object
+                  metadata:
+                    description: Metadata is the metadata for connection secret.
+                    properties:
+                      annotations:
+                        additionalProperties:
+                          type: string
+                        description: |-
+                          Annotations are the annotations to be added to connection secret.
+                          - For Kubernetes secrets, this will be used as "metadata.annotations".
+                          - It is up to Secret Store implementation for others store types.
+                        type: object
+                      labels:
+                        additionalProperties:
+                          type: string
+                        description: |-
+                          Labels are the labels/tags to be added to connection secret.
+                          - For Kubernetes secrets, this will be used as "metadata.labels".
+                          - It is up to Secret Store implementation for others store types.
+                        type: object
+                      type:
+                        description: |-
+                          Type is the SecretType for the connection secret.
+                          - Only valid for Kubernetes Secret Stores.
+                        type: string
+                    type: object
+                  name:
+                    description: Name is the name of the connection secret.
+                    type: string
+                required:
+                - name
+                type: object
+              writeConnectionSecretToRef:
+                description: |-
+                  WriteConnectionSecretToReference specifies the namespace and name of a
+                  Secret to which any connection details for this managed resource should
+                  be written. Connection details frequently include the endpoint, username,
+                  and password required to connect to the managed resource.
+                  This field is planned to be replaced in a future release in favor of
+                  PublishConnectionDetailsTo. Currently, both could be set independently
+                  and connection details would be published to both without affecting
+                  each other.
+                properties:
+                  name:
+                    description: Name of the secret.
+                    type: string
+                  namespace:
+                    description: Namespace of the secret.
+                    type: string
+                required:
+                - name
+                - namespace
+                type: object
+            required:
+            - forProvider
+            type: object
+          status:
+            description: NetworkStatus defines the observed state of Network
+            properties:
+              atProvider:
+                description: NetworkObservation are the observable fields of a Network.
+                properties:
+                  active:
+                    description: Active indicates if the network is currently active
+                    type: boolean
+                  autoStart:
+                    description: AutoStart indicates if the network will auto-start
+                    type: boolean
+                  bridgeName:
+                    description: Bridge name (for bridge mode networks)
+                    type: string
+                  connectedDomains:
+                    description: Connected domains count
+                    format: int32
+                    type: integer
+                  leases:
+                    description: Lease information from DHCP
+                    items:
+                      description: NetworkLease represents a DHCP lease
+                      properties:
+                        clientId:
+                          description: Client ID of the lease
+                          type: string
+                        expiry:
+                          description: Expiry time of the lease
+                          format: date-time
+                          type: string
+                        hostname:
+                          description: Hostname of the lease
+                          type: string
+                        ip:
+                          description: IP address of the lease
+                          type: string
+                        mac:
+                          description: MAC address of the lease
+                          type: string
+                      type: object
+                    type: array
+                  persistent:
+                    description: Persistent indicates if the network is persistent
+                    type: boolean
+                  uuid:
+                    description: UUID is the libvirt network UUID
+                    type: string
+                type: object
+              conditions:
+                description: Conditions of the resource.
+                items:
+                  description: A Condition that may apply to a resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        LastTransitionTime is the last time this condition transitioned from one
+                        status to another.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        A Message containing details about this condition's last transition from
+                        one status to another, if any.
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        ObservedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      type: integer
+                    reason:
+                      description: A Reason for this condition's last transition from
+                        one status to another.
+                      type: string
+                    status:
+                      description: Status of this condition; is it currently True,
+                        False, or Unknown?
+                      type: string
+                    type:
+                      description: |-
+                        Type of this condition. At most one of each condition type may apply to
+                        a resource at any point in time.
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
+              observedGeneration:
+                description: |-
+                  ObservedGeneration is the latest metadata.generation
+                  which resulted in either a ready state, or stalled due to error
+                  it can not recover from without human intervention.
+                format: int64
+                type: integer
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
