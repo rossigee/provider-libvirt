@@ -17,6 +17,7 @@ import (
 	"github.com/digitalocean/go-libvirt/socket/dialers"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/types"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	xpv1 "github.com/crossplane/crossplane-runtime/apis/common/v1"
@@ -75,14 +76,45 @@ func GetLibvirtClient(ctx context.Context, kube client.Client, mg resource.Manag
 		return nil, errors.New(errNoProviderConfig)
 	}
 
+	// First try to find the ProviderConfig in the managed resource's namespace
 	pc := &v1alpha1.ProviderConfig{}
-	if err := kube.Get(ctx, types.NamespacedName{Name: configRef.Name}, pc); err != nil {
-		return nil, errors.Wrap(err, errGetProviderConfig)
+	pcNamespace := mg.GetNamespace()
+	if pcNamespace == "" {
+		pcNamespace = "crossplane-system" // Default for cluster-scoped resources
 	}
+	
+	err := kube.Get(ctx, types.NamespacedName{Name: configRef.Name, Namespace: pcNamespace}, pc)
+	if err != nil {
+		// If not found, try default namespace
+		err = kube.Get(ctx, types.NamespacedName{Name: configRef.Name, Namespace: "default"}, pc)
+		if err != nil {
+			return nil, errors.Wrap(err, errGetProviderConfig)
+		}
+		pcNamespace = "default"
+	}
+	
+	// Use the namespace where we found the ProviderConfig
+	// pcNamespace is already set from the successful Get() call above
 
-	// Track usage of this provider config
-	t := resource.NewProviderConfigUsageTracker(kube, &v1alpha1.ProviderConfigUsage{})
-	if err := t.Track(ctx, mg); err != nil {
+	// Track usage of this provider config (v2 compatible)
+	pcu := &v1alpha1.ProviderConfigUsage{}
+	pcu.SetName(mg.GetName() + "-" + configRef.Name)
+	
+	// ProviderConfigUsage must be in the same namespace as the ProviderConfig
+	// Ensure we have a valid namespace
+	if pcNamespace == "" {
+		return nil, errors.New("ProviderConfig namespace is empty - cannot create ProviderConfigUsage - DEBUG: this should not happen in v0.2.12")
+	}
+	pcu.SetNamespace(pcNamespace)
+	pcu.ProviderConfigReference = xpv1.Reference{Name: configRef.Name}
+	pcu.ResourceReference = xpv1.TypedReference{
+		APIVersion: mg.GetObjectKind().GroupVersionKind().GroupVersion().String(),
+		Kind:       mg.GetObjectKind().GroupVersionKind().Kind,
+		Name:       mg.GetName(),
+		UID:        mg.GetUID(),
+	}
+	
+	if err := kube.Create(ctx, pcu); err != nil && !kerrors.IsAlreadyExists(err) {
 		return nil, errors.Wrap(err, errTrackUsage)
 	}
 

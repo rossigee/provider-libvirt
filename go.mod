@@ -4,7 +4,7 @@ go 1.25
 
 require (
 	github.com/alecthomas/kingpin/v2 v2.4.0
-	github.com/crossplane/crossplane-runtime v1.20.0
+	github.com/crossplane/crossplane-runtime v1.21.0-rc.0
 	github.com/crossplane/crossplane-tools v0.0.0-20250731192036-00d407d8b7ec
 	github.com/digitalocean/go-libvirt v0.0.0-20240308204700-df736b2945cf
 	github.com/google/go-cmp v0.7.0
