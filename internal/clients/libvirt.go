@@ -85,12 +85,18 @@ func GetLibvirtClient(ctx context.Context, kube client.Client, mg resource.Manag
 	
 	err := kube.Get(ctx, types.NamespacedName{Name: configRef.Name, Namespace: pcNamespace}, pc)
 	if err != nil {
-		// If not found, try default namespace
-		err = kube.Get(ctx, types.NamespacedName{Name: configRef.Name, Namespace: "default"}, pc)
+		// If not found, try crossplane-system namespace first (most common location)
+		err = kube.Get(ctx, types.NamespacedName{Name: configRef.Name, Namespace: "crossplane-system"}, pc)
 		if err != nil {
-			return nil, errors.Wrap(err, errGetProviderConfig)
+			// Finally try default namespace for backward compatibility
+			err = kube.Get(ctx, types.NamespacedName{Name: configRef.Name, Namespace: "default"}, pc)
+			if err != nil {
+				return nil, errors.Wrap(err, errGetProviderConfig)
+			}
+			pcNamespace = "default"
+		} else {
+			pcNamespace = "crossplane-system"
 		}
-		pcNamespace = "default"
 	}
 	
 	// Use the namespace where we found the ProviderConfig

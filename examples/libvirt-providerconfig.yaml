@@ -1,0 +1,13 @@
+# ProviderConfig for libvirt connection to timewarp-001.timewarp.lan
+apiVersion: libvirt.crossplane.io/v1alpha1
+kind: ProviderConfig
+metadata:
+  name: default
+  namespace: crossplane-system
+spec:
+  credentials:
+    source: Secret
+    secretRef:
+      namespace: crossplane-system
+      name: libvirt-creds
+      key: credentials
