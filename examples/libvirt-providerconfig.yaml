@@ -1,4 +1,4 @@
-# ProviderConfig for libvirt connection to timewarp-001.timewarp.lan
+# ProviderConfig for TLS libvirt connection to timewarp-001.timewarp.lan:16514
 apiVersion: libvirt.crossplane.io/v1alpha1
 kind: ProviderConfig
 metadata:

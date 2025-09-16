@@ -18,6 +18,7 @@ import (
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/types"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	xpv1 "github.com/crossplane/crossplane-runtime/apis/common/v1"
@@ -103,25 +104,17 @@ func GetLibvirtClient(ctx context.Context, kube client.Client, mg resource.Manag
 	// pcNamespace is already set from the successful Get() call above
 
 	// Track usage of this provider config (v2 compatible)
-	pcu := &v1alpha1.ProviderConfigUsage{}
-	pcu.SetName(mg.GetName() + "-" + configRef.Name)
-	
-	// ProviderConfigUsage must be in the same namespace as the ProviderConfig
-	// Ensure we have a valid namespace
+	// Ensure we have a valid namespace first
 	if pcNamespace == "" {
-		return nil, errors.New("ProviderConfig namespace is empty - cannot create ProviderConfigUsage - DEBUG: this should not happen in v0.3.1")
+		return nil, errors.New("ProviderConfig namespace is empty - cannot create ProviderConfigUsage - DEBUG: this should not happen in v0.3.2")
 	}
 
-	// DEBUG: Log the namespace we're setting
-	fmt.Printf("DEBUG v0.3.1: Setting ProviderConfigUsage namespace to: '%s' (len=%d)\n", pcNamespace, len(pcNamespace))
-	pcu.SetNamespace(pcNamespace)
-
-	// DEBUG: Verify the namespace was set correctly
-	setNamespace := pcu.GetNamespace()
-	fmt.Printf("DEBUG v0.3.1: ProviderConfigUsage namespace after SetNamespace: '%s' (len=%d)\n", setNamespace, len(setNamespace))
-
-	if setNamespace == "" {
-		return nil, errors.New("ProviderConfigUsage SetNamespace failed - namespace is still empty after setting")
+	// Create ProviderConfigUsage with namespace set at creation time
+	pcu := &v1alpha1.ProviderConfigUsage{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      mg.GetName() + "-" + configRef.Name,
+			Namespace: pcNamespace,
+		},
 	}
 	pcu.ProviderConfigReference = xpv1.Reference{Name: configRef.Name}
 	pcu.ResourceReference = xpv1.TypedReference{
