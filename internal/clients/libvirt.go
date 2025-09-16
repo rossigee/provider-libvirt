@@ -109,9 +109,20 @@ func GetLibvirtClient(ctx context.Context, kube client.Client, mg resource.Manag
 	// ProviderConfigUsage must be in the same namespace as the ProviderConfig
 	// Ensure we have a valid namespace
 	if pcNamespace == "" {
-		return nil, errors.New("ProviderConfig namespace is empty - cannot create ProviderConfigUsage - DEBUG: this should not happen in v0.2.12")
+		return nil, errors.New("ProviderConfig namespace is empty - cannot create ProviderConfigUsage - DEBUG: this should not happen in v0.3.1")
 	}
+
+	// DEBUG: Log the namespace we're setting
+	fmt.Printf("DEBUG v0.3.1: Setting ProviderConfigUsage namespace to: '%s' (len=%d)\n", pcNamespace, len(pcNamespace))
 	pcu.SetNamespace(pcNamespace)
+
+	// DEBUG: Verify the namespace was set correctly
+	setNamespace := pcu.GetNamespace()
+	fmt.Printf("DEBUG v0.3.1: ProviderConfigUsage namespace after SetNamespace: '%s' (len=%d)\n", setNamespace, len(setNamespace))
+
+	if setNamespace == "" {
+		return nil, errors.New("ProviderConfigUsage SetNamespace failed - namespace is still empty after setting")
+	}
 	pcu.ProviderConfigReference = xpv1.Reference{Name: configRef.Name}
 	pcu.ResourceReference = xpv1.TypedReference{
 		APIVersion: mg.GetObjectKind().GroupVersionKind().GroupVersion().String(),

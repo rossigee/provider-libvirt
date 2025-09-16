@@ -3,4 +3,4 @@ kind: Provider
 metadata:
   name: provider-libvirt
 spec:
-  package: ghcr.io/rossigee/provider-libvirt:v0.3.0
+  package: ghcr.io/rossigee/provider-libvirt:v0.3.1
