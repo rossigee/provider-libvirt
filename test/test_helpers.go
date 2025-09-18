@@ -10,15 +10,17 @@ package test
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	xpv1 "github.com/crossplane/crossplane-runtime/apis/common/v1"
+	xpv1 "github.com/crossplane/crossplane-runtime/v2/apis/common/v1"
 
 	"github.com/rossigee/provider-libvirt/apis/v1alpha1"
+	"github.com/rossigee/provider-libvirt/internal/utils"
 )
 
 // createTestStoragePool creates a basic StoragePool for testing
@@ -54,10 +56,10 @@ func createTestVolume(name, poolName string) *v1alpha1.Volume {
 				ProviderConfigReference: &xpv1.Reference{Name: "test-provider-config"},
 			},
 			ForProvider: v1alpha1.VolumeParameters{
-				Name:     name + ".qcow2",
-				Pool:     poolName,
-				Format:   "qcow2",
-				Capacity: 10737418240, // 10GB
+				Name:   name + ".qcow2",
+				Pool:   poolName,
+				Format: "qcow2",
+				Size:   "10G", // 10GB using human-readable format
 			},
 		},
 	}
@@ -113,7 +115,14 @@ func makeResourceReady(t *testing.T, ctx context.Context, k8sClient client.Clien
 	case *v1alpha1.Volume:
 		resource.Status.SetConditions(xpv1.Available())
 		resource.Status.AtProvider.Path = "/tmp/" + resource.Spec.ForProvider.Pool + "/" + resource.Spec.ForProvider.Name
-		resource.Status.AtProvider.Capacity = resource.Spec.ForProvider.Capacity
+
+		// Resolve capacity from Size or Capacity field
+		if capacity, err := resolveCapacityFromParameters(resource.Spec.ForProvider); err == nil {
+			resource.Status.AtProvider.Capacity = capacity
+		} else {
+			resource.Status.AtProvider.Capacity = 10000000000 // Default 10GB if parsing fails
+		}
+
 		resource.Status.AtProvider.Allocation = 1048576 // 1MB allocated initially
 		resource.Status.AtProvider.Type = "file"
 		resource.Status.AtProvider.Format = resource.Spec.ForProvider.Format
@@ -191,4 +200,24 @@ func setupTestEnvironment(t *testing.T, ctx context.Context, k8sClient client.Cl
 	}
 
 	t.Log("Test environment setup completed")
+}
+
+// resolveCapacityFromParameters resolves the volume capacity from either Size or Capacity fields
+// Size takes precedence over Capacity if both are specified
+func resolveCapacityFromParameters(spec v1alpha1.VolumeParameters) (int64, error) {
+	if spec.Size != "" {
+		// Parse human-readable size (e.g., "100G")
+		capacity, err := utils.ParseSize(spec.Size)
+		if err != nil {
+			return 0, err
+		}
+		return capacity, nil
+	}
+
+	if spec.Capacity != nil {
+		// Use legacy byte capacity
+		return *spec.Capacity, nil
+	}
+
+	return 0, fmt.Errorf("either size or capacity must be specified")
 }

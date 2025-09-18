@@ -14,7 +14,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 
-	"github.com/crossplane/crossplane-runtime/pkg/logging"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/logging"
 
 	"github.com/rossigee/provider-libvirt/apis/v1alpha1"
 	"github.com/rossigee/provider-libvirt/internal/controller/domain"

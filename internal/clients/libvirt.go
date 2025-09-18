@@ -6,10 +6,14 @@ package clients
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"net"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -17,12 +21,10 @@ import (
 	"github.com/digitalocean/go-libvirt/socket/dialers"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/types"
-	kerrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	xpv1 "github.com/crossplane/crossplane-runtime/apis/common/v1"
-	"github.com/crossplane/crossplane-runtime/pkg/resource"
+	xpv1 "github.com/crossplane/crossplane-runtime/v2/apis/common/v1"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/resource"
 
 	"github.com/rossigee/provider-libvirt/apis/v1alpha1"
 )
@@ -72,7 +74,17 @@ func (c *LibvirtClient) Close() error {
 
 // GetLibvirtClient establishes a connection to libvirt using provider configuration
 func GetLibvirtClient(ctx context.Context, kube client.Client, mg resource.Managed) (*LibvirtClient, error) {
-	configRef := mg.GetProviderConfigReference()
+	// Get provider config reference from the managed resource's ResourceSpec
+	var configRef *xpv1.Reference
+
+	// Type assert to extract the ProviderConfigReference from the managed resource
+	switch mr := mg.(type) {
+	case interface{ GetProviderConfigReference() *xpv1.Reference }:
+		configRef = mr.GetProviderConfigReference()
+	default:
+		return nil, errors.New(errGetProviderConfig)
+	}
+
 	if configRef == nil {
 		return nil, errors.New(errNoProviderConfig)
 	}
@@ -83,7 +95,7 @@ func GetLibvirtClient(ctx context.Context, kube client.Client, mg resource.Manag
 	if pcNamespace == "" {
 		pcNamespace = "crossplane-system" // Default for cluster-scoped resources
 	}
-	
+
 	err := kube.Get(ctx, types.NamespacedName{Name: configRef.Name, Namespace: pcNamespace}, pc)
 	if err != nil {
 		// If not found, try crossplane-system namespace first (most common location)
@@ -94,39 +106,11 @@ func GetLibvirtClient(ctx context.Context, kube client.Client, mg resource.Manag
 			if err != nil {
 				return nil, errors.Wrap(err, errGetProviderConfig)
 			}
-			pcNamespace = "default"
-		} else {
-			pcNamespace = "crossplane-system"
 		}
 	}
-	
-	// Use the namespace where we found the ProviderConfig
-	// pcNamespace is already set from the successful Get() call above
 
-	// Track usage of this provider config (v2 compatible)
-	// Ensure we have a valid namespace first
-	if pcNamespace == "" {
-		return nil, errors.New("ProviderConfig namespace is empty - cannot create ProviderConfigUsage - DEBUG: this should not happen in v0.3.2")
-	}
-
-	// Create ProviderConfigUsage with namespace set at creation time
-	pcu := &v1alpha1.ProviderConfigUsage{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      mg.GetName() + "-" + configRef.Name,
-			Namespace: pcNamespace,
-		},
-	}
-	pcu.ProviderConfigReference = xpv1.Reference{Name: configRef.Name}
-	pcu.ResourceReference = xpv1.TypedReference{
-		APIVersion: mg.GetObjectKind().GroupVersionKind().GroupVersion().String(),
-		Kind:       mg.GetObjectKind().GroupVersionKind().Kind,
-		Name:       mg.GetName(),
-		UID:        mg.GetUID(),
-	}
-	
-	if err := kube.Create(ctx, pcu); err != nil && !kerrors.IsAlreadyExists(err) {
-		return nil, errors.Wrap(err, errTrackUsage)
-	}
+	// ProviderConfigUsage tracking is handled by the controller framework
+	// via c.usage.Track(ctx, mg) call in the controller's Connect method
 
 	// Extract credentials
 	data, err := resource.CommonCredentialExtractor(ctx, pc.Spec.Credentials.Source, kube, pc.Spec.Credentials.CommonCredentialSelectors)
@@ -150,8 +134,41 @@ func GetLibvirtClient(ctx context.Context, kube client.Client, mg resource.Manag
 		return nil, errors.Wrap(err, errConnectLibvirt)
 	}
 
+	libvirtClient := libvirt.NewWithDialer(dialers.NewAlreadyConnected(conn))
+
+	// Connect to libvirt daemon
+	if err := libvirtClient.Connect(); err != nil {
+		_ = conn.Close() // Ignore error during cleanup
+		return nil, errors.Wrap(err, "cannot connect to libvirt daemon")
+	}
+
+	// Perform authentication if required
+	authTypes, err := libvirtClient.AuthList()
+	if err != nil {
+		_ = conn.Close() // Ignore error during cleanup
+		return nil, errors.Wrap(err, "cannot get authentication types")
+	}
+
+	// If authentication is required, perform it
+	if len(authTypes) > 0 {
+		// For TLS connections, usually no additional auth is needed beyond certificates
+		// but some setups might require Polkit or SASL
+		for _, authType := range authTypes {
+			if authType == 2 { // AuthTypePolkit (usually for local connections)
+				_, err := libvirtClient.AuthPolkit()
+				if err != nil {
+					_ = conn.Close() // Ignore error during cleanup
+					return nil, errors.Wrap(err, "polkit authentication failed")
+				}
+				break
+			}
+			// For TLS, usually just the certificate validation is sufficient
+			// and no additional authentication procedure is needed
+		}
+	}
+
 	return &LibvirtClient{
-		Libvirt: libvirt.NewWithDialer(dialers.NewAlreadyConnected(conn)),
+		Libvirt: libvirtClient,
 		conn:    conn,
 		uri:     uri,
 	}, nil
@@ -193,7 +210,26 @@ func connectToLibvirt(uri string) (net.Conn, error) {
 			path = "/var/run/libvirt/libvirt-sock"
 		}
 		return net.Dial("unix", path)
-		
+
+	case "qemu+tls":
+		// TLS connection with client certificate authentication
+		hostname := parsedURI.Hostname()
+		host := parsedURI.Host
+		if !strings.Contains(host, ":") {
+			host += ":16514" // default libvirt TLS port
+		}
+
+		// Load client certificates for libvirt TLS authentication
+		tlsConfig, err := loadLibvirtTLSConfig()
+		if err != nil {
+			return nil, errors.Wrap(err, "cannot load TLS certificates")
+		}
+
+		// Set the server name from the URI hostname for certificate validation
+		tlsConfig.ServerName = hostname
+
+		return tls.Dial("tcp", host, tlsConfig)
+
 	default:
 		return nil, fmt.Errorf("unsupported libvirt URI scheme: %s", parsedURI.Scheme)
 	}
@@ -211,8 +247,41 @@ func NewLibvirtClient(creds LibvirtCredentials) (*LibvirtClient, error) {
 		return nil, errors.Wrap(err, errConnectLibvirt)
 	}
 
+	libvirtClient := libvirt.NewWithDialer(dialers.NewAlreadyConnected(conn))
+
+	// Connect to libvirt daemon
+	if err := libvirtClient.Connect(); err != nil {
+		_ = conn.Close() // Ignore error during cleanup
+		return nil, errors.Wrap(err, "cannot connect to libvirt daemon")
+	}
+
+	// Perform authentication if required
+	authTypes, err := libvirtClient.AuthList()
+	if err != nil {
+		_ = conn.Close() // Ignore error during cleanup
+		return nil, errors.Wrap(err, "cannot get authentication types")
+	}
+
+	// If authentication is required, perform it
+	if len(authTypes) > 0 {
+		// For TLS connections, usually no additional auth is needed beyond certificates
+		// but some setups might require Polkit or SASL
+		for _, authType := range authTypes {
+			if authType == 2 { // AuthTypePolkit (usually for local connections)
+				_, err := libvirtClient.AuthPolkit()
+				if err != nil {
+					_ = conn.Close() // Ignore error during cleanup
+					return nil, errors.Wrap(err, "polkit authentication failed")
+				}
+				break
+			}
+			// For TLS, usually just the certificate validation is sufficient
+			// and no additional authentication procedure is needed
+		}
+	}
+
 	return &LibvirtClient{
-		Libvirt: libvirt.NewWithDialer(dialers.NewAlreadyConnected(conn)),
+		Libvirt: libvirtClient,
 		conn:    conn,
 		uri:     uri,
 	}, nil
@@ -281,4 +350,103 @@ func StringToUUID(uuidStr string) ([16]byte, error) {
 	}
 	
 	return uuid, nil
+}
+
+// loadLibvirtTLSConfig loads TLS configuration for libvirt connections
+// This function searches for certificates in standard locations and supports
+// both Kubernetes mounted secrets and local development configurations
+func loadLibvirtTLSConfig() (*tls.Config, error) {
+	// Define possible certificate locations in order of preference
+	certPaths := []struct {
+		cert   string
+		key    string
+		ca     string
+		desc   string
+	}{
+		{
+			// Kubernetes mounted secret path (production)
+			cert: "/etc/libvirt-tls/tls.crt",
+			key:  "/etc/libvirt-tls/tls.key",
+			ca:   "/etc/libvirt-tls/ca.crt",
+			desc: "Kubernetes mounted secret",
+		},
+		{
+			// Alternative Kubernetes secret path
+			cert: "/var/run/secrets/libvirt-tls/clientcert.pem",
+			key:  "/var/run/secrets/libvirt-tls/clientkey.pem",
+			ca:   "/var/run/secrets/libvirt-tls/cacert.pem",
+			desc: "Alternative Kubernetes secret",
+		},
+		{
+			// User-specific libvirt configuration (development)
+			cert: filepath.Join(os.Getenv("HOME"), ".config/libvirt/timewarp-rossg.crt"),
+			key:  filepath.Join(os.Getenv("HOME"), ".config/libvirt/timewarp-rossg.key"),
+			ca:   filepath.Join(os.Getenv("HOME"), ".config/libvirt/timewarp-rossg-ca.crt"),
+			desc: "User configuration directory",
+		},
+		{
+			// Standard libvirt PKI paths
+			cert: "/etc/pki/libvirt/clientcert.pem",
+			key:  "/etc/pki/libvirt/private/clientkey.pem",
+			ca:   "/etc/pki/CA/cacert.pem",
+			desc: "System PKI directory",
+		},
+	}
+
+	var lastErr error
+
+	// Try each certificate location
+	for _, paths := range certPaths {
+		// Check if all required files exist
+		if !fileExists(paths.cert) || !fileExists(paths.key) || !fileExists(paths.ca) {
+			lastErr = fmt.Errorf("%s: missing certificate files (cert: %s, key: %s, ca: %s)",
+				paths.desc, paths.cert, paths.key, paths.ca)
+			continue
+		}
+
+		// Load client certificate and key
+		clientCert, err := tls.LoadX509KeyPair(paths.cert, paths.key)
+		if err != nil {
+			lastErr = errors.Wrapf(err, "%s: failed to load client certificate", paths.desc)
+			continue
+		}
+
+		// Load CA certificate
+		caCert, err := os.ReadFile(paths.ca)
+		if err != nil {
+			lastErr = errors.Wrapf(err, "%s: failed to read CA certificate", paths.desc)
+			continue
+		}
+
+		// Create CA certificate pool
+		caCertPool := x509.NewCertPool()
+		if !caCertPool.AppendCertsFromPEM(caCert) {
+			lastErr = fmt.Errorf("%s: failed to parse CA certificate", paths.desc)
+			continue
+		}
+
+		// Create TLS configuration
+		tlsConfig := &tls.Config{
+			Certificates: []tls.Certificate{clientCert},
+			RootCAs:      caCertPool,
+			// ServerName will be set dynamically based on the connection URI
+			MinVersion:   tls.VersionTLS12,
+		}
+
+		fmt.Printf("Successfully loaded TLS certificates from %s\n", paths.desc)
+		return tlsConfig, nil
+	}
+
+	// If we get here, none of the certificate locations worked
+	if lastErr != nil {
+		return nil, errors.Wrap(lastErr, "failed to load TLS certificates from any location")
+	}
+
+	return nil, errors.New("no TLS certificates found in any standard location")
+}
+
+// fileExists checks if a file exists and is readable
+func fileExists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
 }

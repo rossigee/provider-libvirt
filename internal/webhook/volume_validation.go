@@ -13,6 +13,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/rossigee/provider-libvirt/apis/v1alpha1"
+	"github.com/rossigee/provider-libvirt/internal/utils"
 )
 
 // validateVolume validates Volume resource specifications
@@ -26,20 +27,10 @@ func (v *ValidationWebhook) validateVolume(ctx context.Context, volume *v1alpha1
 	// Validate basic fields
 	allErrs = append(allErrs, validateResourceName(spec.Name, specPath.Child("name"))...)
 
-	// Validate capacity
-	if spec.Capacity <= 0 {
-		allErrs = append(allErrs, field.Invalid(specPath.Child("capacity"), spec.Capacity, "capacity must be greater than 0"))
-	}
-
-	// Minimum 1MB capacity
-	if spec.Capacity < 1024*1024 {
-		allErrs = append(allErrs, field.Invalid(specPath.Child("capacity"), spec.Capacity, "capacity must be at least 1MB"))
-	}
-
-	// Maximum 10TB capacity (reasonable limit)
-	if spec.Capacity > 10*1024*1024*1024*1024 {
-		allErrs = append(allErrs, field.Invalid(specPath.Child("capacity"), spec.Capacity, "capacity cannot exceed 10TB"))
-	}
+	// Validate capacity - either Size or Capacity must be specified
+	capacityErrs, capacityWarns := v.validateVolumeCapacity(spec, specPath)
+	allErrs = append(allErrs, capacityErrs...)
+	warnings = append(warnings, capacityWarns...)
 
 	// Validate format
 	validFormats := []string{"qcow2", "raw", "vmdk", "vdi", "vhd", "qed"}
@@ -83,6 +74,68 @@ func (v *ValidationWebhook) validateVolume(ctx context.Context, volume *v1alpha1
 		updateErrs, updateWarns := v.validateVolumeUpdate(volume, oldVolume, specPath)
 		allErrs = append(allErrs, updateErrs...)
 		warnings = append(warnings, updateWarns...)
+	}
+
+	return allErrs, warnings
+}
+
+// validateVolumeCapacity validates Volume capacity configuration
+func (v *ValidationWebhook) validateVolumeCapacity(spec v1alpha1.VolumeParameters, fldPath *field.Path) (field.ErrorList, admission.Warnings) {
+	var allErrs field.ErrorList
+	var warnings admission.Warnings
+
+	// Check that at least one of Size or Capacity is specified
+	hasSize := spec.Size != ""
+	hasCapacity := spec.Capacity != nil
+
+	if !hasSize && !hasCapacity {
+		allErrs = append(allErrs, field.Required(fldPath, "either size or capacity must be specified"))
+		return allErrs, warnings
+	}
+
+	// Warn if both are specified
+	if hasSize && hasCapacity {
+		warnings = append(warnings, "Both size and capacity specified; size takes precedence over capacity")
+	}
+
+	// If capacity field is used (legacy), validate it
+	if hasCapacity {
+		capacity := *spec.Capacity
+		if capacity <= 0 {
+			allErrs = append(allErrs, field.Invalid(fldPath.Child("capacity"), capacity, "capacity must be greater than 0"))
+		}
+
+		// Minimum 1MB capacity
+		if capacity < 1024*1024 {
+			allErrs = append(allErrs, field.Invalid(fldPath.Child("capacity"), capacity, "capacity must be at least 1MB"))
+		}
+
+		// Maximum 10TB capacity (reasonable limit)
+		if capacity > 10*1024*1024*1024*1024 {
+			allErrs = append(allErrs, field.Invalid(fldPath.Child("capacity"), capacity, "capacity cannot exceed 10TB"))
+		}
+
+		if hasCapacity && !hasSize {
+			warnings = append(warnings, "capacity field is deprecated; use size field instead (e.g., '100G')")
+		}
+	}
+
+	// If size field is used, validate it
+	if hasSize {
+		capacityBytes, err := utils.ParseSize(spec.Size)
+		if err != nil {
+			allErrs = append(allErrs, field.Invalid(fldPath.Child("size"), spec.Size, fmt.Sprintf("invalid size format: %v", err)))
+		} else {
+			// Validate parsed capacity
+			if capacityBytes <= 0 {
+				allErrs = append(allErrs, field.Invalid(fldPath.Child("size"), spec.Size, "size must be greater than 0"))
+			}
+
+			// Maximum 10TB capacity (reasonable limit)
+			if capacityBytes > 10*1024*1024*1024*1024 {
+				allErrs = append(allErrs, field.Invalid(fldPath.Child("size"), spec.Size, "size cannot exceed 10TB"))
+			}
+		}
 	}
 
 	return allErrs, warnings
@@ -200,11 +253,39 @@ func (v *ValidationWebhook) validateVolumeUpdate(newVolume, oldVolume *v1alpha1.
 		allErrs = append(allErrs, field.Invalid(fldPath.Child("backingStore"), newSpec.BackingStore, "backing store cannot be changed"))
 	}
 
-	// Capacity can only be increased
-	if newSpec.Capacity < oldSpec.Capacity {
-		allErrs = append(allErrs, field.Invalid(fldPath.Child("capacity"), newSpec.Capacity, "volume capacity cannot be decreased"))
-	} else if newSpec.Capacity > oldSpec.Capacity {
-		warnings = append(warnings, "Volume capacity increase requires filesystem expansion")
+	// Capacity can only be increased - need to resolve both old and new capacities
+	oldCapacity := int64(0)
+	newCapacity := int64(0)
+
+	// Resolve old capacity
+	if oldSpec.Size != "" {
+		var err error
+		oldCapacity, err = utils.ParseSize(oldSpec.Size)
+		if err != nil {
+			warnings = append(warnings, fmt.Sprintf("Cannot parse old size value: %v", err))
+		}
+	} else if oldSpec.Capacity != nil {
+		oldCapacity = *oldSpec.Capacity
+	}
+
+	// Resolve new capacity
+	if newSpec.Size != "" {
+		var err error
+		newCapacity, err = utils.ParseSize(newSpec.Size)
+		if err != nil {
+			allErrs = append(allErrs, field.Invalid(fldPath.Child("size"), newSpec.Size, fmt.Sprintf("invalid size format: %v", err)))
+		}
+	} else if newSpec.Capacity != nil {
+		newCapacity = *newSpec.Capacity
+	}
+
+	// Only validate if we could resolve both capacities
+	if oldCapacity > 0 && newCapacity > 0 {
+		if newCapacity < oldCapacity {
+			allErrs = append(allErrs, field.Invalid(fldPath, newCapacity, "volume capacity cannot be decreased"))
+		} else if newCapacity > oldCapacity {
+			warnings = append(warnings, "Volume capacity increase requires filesystem expansion")
+		}
 	}
 
 	// Encryption cannot be added or removed

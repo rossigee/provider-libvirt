@@ -26,4 +26,4 @@ spec:
       mode: nat
       managed: true
   providerConfigRef:
-    name: default
+    name: timewarp

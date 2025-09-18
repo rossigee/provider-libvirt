@@ -1,0 +1,83 @@
+# PostgreSQL Primary VM Domain
+apiVersion: libvirt.crossplane.io/v1alpha1
+kind: Domain
+metadata:
+  name: postgres-primary
+  namespace: crossplane-system
+spec:
+  forProvider:
+    name: postgres-primary
+    memory: 8589934592  # 8GB in bytes
+    vcpu: 4
+    type: kvm
+    arch: x86_64
+    running: false  # Start stopped for OS installation
+    autostart: false
+    boot:
+      - hd
+      - cdrom
+    # Disks
+    disk:
+      - file: /var/lib/libvirt/images/postgres-primary-root.qcow2
+        type: virtio
+        device: vda
+        bootOrder: 1
+      - file: /var/lib/libvirt/images/postgres-primary-data.qcow2
+        type: virtio
+        device: vdb
+    # Network Interface
+    networkInterface:
+      - networkName: postgres-dr-network
+        model: virtio
+        waitForLease: true
+    console:
+      type: pty
+    graphics:
+      type: spice
+      listenAddress: "0.0.0.0"
+      autoport: true
+  providerConfigRef:
+    name: timewarp
+  deletionPolicy: Delete
+---
+# PostgreSQL Secondary VM Domain
+apiVersion: libvirt.crossplane.io/v1alpha1
+kind: Domain
+metadata:
+  name: postgres-secondary
+  namespace: crossplane-system
+spec:
+  forProvider:
+    name: postgres-secondary
+    memory: 8589934592  # 8GB in bytes
+    vcpu: 4
+    type: kvm
+    arch: x86_64
+    running: false  # Start stopped for OS installation
+    autostart: false
+    boot:
+      - hd
+      - cdrom
+    # Disks
+    disk:
+      - file: /var/lib/libvirt/images/postgres-secondary-root.qcow2
+        type: virtio
+        device: vda
+        bootOrder: 1
+      - file: /var/lib/libvirt/images/postgres-secondary-data.qcow2
+        type: virtio
+        device: vdb
+    # Network Interface
+    networkInterface:
+      - networkName: postgres-dr-network
+        model: virtio
+        waitForLease: true
+    console:
+      type: pty
+    graphics:
+      type: spice
+      listenAddress: "0.0.0.0"
+      autoport: true
+  providerConfigRef:
+    name: timewarp
+  deletionPolicy: Delete

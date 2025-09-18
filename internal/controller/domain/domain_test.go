@@ -15,9 +15,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	xpv1 "github.com/crossplane/crossplane-runtime/apis/common/v1"
-	"github.com/crossplane/crossplane-runtime/pkg/reconciler/managed"
-	"github.com/crossplane/crossplane-runtime/pkg/resource"
+	xpv1 "github.com/crossplane/crossplane-runtime/v2/apis/common/v1"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/reconciler/managed"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/resource"
 
 	"github.com/rossigee/provider-libvirt/apis/v1alpha1"
 )
@@ -40,8 +40,6 @@ func (m *mockManagedResource) GetManagementPolicies() xpv1.ManagementPolicies   
 func (m *mockManagedResource) SetManagementPolicies(xpv1.ManagementPolicies)                {}
 func (m *mockManagedResource) GetProviderConfigReference() *xpv1.Reference                  { return nil }
 func (m *mockManagedResource) SetProviderConfigReference(*xpv1.Reference)                   {}
-func (m *mockManagedResource) GetPublishConnectionDetailsTo() *xpv1.PublishConnectionDetailsTo { return nil }
-func (m *mockManagedResource) SetPublishConnectionDetailsTo(*xpv1.PublishConnectionDetailsTo) {}
 func (m *mockManagedResource) GetWriteConnectionSecretToReference() *xpv1.SecretReference   { return nil }
 func (m *mockManagedResource) SetWriteConnectionSecretToReference(*xpv1.SecretReference)    {}
 func (m *mockManagedResource) GetCondition(xpv1.ConditionType) xpv1.Condition             { return xpv1.Condition{} }

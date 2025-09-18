@@ -16,7 +16,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	xpv1 "github.com/crossplane/crossplane-runtime/apis/common/v1"
+	xpv1 "github.com/crossplane/crossplane-runtime/v2/apis/common/v1"
 
 	"github.com/rossigee/provider-libvirt/apis/v1alpha1"
 )
@@ -264,10 +264,10 @@ func testStoragePoolDependencyValidation(t *testing.T, ctx context.Context, k8sC
 				ProviderConfigReference: &xpv1.Reference{Name: "test-provider-config"},
 			},
 			ForProvider: v1alpha1.VolumeParameters{
-				Name:     "pool-dependency-volume.qcow2",
-				Pool:     "non-existent-pool", // References non-existent pool
-				Format:   "qcow2",
-				Capacity: 10737418240,
+				Name:   "pool-dependency-volume.qcow2",
+				Pool:   "non-existent-pool", // References non-existent pool
+				Format: "qcow2",
+				Size:   "10G",
 			},
 		},
 	}
@@ -554,10 +554,10 @@ func testCircularDependencyDetection(t *testing.T, ctx context.Context, k8sClien
 				ProviderConfigReference: &xpv1.Reference{Name: "test-provider-config"},
 			},
 			ForProvider: v1alpha1.VolumeParameters{
-				Name:     "circular-test-vol-1.qcow2",
-				Pool:     "pool-a",
-				Format:   "qcow2",
-				Capacity: 10737418240,
+				Name:   "circular-test-vol-1.qcow2",
+				Pool:   "pool-a",
+				Format: "qcow2",
+				Size:   "10G",
 			},
 		},
 	}
@@ -571,10 +571,10 @@ func testCircularDependencyDetection(t *testing.T, ctx context.Context, k8sClien
 				ProviderConfigReference: &xpv1.Reference{Name: "test-provider-config"},
 			},
 			ForProvider: v1alpha1.VolumeParameters{
-				Name:     "circular-test-vol-2.qcow2",
-				Pool:     "pool-b",
-				Format:   "qcow2",
-				Capacity: 10737418240,
+				Name:   "circular-test-vol-2.qcow2",
+				Pool:   "pool-b",
+				Format: "qcow2",
+				Size:   "10G",
 			},
 		},
 	}

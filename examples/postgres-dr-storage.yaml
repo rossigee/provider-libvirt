@@ -1,0 +1,20 @@
+# PostgreSQL DR Storage Pool
+apiVersion: libvirt.crossplane.io/v1alpha1
+kind: StoragePool
+metadata:
+  name: postgres-dr-pool
+  namespace: crossplane-system
+spec:
+  forProvider:
+    name: postgres-dr-pool
+    type: dir
+    autoStart: true
+    target:
+      path: /var/lib/libvirt/images/postgres-dr
+      permissions:
+        owner: 107   # qemu user
+        group: 107   # qemu group
+        mode: 0755   # rwxr-xr-x
+  providerConfigRef:
+    name: timewarp
+  deletionPolicy: Delete

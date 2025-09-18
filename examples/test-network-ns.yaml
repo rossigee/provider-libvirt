@@ -1,0 +1,30 @@
+# Test network in crossplane-system namespace to match ProviderConfig
+apiVersion: libvirt.crossplane.io/v1alpha1
+kind: Network
+metadata:
+  name: postgres-dr-network-ns
+  namespace: crossplane-system
+spec:
+  forProvider:
+    name: postgres-dr-network
+    mode: nat
+    autoStart: true
+    bridge:
+      name: virbr3
+    ip:
+      address: 192.168.100.1/24
+      family: ipv4
+    dhcp:
+      enabled: true
+      range:
+        start: 192.168.100.100
+        end: 192.168.100.200
+    dns:
+      enable: true
+      forwarders:
+        - address: 8.8.8.8
+    forward:
+      mode: nat
+      managed: true
+  providerConfigRef:
+    name: timewarp

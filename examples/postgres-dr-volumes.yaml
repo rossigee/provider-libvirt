@@ -1,0 +1,67 @@
+# PostgreSQL Primary VM Root Volume
+apiVersion: libvirt.crossplane.io/v1alpha1
+kind: Volume
+metadata:
+  name: postgres-primary-root
+  namespace: crossplane-system
+spec:
+  forProvider:
+    name: postgres-primary-root.qcow2
+    pool: default  # Use default pool for now
+    capacity: 21474836480  # 20GB
+    allocation: 1073741824  # 1GB initial
+    format: qcow2
+  providerConfigRef:
+    name: timewarp
+  deletionPolicy: Delete
+---
+# PostgreSQL Primary VM Data Volume
+apiVersion: libvirt.crossplane.io/v1alpha1
+kind: Volume
+metadata:
+  name: postgres-primary-data
+  namespace: crossplane-system
+spec:
+  forProvider:
+    name: postgres-primary-data.qcow2
+    pool: default
+    capacity: 107374182400  # 100GB
+    allocation: 1073741824   # 1GB initial
+    format: qcow2
+  providerConfigRef:
+    name: timewarp
+  deletionPolicy: Delete
+---
+# PostgreSQL Secondary VM Root Volume
+apiVersion: libvirt.crossplane.io/v1alpha1
+kind: Volume
+metadata:
+  name: postgres-secondary-root
+  namespace: crossplane-system
+spec:
+  forProvider:
+    name: postgres-secondary-root.qcow2
+    pool: default
+    capacity: 21474836480  # 20GB
+    allocation: 1073741824  # 1GB initial
+    format: qcow2
+  providerConfigRef:
+    name: timewarp
+  deletionPolicy: Delete
+---
+# PostgreSQL Secondary VM Data Volume
+apiVersion: libvirt.crossplane.io/v1alpha1
+kind: Volume
+metadata:
+  name: postgres-secondary-data
+  namespace: crossplane-system
+spec:
+  forProvider:
+    name: postgres-secondary-data.qcow2
+    pool: default
+    capacity: 107374182400  # 100GB
+    allocation: 1073741824   # 1GB initial
+    format: qcow2
+  providerConfigRef:
+    name: timewarp
+  deletionPolicy: Delete

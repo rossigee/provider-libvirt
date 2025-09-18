@@ -18,7 +18,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	xpv1 "github.com/crossplane/crossplane-runtime/apis/common/v1"
+	xpv1 "github.com/crossplane/crossplane-runtime/v2/apis/common/v1"
 
 	"github.com/rossigee/provider-libvirt/apis/v1alpha1"
 )
@@ -112,7 +112,7 @@ func testCompleteVMSetup(t *testing.T, ctx context.Context, k8sClient client.Cli
 				Name:     "test-vm-disk.qcow2",
 				Pool:     "test-pool", // References the StoragePool
 				Format:   "qcow2",
-				Capacity: 21474836480, // 20GB
+				Size: "20G", // 20GB using human-readable format
 			},
 		},
 	}
@@ -536,7 +536,7 @@ func testResourceDependencyOrdering(t *testing.T, ctx context.Context, k8sClient
 				Name:     "future-volume.qcow2",
 				Pool:     "default",
 				Format:   "qcow2",
-				Capacity: 10737418240, // 10GB
+				Size: "10G", // 10GB using human-readable format
 			},
 		},
 	}

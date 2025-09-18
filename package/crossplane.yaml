@@ -35,4 +35,4 @@ metadata:
       open an [issue](https://github.com/rossigee/provider-libvirt/issues).
 spec:
   controller:
-    image: ghcr.io/rossigee/provider-libvirt:v0.3.1
+    image: ghcr.io/rossigee/provider-libvirt:v0.3.7

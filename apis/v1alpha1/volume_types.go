@@ -10,7 +10,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	xpv1 "github.com/crossplane/crossplane-runtime/apis/common/v1"
+	xpv1 "github.com/crossplane/crossplane-runtime/v2/apis/common/v1"
 )
 
 // VolumeSpec defines the desired state of Volume
@@ -20,6 +20,7 @@ type VolumeSpec struct {
 }
 
 // VolumeParameters are the configurable fields of a Volume.
+// +kubebuilder:validation:XValidation:rule="has(self.capacity) || has(self.size)",message="Either capacity or size must be specified"
 type VolumeParameters struct {
 	// Name of the volume
 	// +kubebuilder:validation:Required
@@ -29,10 +30,16 @@ type VolumeParameters struct {
 	// +kubebuilder:validation:Required
 	Pool string `json:"pool"`
 
-	// Capacity of the volume in bytes
-	// +kubebuilder:validation:Required
+	// Capacity of the volume in bytes (deprecated - use Size instead)
+	// +kubebuilder:validation:Optional
 	// +kubebuilder:validation:Minimum=1048576
-	Capacity int64 `json:"capacity"`
+	Capacity *int64 `json:"capacity,omitempty"`
+
+	// Size of the volume using human-readable format (e.g., "100G", "1T", "512M")
+	// Takes precedence over Capacity if both are specified
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:Pattern=`^[0-9]+(\.[0-9]+)?[KMGTPE]?[iB]?$`
+	Size string `json:"size,omitempty"`
 
 	// Format of the volume (qcow2, raw, vmdk, etc.)
 	// +kubebuilder:validation:Optional

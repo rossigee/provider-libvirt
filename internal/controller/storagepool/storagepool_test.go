@@ -14,9 +14,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	xpv1 "github.com/crossplane/crossplane-runtime/apis/common/v1"
-	"github.com/crossplane/crossplane-runtime/pkg/reconciler/managed"
-	"github.com/crossplane/crossplane-runtime/pkg/resource"
+	xpv1 "github.com/crossplane/crossplane-runtime/v2/apis/common/v1"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/reconciler/managed"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/resource"
 
 	"github.com/rossigee/provider-libvirt/apis/v1alpha1"
 	"github.com/rossigee/provider-libvirt/internal/clients"
@@ -1127,6 +1127,218 @@ func findSubstring(s, substr string) bool {
 		}
 	}
 	return false
+}
+
+func TestIsStoragePoolNotFound(t *testing.T) {
+	tests := []struct {
+		name     string
+		err      error
+		expected bool
+	}{
+		{"StoragePoolNotFound", errors.New("Storage pool not found: no storage pool with matching name"), true},
+		{"ContainsNotFound", errors.New("some error not found"), true},
+		{"ContainsNoStoragePool", errors.New("no storage pool with name"), true},
+		{"OtherError", errors.New("connection failed"), false},
+		{"NilError", nil, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.err == nil && tt.expected {
+				t.Skip("Cannot test nil error for positive case")
+			}
+
+			var got bool
+			if tt.err != nil {
+				got = isStoragePoolNotFound(tt.err)
+			}
+
+			if got != tt.expected {
+				t.Errorf("isStoragePoolNotFound() = %v, want %v", got, tt.expected)
+			}
+		})
+	}
+}
+
+func TestStoragePoolStateToString(t *testing.T) {
+	tests := []struct {
+		name     string
+		state    libvirt.StoragePoolState
+		expected string
+	}{
+		{"Inactive", libvirt.StoragePoolInactive, "inactive"},
+		{"Building", libvirt.StoragePoolBuilding, "building"},
+		{"Running", libvirt.StoragePoolRunning, "active"},
+		{"Degraded", libvirt.StoragePoolDegraded, "degraded"},
+		{"Inaccessible", libvirt.StoragePoolInaccessible, "inaccessible"},
+		{"Unknown", libvirt.StoragePoolState(99), "unknown"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := storagePoolStateToString(tt.state)
+			if got != tt.expected {
+				t.Errorf("storagePoolStateToString() = %v, want %v", got, tt.expected)
+			}
+		})
+	}
+}
+
+func TestIsStoragePoolUpToDate(t *testing.T) {
+	tests := []struct {
+		name      string
+		pool      *v1alpha1.StoragePool
+		active    int
+		autoStart int
+		expected  bool
+	}{
+		{
+			name: "UpToDateWithAutostart",
+			pool: &v1alpha1.StoragePool{
+				Spec: v1alpha1.StoragePoolSpec{
+					ForProvider: v1alpha1.StoragePoolParameters{
+						AutoStart: boolPtr(true),
+					},
+				},
+			},
+			active:    1,
+			autoStart: 1,
+			expected:  true,
+		},
+		{
+			name: "UpToDateWithoutAutostart",
+			pool: &v1alpha1.StoragePool{
+				Spec: v1alpha1.StoragePoolSpec{
+					ForProvider: v1alpha1.StoragePoolParameters{
+						AutoStart: boolPtr(false),
+					},
+				},
+			},
+			active:    0,
+			autoStart: 0,
+			expected:  true,
+		},
+		{
+			name: "NotUpToDateAutostart",
+			pool: &v1alpha1.StoragePool{
+				Spec: v1alpha1.StoragePoolSpec{
+					ForProvider: v1alpha1.StoragePoolParameters{
+						AutoStart: boolPtr(true),
+					},
+				},
+			},
+			active:    0,
+			autoStart: 0, // Should be 1
+			expected:  false,
+		},
+		{
+			name: "NotUpToDateActive",
+			pool: &v1alpha1.StoragePool{
+				Spec: v1alpha1.StoragePoolSpec{
+					ForProvider: v1alpha1.StoragePoolParameters{
+						AutoStart: boolPtr(true),
+					},
+				},
+			},
+			active:    0, // Should be 1 when autostart is true
+			autoStart: 1,
+			expected:  false,
+		},
+		{
+			name: "NoAutostartSpecified",
+			pool: &v1alpha1.StoragePool{
+				Spec: v1alpha1.StoragePoolSpec{
+					ForProvider: v1alpha1.StoragePoolParameters{
+						// No AutoStart specified
+					},
+				},
+			},
+			active:    1,
+			autoStart: 1,
+			expected:  true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := isStoragePoolUpToDate(tt.pool, tt.active, tt.autoStart)
+			if got != tt.expected {
+				t.Errorf("isStoragePoolUpToDate() = %v, want %v", got, tt.expected)
+			}
+		})
+	}
+}
+
+func TestGetStoragePoolConnectionDetails(t *testing.T) {
+	cr := &v1alpha1.StoragePool{
+		Spec: v1alpha1.StoragePoolSpec{
+			ForProvider: v1alpha1.StoragePoolParameters{
+				Type: "dir",
+				Target: &v1alpha1.StoragePoolTarget{
+					Path: "/var/lib/libvirt/images",
+				},
+			},
+		},
+	}
+
+	uuid := generateStoragePoolUUID("test-pool")
+	pool := libvirt.StoragePool{
+		Name: "test-pool",
+		UUID: uuid,
+	}
+
+	cd := getStoragePoolConnectionDetails(cr, pool)
+
+	expectedKeys := []string{"pool-uuid", "pool-name", "pool-type", "pool-path"}
+	for _, key := range expectedKeys {
+		if _, exists := cd[key]; !exists {
+			t.Errorf("Expected connection detail key %s to exist", key)
+		}
+	}
+
+	if string(cd["pool-name"]) != pool.Name {
+		t.Errorf("Expected pool-name to be %s, got %s", pool.Name, string(cd["pool-name"]))
+	}
+
+	if string(cd["pool-type"]) != "dir" {
+		t.Errorf("Expected pool-type to be dir, got %s", string(cd["pool-type"]))
+	}
+
+	if string(cd["pool-path"]) != "/var/lib/libvirt/images" {
+		t.Errorf("Expected pool-path to be /var/lib/libvirt/images, got %s", string(cd["pool-path"]))
+	}
+}
+
+func TestGetStoragePoolConnectionDetailsWithoutTarget(t *testing.T) {
+	cr := &v1alpha1.StoragePool{
+		Spec: v1alpha1.StoragePoolSpec{
+			ForProvider: v1alpha1.StoragePoolParameters{
+				Type: "iscsi",
+				// No Target specified
+			},
+		},
+	}
+
+	uuid := generateStoragePoolUUID("test-pool")
+	pool := libvirt.StoragePool{
+		Name: "test-pool",
+		UUID: uuid,
+	}
+
+	cd := getStoragePoolConnectionDetails(cr, pool)
+
+	// Should have basic keys but not pool-path
+	expectedKeys := []string{"pool-uuid", "pool-name", "pool-type"}
+	for _, key := range expectedKeys {
+		if _, exists := cd[key]; !exists {
+			t.Errorf("Expected connection detail key %s to exist", key)
+		}
+	}
+
+	// pool-path should not exist when no Target is specified
+	if _, exists := cd["pool-path"]; exists {
+		t.Error("Expected pool-path to not exist when no Target is specified")
+	}
 }
 
 func findStringBetween(str, start, end string) string {

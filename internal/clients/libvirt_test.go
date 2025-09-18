@@ -18,8 +18,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	xpv1 "github.com/crossplane/crossplane-runtime/apis/common/v1"
-	"github.com/crossplane/crossplane-runtime/pkg/resource"
+	xpv1 "github.com/crossplane/crossplane-runtime/v2/apis/common/v1"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/resource"
 
 	"github.com/rossigee/provider-libvirt/apis/v1alpha1"
 )
@@ -115,6 +115,10 @@ func TestGetLibvirtClient_WithValidConfig(t *testing.T) {
 
 	// Create provider config
 	pc := &v1alpha1.ProviderConfig{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-provider-config",
+			Namespace: "crossplane-system",
+		},
 		Spec: v1alpha1.ProviderConfigSpec{
 			Credentials: v1alpha1.ProviderCredentials{
 				Source: xpv1.CredentialsSourceSecret,
@@ -130,7 +134,6 @@ func TestGetLibvirtClient_WithValidConfig(t *testing.T) {
 			},
 		},
 	}
-	pc.SetName("test-provider-config")
 
 	// Create secret with credentials
 	secret := &corev1.Secret{
@@ -149,6 +152,9 @@ func TestGetLibvirtClient_WithValidConfig(t *testing.T) {
 		Build()
 
 	mg := &v1alpha1.Domain{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-domain",
+		},
 		Spec: v1alpha1.DomainSpec{
 			ResourceSpec: xpv1.ResourceSpec{
 				ProviderConfigReference: &xpv1.Reference{

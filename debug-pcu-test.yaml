@@ -1,0 +1,12 @@
+apiVersion: libvirt.crossplane.io/v1alpha1
+kind: ProviderConfigUsage
+metadata:
+  name: debug-test
+  namespace: crossplane-system
+providerConfigRef:
+  name: timewarp
+resourceRef:
+  apiVersion: libvirt.crossplane.io/v1alpha1
+  kind: Network
+  name: test-resource
+  uid: "debug-test-uid"

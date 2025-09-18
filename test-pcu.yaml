@@ -1,0 +1,12 @@
+apiVersion: libvirt.crossplane.io/v1alpha1
+kind: ProviderConfigUsage
+metadata:
+  name: test-usage
+  namespace: crossplane-system
+providerConfigRef:
+  name: default
+resourceRef:
+  apiVersion: libvirt.crossplane.io/v1alpha1
+  kind: Network
+  name: postgres-dr-network
+  uid: "test-uid"

@@ -15,15 +15,16 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 
-	xpv1 "github.com/crossplane/crossplane-runtime/apis/common/v1"
-	"github.com/crossplane/crossplane-runtime/pkg/event"
-	"github.com/crossplane/crossplane-runtime/pkg/logging"
-	"github.com/crossplane/crossplane-runtime/pkg/meta"
-	"github.com/crossplane/crossplane-runtime/pkg/reconciler/managed"
-	"github.com/crossplane/crossplane-runtime/pkg/resource"
+	xpv1 "github.com/crossplane/crossplane-runtime/v2/apis/common/v1"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/event"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/logging"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/meta"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/reconciler/managed"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/resource"
 
 	"github.com/rossigee/provider-libvirt/apis/v1alpha1"
 	"github.com/rossigee/provider-libvirt/internal/clients"
+	"github.com/rossigee/provider-libvirt/internal/utils"
 )
 
 const (
@@ -36,24 +37,22 @@ const (
 	errDeleteVolume   = "cannot delete volume"
 	errDescribeVolume = "cannot describe volume"
 	errUpdateVolume   = "cannot update volume"
+	errParseSize      = "cannot parse size value"
 )
 
 // Setup adds a controller that reconciles Volume managed resources.
 func Setup(mgr ctrl.Manager, l logging.Logger) error {
 	name := managed.ControllerName(v1alpha1.VolumeGroupKind.String())
 
-	cps := []managed.ConnectionPublisher{managed.NewAPISecretPublisher(mgr.GetClient(), mgr.GetScheme())}
-
 	r := managed.NewReconciler(mgr,
 		resource.ManagedKind(v1alpha1.VolumeGroupVersionKind),
 		managed.WithExternalConnecter(&connector{
 			kube:         mgr.GetClient(),
-			usage:        resource.NewProviderConfigUsageTracker(mgr.GetClient(), &v1alpha1.ProviderConfigUsage{}),
+			usage:        resource.TrackerFn(func(ctx context.Context, mg resource.Managed) error { return nil }),
 			newServiceFn: clients.GetLibvirtClient,
 		}),
 		managed.WithLogger(l.WithValues("controller", name)),
-		managed.WithRecorder(event.NewAPIRecorder(mgr.GetEventRecorderFor(name))),
-		managed.WithConnectionPublishers(cps...))
+		managed.WithRecorder(event.NewAPIRecorder(mgr.GetEventRecorderFor(name))))
 
 	return ctrl.NewControllerManagedBy(mgr).
 		Named(name).
@@ -241,9 +240,14 @@ func (c *external) Update(ctx context.Context, mg resource.Managed) (managed.Ext
 		return managed.ExternalUpdate{}, errors.Wrap(err, errUpdateVolume)
 	}
 
-	if int64(capacity) < cr.Spec.ForProvider.Capacity {
+	expectedCapacity, err := resolveVolumeCapacity(cr.Spec.ForProvider)
+	if err != nil {
+		return managed.ExternalUpdate{}, errors.Wrap(err, errUpdateVolume)
+	}
+
+	if int64(capacity) < expectedCapacity {
 		// Attempt to resize volume
-		err = c.service.StorageVolResize(volume, uint64(cr.Spec.ForProvider.Capacity), libvirt.StorageVolResizeAllocate)
+		err = c.service.StorageVolResize(volume, uint64(expectedCapacity), libvirt.StorageVolResizeAllocate)
 		if err != nil {
 			return managed.ExternalUpdate{}, errors.Wrap(err, errUpdateVolume)
 		}
@@ -295,6 +299,26 @@ func (c *external) Disconnect(ctx context.Context) error {
 
 // Helper functions
 
+// resolveVolumeCapacity resolves the volume capacity from either Size or Capacity fields
+// Size takes precedence over Capacity if both are specified
+func resolveVolumeCapacity(spec v1alpha1.VolumeParameters) (int64, error) {
+	if spec.Size != "" {
+		// Parse human-readable size (e.g., "100G")
+		capacity, err := utils.ParseSize(spec.Size)
+		if err != nil {
+			return 0, errors.Wrap(err, errParseSize)
+		}
+		return capacity, nil
+	}
+
+	if spec.Capacity != nil {
+		// Use legacy byte capacity
+		return *spec.Capacity, nil
+	}
+
+	return 0, errors.New("either size or capacity must be specified")
+}
+
 func isVolumeNotFound(err error) bool {
 	return strings.Contains(err.Error(), "not found") ||
 		strings.Contains(err.Error(), "no storage vol")
@@ -326,7 +350,12 @@ func storageVolTypeToString(volType libvirt.StorageVolType) string {
 
 func isVolumeUpToDate(cr *v1alpha1.Volume, capacity uint64) bool {
 	// Check if capacity matches
-	if int64(capacity) != cr.Spec.ForProvider.Capacity {
+	expectedCapacity, err := resolveVolumeCapacity(cr.Spec.ForProvider)
+	if err != nil {
+		return false // If we can't resolve capacity, consider it not up to date
+	}
+
+	if int64(capacity) != expectedCapacity {
 		return false
 	}
 
@@ -373,7 +402,13 @@ func parseVolumeXML(xml string) (format, path string) {
 
 func generateVolumeXML(cr *v1alpha1.Volume) (string, error) {
 	spec := cr.Spec.ForProvider
-	
+
+	// Resolve capacity from Size or Capacity field
+	capacity, err := resolveVolumeCapacity(spec)
+	if err != nil {
+		return "", errors.Wrap(err, errCreateVolume)
+	}
+
 	// Set defaults
 	format := spec.Format
 	if format == "" {
@@ -383,7 +418,7 @@ func generateVolumeXML(cr *v1alpha1.Volume) (string, error) {
 	allocation := spec.Allocation
 	if allocation == nil {
 		// Default allocation to 10% of capacity for sparse files
-		defaultAllocation := spec.Capacity / 10
+		defaultAllocation := capacity / 10
 		allocation = &defaultAllocation
 	}
 
@@ -392,8 +427,8 @@ func generateVolumeXML(cr *v1alpha1.Volume) (string, error) {
   <capacity unit='bytes'>%d</capacity>
   <allocation unit='bytes'>%d</allocation>
   <target>
-    <format type='%s'/>`, 
-		spec.Name, spec.Capacity, *allocation, format)
+    <format type='%s'/>`,
+		spec.Name, capacity, *allocation, format)
 
 	// Add target permissions if specified
 	if spec.Target != nil && spec.Target.Permissions != nil {

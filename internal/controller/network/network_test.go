@@ -13,9 +13,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	xpv1 "github.com/crossplane/crossplane-runtime/apis/common/v1"
-	"github.com/crossplane/crossplane-runtime/pkg/reconciler/managed"
-	"github.com/crossplane/crossplane-runtime/pkg/resource"
+	xpv1 "github.com/crossplane/crossplane-runtime/v2/apis/common/v1"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/reconciler/managed"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/resource"
 
 	"github.com/rossigee/provider-libvirt/apis/v1alpha1"
 )
@@ -953,6 +953,376 @@ func findStringBetween(str, start, end string) string {
 		return ""
 	}
 	return str[s : s+e]
+}
+
+func TestNetworkExternal_Update(t *testing.T) {
+	tests := []struct {
+		name      string
+		mockSetup func(*mockNetworkService)
+		network   *v1alpha1.Network
+		wantErr   bool
+		errMsg    string
+		validate  func(*testing.T, *mockNetworkService, *v1alpha1.Network)
+	}{
+		{
+			name: "UpdateAutostartEnabled",
+			mockSetup: func(m *mockNetworkService) {
+				network := &mockNetwork{
+					Network: libvirt.Network{
+						Name: "test-network",
+						UUID: generateNetworkUUID("test-network"),
+					},
+					name:       "test-network",
+					uuid:       generateNetworkUUID("test-network"),
+					active:     1,
+					persistent: 1,
+					autostart:  0, // Currently disabled
+					xml:        generateMockNetworkXML(&mockNetwork{name: "test-network"}),
+				}
+				m.networks["test-network"] = network
+			},
+			network: &v1alpha1.Network{
+				Spec: v1alpha1.NetworkSpec{
+					ForProvider: v1alpha1.NetworkParameters{
+						Name:      "test-network",
+						Mode:      "nat",
+						AutoStart: boolPtr(true), // Enable autostart
+					},
+				},
+			},
+			wantErr: false,
+			validate: func(t *testing.T, m *mockNetworkService, network *v1alpha1.Network) {
+				networkName := network.Spec.ForProvider.Name
+				mockNet, exists := m.networks[networkName]
+				if !exists {
+					t.Error("Expected network to exist")
+					return
+				}
+				if mockNet.autostart != 1 {
+					t.Error("Expected autostart to be enabled")
+				}
+			},
+		},
+		{
+			name: "UpdateAutostartDisabled",
+			mockSetup: func(m *mockNetworkService) {
+				network := &mockNetwork{
+					Network: libvirt.Network{
+						Name: "test-network",
+						UUID: generateNetworkUUID("test-network"),
+					},
+					name:       "test-network",
+					uuid:       generateNetworkUUID("test-network"),
+					active:     1,
+					persistent: 1,
+					autostart:  1, // Currently enabled
+					xml:        generateMockNetworkXML(&mockNetwork{name: "test-network"}),
+				}
+				m.networks["test-network"] = network
+			},
+			network: &v1alpha1.Network{
+				Spec: v1alpha1.NetworkSpec{
+					ForProvider: v1alpha1.NetworkParameters{
+						Name:      "test-network",
+						Mode:      "nat",
+						AutoStart: boolPtr(false), // Disable autostart
+					},
+				},
+			},
+			wantErr: false,
+			validate: func(t *testing.T, m *mockNetworkService, network *v1alpha1.Network) {
+				networkName := network.Spec.ForProvider.Name
+				mockNet, exists := m.networks[networkName]
+				if !exists {
+					t.Error("Expected network to exist")
+					return
+				}
+				if mockNet.autostart != 0 {
+					t.Error("Expected autostart to be disabled")
+				}
+			},
+		},
+		{
+			name: "UpdateError",
+			mockSetup: func(m *mockNetworkService) {
+				network := &mockNetwork{
+					Network: libvirt.Network{
+						Name: "test-network",
+						UUID: generateNetworkUUID("test-network"),
+					},
+					name:       "test-network",
+					uuid:       generateNetworkUUID("test-network"),
+					active:     1,
+					persistent: 1,
+					autostart:  0,
+					xml:        generateMockNetworkXML(&mockNetwork{name: "test-network"}),
+				}
+				m.networks["test-network"] = network
+				m.autostartError = errors.New("failed to set autostart")
+			},
+			network: &v1alpha1.Network{
+				Spec: v1alpha1.NetworkSpec{
+					ForProvider: v1alpha1.NetworkParameters{
+						Name:      "test-network",
+						Mode:      "nat",
+						AutoStart: boolPtr(true),
+					},
+				},
+			},
+			wantErr: true,
+			errMsg:  errUpdateNetwork,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockService := newMockNetworkService()
+			if tt.mockSetup != nil {
+				tt.mockSetup(mockService)
+			}
+
+			e := createMockNetworkExternal(mockService)
+
+			_, err := e.Update(context.Background(), tt.network)
+
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("Update() error = nil, wantErr %v", tt.wantErr)
+					return
+				}
+				if tt.errMsg != "" && !containsSubstring(err.Error(), tt.errMsg) {
+					t.Errorf("Update() error = %v, want error containing %v", err, tt.errMsg)
+				}
+				return
+			}
+
+			if err != nil {
+				t.Errorf("Update() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
+			if tt.validate != nil {
+				tt.validate(t, mockService, tt.network)
+			}
+		})
+	}
+}
+
+func TestIsNetworkNotFound(t *testing.T) {
+	tests := []struct {
+		name     string
+		err      error
+		expected bool
+	}{
+		{"NetworkNotFound", errors.New("Network not found: no network with matching name"), true},
+		{"ContainsNotFound", errors.New("some error not found"), true},
+		{"ContainsNoNetwork", errors.New("no network with name"), true},
+		{"OtherError", errors.New("connection failed"), false},
+		{"NilError", nil, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.err == nil && tt.expected {
+				t.Skip("Cannot test nil error for positive case")
+			}
+
+			var got bool
+			if tt.err != nil {
+				got = isNetworkNotFound(tt.err)
+			}
+
+			if got != tt.expected {
+				t.Errorf("isNetworkNotFound() = %v, want %v", got, tt.expected)
+			}
+		})
+	}
+}
+
+func TestIsNetworkUpToDate(t *testing.T) {
+	tests := []struct {
+		name      string
+		network   *v1alpha1.Network
+		active    int
+		autoStart int
+		expected  bool
+	}{
+		{
+			name: "UpToDateWithAutostart",
+			network: &v1alpha1.Network{
+				Spec: v1alpha1.NetworkSpec{
+					ForProvider: v1alpha1.NetworkParameters{
+						AutoStart: boolPtr(true),
+					},
+				},
+			},
+			active:    1,
+			autoStart: 1,
+			expected:  true,
+		},
+		{
+			name: "UpToDateWithoutAutostart",
+			network: &v1alpha1.Network{
+				Spec: v1alpha1.NetworkSpec{
+					ForProvider: v1alpha1.NetworkParameters{
+						AutoStart: boolPtr(false),
+					},
+				},
+			},
+			active:    0,
+			autoStart: 0,
+			expected:  true,
+		},
+		{
+			name: "NotUpToDateAutostart",
+			network: &v1alpha1.Network{
+				Spec: v1alpha1.NetworkSpec{
+					ForProvider: v1alpha1.NetworkParameters{
+						AutoStart: boolPtr(true),
+					},
+				},
+			},
+			active:    0,
+			autoStart: 0, // Should be 1
+			expected:  false,
+		},
+		{
+			name: "NotUpToDateActive",
+			network: &v1alpha1.Network{
+				Spec: v1alpha1.NetworkSpec{
+					ForProvider: v1alpha1.NetworkParameters{
+						AutoStart: boolPtr(true),
+					},
+				},
+			},
+			active:    0, // Should be 1 when autostart is true
+			autoStart: 1,
+			expected:  false,
+		},
+		{
+			name: "NoAutostartSpecified",
+			network: &v1alpha1.Network{
+				Spec: v1alpha1.NetworkSpec{
+					ForProvider: v1alpha1.NetworkParameters{
+						// No AutoStart specified
+					},
+				},
+			},
+			active:    1,
+			autoStart: 1,
+			expected:  true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := isNetworkUpToDate(tt.network, tt.active, tt.autoStart)
+			if got != tt.expected {
+				t.Errorf("isNetworkUpToDate() = %v, want %v", got, tt.expected)
+			}
+		})
+	}
+}
+
+func TestGetNetworkConnectionDetails(t *testing.T) {
+	cr := &v1alpha1.Network{
+		Spec: v1alpha1.NetworkSpec{
+			ForProvider: v1alpha1.NetworkParameters{
+				IP: &v1alpha1.NetworkIP{
+					Address: "192.168.100.1/24",
+				},
+			},
+		},
+		Status: v1alpha1.NetworkStatus{
+			AtProvider: v1alpha1.NetworkObservation{
+				BridgeName: "virbr0",
+			},
+		},
+	}
+
+	uuid := generateNetworkUUID("test-network")
+	network := libvirt.Network{
+		Name: "test-network",
+		UUID: uuid,
+	}
+
+	cd := getNetworkConnectionDetails(cr, network)
+
+	expectedKeys := []string{"network-uuid", "network-name", "bridge-name", "network-cidr"}
+	for _, key := range expectedKeys {
+		if _, exists := cd[key]; !exists {
+			t.Errorf("Expected connection detail key %s to exist", key)
+		}
+	}
+
+	if string(cd["network-name"]) != network.Name {
+		t.Errorf("Expected network-name to be %s, got %s", network.Name, string(cd["network-name"]))
+	}
+
+	if string(cd["bridge-name"]) != "virbr0" {
+		t.Errorf("Expected bridge-name to be virbr0, got %s", string(cd["bridge-name"]))
+	}
+
+	if string(cd["network-cidr"]) != "192.168.100.1/24" {
+		t.Errorf("Expected network-cidr to be 192.168.100.1/24, got %s", string(cd["network-cidr"]))
+	}
+}
+
+func TestParseNetworkBridgeName(t *testing.T) {
+	tests := []struct {
+		name         string
+		xml          string
+		expectedName string
+	}{
+		{
+			name: "StandardBridge",
+			xml: `<network>
+  <name>test-network</name>
+  <bridge name='virbr0' stp='on' delay='0'/>
+  <forward mode='nat'/>
+</network>`,
+			expectedName: "virbr0",
+		},
+		{
+			name: "BridgeWithoutSTP",
+			xml: `<network>
+  <name>test-network</name>
+  <bridge name='br0'/>
+  <forward mode='bridge'/>
+</network>`,
+			expectedName: "br0",
+		},
+		{
+			name: "NoBridge",
+			xml: `<network>
+  <name>test-network</name>
+  <forward mode='nat'/>
+</network>`,
+			expectedName: "",
+		},
+		{
+			name: "EmptyXML",
+			xml:  "",
+			expectedName: "",
+		},
+		{
+			name: "MalformedBridge",
+			xml: `<network>
+  <name>test-network</name>
+  <bridge name='virbr0 stp='on'/>
+</network>`,
+			expectedName: "virbr0 stp=", // The parser extracts what's there, even if malformed
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := parseNetworkBridgeName(tt.xml)
+			if got != tt.expectedName {
+				t.Errorf("parseNetworkBridgeName() = %v, want %v", got, tt.expectedName)
+			}
+		})
+	}
 }
 
 func findIndex(str, substr string) int {
