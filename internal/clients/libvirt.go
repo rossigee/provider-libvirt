@@ -228,7 +228,27 @@ func connectToLibvirt(uri string) (net.Conn, error) {
 		// Set the server name from the URI hostname for certificate validation
 		tlsConfig.ServerName = hostname
 
-		return tls.Dial("tcp", host, tlsConfig)
+		conn, err := tls.Dial("tcp", host, tlsConfig)
+		if err != nil {
+			return nil, err
+		}
+
+		// Read the server verification byte after TLS handshake
+		// The libvirt server sends a verification byte to indicate
+		// client certificate/IP address verification status
+		verifyBuf := make([]byte, 1)
+		if _, err := conn.Read(verifyBuf); err != nil {
+			_ = conn.Close()
+			return nil, errors.Wrap(err, "failed to read server verification byte")
+		}
+
+		// Check verification result
+		if verifyBuf[0] != 1 {
+			_ = conn.Close()
+			return nil, fmt.Errorf("server verification failed (code: %d)", verifyBuf[0])
+		}
+
+		return conn, nil
 
 	default:
 		return nil, fmt.Errorf("unsupported libvirt URI scheme: %s", parsedURI.Scheme)
