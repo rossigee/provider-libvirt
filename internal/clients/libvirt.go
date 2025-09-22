@@ -6,19 +6,11 @@ package clients
 
 import (
 	"context"
-	"crypto/tls"
-	"crypto/x509"
 	"encoding/json"
 	"fmt"
-	"net"
-	"net/url"
-	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
-	"github.com/digitalocean/go-libvirt"
-	"github.com/digitalocean/go-libvirt/socket/dialers"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -52,22 +44,16 @@ const (
 // LibvirtCredentials represents libvirt connection credentials
 type LibvirtCredentials map[string]string
 
-// LibvirtClient wraps go-libvirt connection with additional metadata
+// LibvirtClient provides libvirt operations using virsh command-line interface
 type LibvirtClient struct {
-	*libvirt.Libvirt
-	conn net.Conn
-	uri  string
+	*VirshClient
+	uri string
 }
 
 // Close closes the libvirt connection
 func (c *LibvirtClient) Close() error {
-	if c.Libvirt != nil {
-		if err := c.Disconnect(); err != nil {
-			return err
-		}
-	}
-	if c.conn != nil {
-		return c.conn.Close()
+	if c.VirshClient != nil {
+		return c.VirshClient.Close()
 	}
 	return nil
 }
@@ -128,132 +114,15 @@ func GetLibvirtClient(ctx context.Context, kube client.Client, mg resource.Manag
 		return nil, errors.New("libvirt URI not found in credentials")
 	}
 
-	// Parse and connect to libvirt
-	conn, err := connectToLibvirt(uri)
-	if err != nil {
-		return nil, errors.Wrap(err, errConnectLibvirt)
-	}
-
-	libvirtClient := libvirt.NewWithDialer(dialers.NewAlreadyConnected(conn))
-
-	// Connect to libvirt daemon
-	if err := libvirtClient.Connect(); err != nil {
-		_ = conn.Close() // Ignore error during cleanup
-		return nil, errors.Wrap(err, "cannot connect to libvirt daemon")
-	}
-
-	// Perform authentication if required
-	authTypes, err := libvirtClient.AuthList()
-	if err != nil {
-		_ = conn.Close() // Ignore error during cleanup
-		return nil, errors.Wrap(err, "cannot get authentication types")
-	}
-
-	// If authentication is required, perform it
-	if len(authTypes) > 0 {
-		// For TLS connections, usually no additional auth is needed beyond certificates
-		// but some setups might require Polkit or SASL
-		for _, authType := range authTypes {
-			if authType == 2 { // AuthTypePolkit (usually for local connections)
-				_, err := libvirtClient.AuthPolkit()
-				if err != nil {
-					_ = conn.Close() // Ignore error during cleanup
-					return nil, errors.Wrap(err, "polkit authentication failed")
-				}
-				break
-			}
-			// For TLS, usually just the certificate validation is sufficient
-			// and no additional authentication procedure is needed
-		}
-	}
+	// Create virsh client - no complex connection logic needed
+	virshClient := NewVirshClient(uri)
 
 	return &LibvirtClient{
-		Libvirt: libvirtClient,
-		conn:    conn,
-		uri:     uri,
+		VirshClient: virshClient,
+		uri:         uri,
 	}, nil
 }
 
-// connectToLibvirt establishes connection based on URI scheme
-func connectToLibvirt(uri string) (net.Conn, error) {
-	parsedURI, err := url.Parse(uri)
-	if err != nil {
-		return nil, errors.Wrap(err, errParseURI)
-	}
-
-	switch parsedURI.Scheme {
-	case "qemu+ssh":
-		// For SSH connections, we need to handle the SSH tunnel
-		// This is a simplified implementation - in production you'd want
-		// proper SSH key management and connection pooling
-		host := parsedURI.Host
-		if !strings.Contains(host, ":") {
-			host += ":22" // default SSH port
-		}
-		
-		// For now, we'll use a simple TCP connection to the libvirt daemon
-		// In production, this would go through SSH tunnel
-		return net.Dial("tcp", host)
-		
-	case "qemu+tcp":
-		// Direct TCP connection
-		host := parsedURI.Host
-		if !strings.Contains(host, ":") {
-			host += ":16509" // default libvirt TCP port
-		}
-		return net.Dial("tcp", host)
-		
-	case "qemu+unix":
-		// Unix socket connection
-		path := parsedURI.Path
-		if path == "" {
-			path = "/var/run/libvirt/libvirt-sock"
-		}
-		return net.Dial("unix", path)
-
-	case "qemu+tls":
-		// TLS connection with client certificate authentication
-		hostname := parsedURI.Hostname()
-		host := parsedURI.Host
-		if !strings.Contains(host, ":") {
-			host += ":16514" // default libvirt TLS port
-		}
-
-		// Load client certificates for libvirt TLS authentication
-		tlsConfig, err := loadLibvirtTLSConfig()
-		if err != nil {
-			return nil, errors.Wrap(err, "cannot load TLS certificates")
-		}
-
-		// Set the server name from the URI hostname for certificate validation
-		tlsConfig.ServerName = hostname
-
-		conn, err := tls.Dial("tcp", host, tlsConfig)
-		if err != nil {
-			return nil, err
-		}
-
-		// Read the server verification byte after TLS handshake
-		// The libvirt server sends a verification byte to indicate
-		// client certificate/IP address verification status
-		verifyBuf := make([]byte, 1)
-		if _, err := conn.Read(verifyBuf); err != nil {
-			_ = conn.Close()
-			return nil, errors.Wrap(err, "failed to read server verification byte")
-		}
-
-		// Check verification result
-		if verifyBuf[0] != 1 {
-			_ = conn.Close()
-			return nil, fmt.Errorf("server verification failed (code: %d)", verifyBuf[0])
-		}
-
-		return conn, nil
-
-	default:
-		return nil, fmt.Errorf("unsupported libvirt URI scheme: %s", parsedURI.Scheme)
-	}
-}
 
 // NewLibvirtClient creates a new libvirt client from credentials
 func NewLibvirtClient(creds LibvirtCredentials) (*LibvirtClient, error) {
@@ -262,48 +131,12 @@ func NewLibvirtClient(creds LibvirtCredentials) (*LibvirtClient, error) {
 		return nil, errors.New("libvirt URI not found in credentials")
 	}
 
-	conn, err := connectToLibvirt(uri)
-	if err != nil {
-		return nil, errors.Wrap(err, errConnectLibvirt)
-	}
-
-	libvirtClient := libvirt.NewWithDialer(dialers.NewAlreadyConnected(conn))
-
-	// Connect to libvirt daemon
-	if err := libvirtClient.Connect(); err != nil {
-		_ = conn.Close() // Ignore error during cleanup
-		return nil, errors.Wrap(err, "cannot connect to libvirt daemon")
-	}
-
-	// Perform authentication if required
-	authTypes, err := libvirtClient.AuthList()
-	if err != nil {
-		_ = conn.Close() // Ignore error during cleanup
-		return nil, errors.Wrap(err, "cannot get authentication types")
-	}
-
-	// If authentication is required, perform it
-	if len(authTypes) > 0 {
-		// For TLS connections, usually no additional auth is needed beyond certificates
-		// but some setups might require Polkit or SASL
-		for _, authType := range authTypes {
-			if authType == 2 { // AuthTypePolkit (usually for local connections)
-				_, err := libvirtClient.AuthPolkit()
-				if err != nil {
-					_ = conn.Close() // Ignore error during cleanup
-					return nil, errors.Wrap(err, "polkit authentication failed")
-				}
-				break
-			}
-			// For TLS, usually just the certificate validation is sufficient
-			// and no additional authentication procedure is needed
-		}
-	}
+	// Create virsh client - no complex connection logic needed
+	virshClient := NewVirshClient(uri)
 
 	return &LibvirtClient{
-		Libvirt: libvirtClient,
-		conn:    conn,
-		uri:     uri,
+		VirshClient: virshClient,
+		uri:         uri,
 	}, nil
 }
 
@@ -372,101 +205,3 @@ func StringToUUID(uuidStr string) ([16]byte, error) {
 	return uuid, nil
 }
 
-// loadLibvirtTLSConfig loads TLS configuration for libvirt connections
-// This function searches for certificates in standard locations and supports
-// both Kubernetes mounted secrets and local development configurations
-func loadLibvirtTLSConfig() (*tls.Config, error) {
-	// Define possible certificate locations in order of preference
-	certPaths := []struct {
-		cert   string
-		key    string
-		ca     string
-		desc   string
-	}{
-		{
-			// Kubernetes mounted secret path (production)
-			cert: "/etc/libvirt-tls/tls.crt",
-			key:  "/etc/libvirt-tls/tls.key",
-			ca:   "/etc/libvirt-tls/ca.crt",
-			desc: "Kubernetes mounted secret",
-		},
-		{
-			// Alternative Kubernetes secret path
-			cert: "/var/run/secrets/libvirt-tls/clientcert.pem",
-			key:  "/var/run/secrets/libvirt-tls/clientkey.pem",
-			ca:   "/var/run/secrets/libvirt-tls/cacert.pem",
-			desc: "Alternative Kubernetes secret",
-		},
-		{
-			// User-specific libvirt configuration (development)
-			cert: filepath.Join(os.Getenv("HOME"), ".config/libvirt/timewarp-rossg.crt"),
-			key:  filepath.Join(os.Getenv("HOME"), ".config/libvirt/timewarp-rossg.key"),
-			ca:   filepath.Join(os.Getenv("HOME"), ".config/libvirt/timewarp-rossg-ca.crt"),
-			desc: "User configuration directory",
-		},
-		{
-			// Standard libvirt PKI paths
-			cert: "/etc/pki/libvirt/clientcert.pem",
-			key:  "/etc/pki/libvirt/private/clientkey.pem",
-			ca:   "/etc/pki/CA/cacert.pem",
-			desc: "System PKI directory",
-		},
-	}
-
-	var lastErr error
-
-	// Try each certificate location
-	for _, paths := range certPaths {
-		// Check if all required files exist
-		if !fileExists(paths.cert) || !fileExists(paths.key) || !fileExists(paths.ca) {
-			lastErr = fmt.Errorf("%s: missing certificate files (cert: %s, key: %s, ca: %s)",
-				paths.desc, paths.cert, paths.key, paths.ca)
-			continue
-		}
-
-		// Load client certificate and key
-		clientCert, err := tls.LoadX509KeyPair(paths.cert, paths.key)
-		if err != nil {
-			lastErr = errors.Wrapf(err, "%s: failed to load client certificate", paths.desc)
-			continue
-		}
-
-		// Load CA certificate
-		caCert, err := os.ReadFile(paths.ca)
-		if err != nil {
-			lastErr = errors.Wrapf(err, "%s: failed to read CA certificate", paths.desc)
-			continue
-		}
-
-		// Create CA certificate pool
-		caCertPool := x509.NewCertPool()
-		if !caCertPool.AppendCertsFromPEM(caCert) {
-			lastErr = fmt.Errorf("%s: failed to parse CA certificate", paths.desc)
-			continue
-		}
-
-		// Create TLS configuration
-		tlsConfig := &tls.Config{
-			Certificates: []tls.Certificate{clientCert},
-			RootCAs:      caCertPool,
-			// ServerName will be set dynamically based on the connection URI
-			MinVersion:   tls.VersionTLS12,
-		}
-
-		fmt.Printf("Successfully loaded TLS certificates from %s\n", paths.desc)
-		return tlsConfig, nil
-	}
-
-	// If we get here, none of the certificate locations worked
-	if lastErr != nil {
-		return nil, errors.Wrap(lastErr, "failed to load TLS certificates from any location")
-	}
-
-	return nil, errors.New("no TLS certificates found in any standard location")
-}
-
-// fileExists checks if a file exists and is readable
-func fileExists(path string) bool {
-	_, err := os.Stat(path)
-	return err == nil
-}

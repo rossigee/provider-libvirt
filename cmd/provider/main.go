@@ -7,6 +7,7 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 
 	"github.com/alecthomas/kingpin/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -22,6 +23,7 @@ import (
 	"github.com/rossigee/provider-libvirt/internal/controller/secret"
 	"github.com/rossigee/provider-libvirt/internal/controller/storagepool"
 	"github.com/rossigee/provider-libvirt/internal/controller/volume"
+	"github.com/rossigee/provider-libvirt/internal/version"
 	"github.com/rossigee/provider-libvirt/internal/webhook"
 )
 
@@ -38,6 +40,14 @@ func main() {
 	if *debug {
 		ctrl.SetLogger(zl)
 	}
+
+	log.Info("Provider starting up",
+		"provider", "provider-libvirt",
+		"version", version.Version,
+		"go-version", runtime.Version(),
+		"platform", runtime.GOOS+"/"+runtime.GOARCH,
+		"webhooks-enabled", *enableWebhooks,
+		"debug-mode", *debug)
 
 	cfg, err := ctrl.GetConfig()
 	kingpin.FatalIfError(err, "Cannot get API server rest config")
