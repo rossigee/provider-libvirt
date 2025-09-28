@@ -45,7 +45,7 @@ kubectl patch secret libvirt-credentials -n crossplane-system \
 ### Check CRDs
 ```bash
 kubectl get crd | grep nodedevice
-# Expected: nodedevices.nodedevice.libvirt.crossplane.io
+# Expected: nodedevices.nodedevice.libvirt.m.crossplane.io
 ```
 
 ### Deploy Example Resources
@@ -69,7 +69,7 @@ kubectl describe nodedevice gpu-passthrough-test
 
 ### 1. GPU Passthrough for ML Training
 ```yaml
-apiVersion: nodedevice.libvirt.crossplane.io/v1alpha1
+apiVersion: nodedevice.libvirt.m.crossplane.io/v1beta1
 kind: NodeDevice
 metadata:
   name: ml-gpu
@@ -90,7 +90,7 @@ spec:
 
 ### 2. Multi-tenant vGPU
 ```yaml
-apiVersion: nodedevice.libvirt.crossplane.io/v1alpha1
+apiVersion: nodedevice.libvirt.m.crossplane.io/v1beta1
 kind: NodeDevice
 metadata:
   name: vgpu-tenant-1
@@ -107,7 +107,7 @@ spec:
 
 ### 3. USB Security Token
 ```yaml
-apiVersion: nodedevice.libvirt.crossplane.io/v1alpha1
+apiVersion: nodedevice.libvirt.m.crossplane.io/v1beta1
 kind: NodeDevice
 metadata:
   name: security-token

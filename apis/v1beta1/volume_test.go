@@ -14,6 +14,11 @@ import (
 	xpv1 "github.com/crossplane/crossplane-runtime/v2/apis/common/v1"
 )
 
+// Helper function to create pointer to int64
+func int64Ptr(i int64) *int64 {
+	return &i
+}
+
 func TestVolumeSpec(t *testing.T) {
 	// Test basic Volume spec creation
 	volume := &Volume{
@@ -34,7 +39,7 @@ func TestVolumeSpec(t *testing.T) {
 			ForProvider: VolumeParameters{
 				Name:   "test-disk",
 				Pool:   "default",
-				Size:   10737418240, // 10 GiB in bytes
+				Size:   int64Ptr(10737418240), // 10 GiB in bytes
 				Format: "qcow2",
 			},
 		},
@@ -59,8 +64,8 @@ func TestVolumeSpec(t *testing.T) {
 	if volume.Spec.ForProvider.Pool != "default" {
 		t.Errorf("Expected pool 'default', got '%s'", volume.Spec.ForProvider.Pool)
 	}
-	if volume.Spec.ForProvider.Size != 10737418240 {
-		t.Errorf("Expected size 10737418240, got %d", volume.Spec.ForProvider.Size)
+	if volume.Spec.ForProvider.Size == nil || *volume.Spec.ForProvider.Size != 10737418240 {
+		t.Errorf("Expected size 10737418240, got %v", volume.Spec.ForProvider.Size)
 	}
 	if volume.Spec.ForProvider.Format != "qcow2" {
 		t.Errorf("Expected format 'qcow2', got '%s'", volume.Spec.ForProvider.Format)
@@ -83,7 +88,7 @@ func TestVolumeConversion(t *testing.T) {
 			ForProvider: VolumeParameters{
 				Name:   "test-disk",
 				Pool:   "default",
-				Size:   10737418240, // 10 GiB in bytes
+				Size:   int64Ptr(10737418240), // 10 GiB in bytes
 				Format: "qcow2",
 			},
 		},
@@ -112,7 +117,7 @@ func TestVolumeWithBackingStore(t *testing.T) {
 			ForProvider: VolumeParameters{
 				Name:           "test-disk",
 				Pool:           "default",
-				Size:           10737418240, // 10 GiB in bytes
+				Size:           int64Ptr(10737418240), // 10 GiB in bytes
 				Format:         "qcow2",
 				BaseVolumePool: "default",
 				BaseVolumeName: "base-disk",

@@ -56,33 +56,68 @@ type DomainParameters struct {
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default="x86_64"
 	Arch string `json:"arch,omitempty"`
+
+	// Running determines if domain should be running
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default=true
+	Running *bool `json:"running,omitempty"`
+
+	// Autostart determines if domain starts automatically
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default=false
+	Autostart *bool `json:"autostart,omitempty"`
+
+	// Console configuration for the domain
+	// +kubebuilder:validation:Optional
+	Console []DomainConsole `json:"console,omitempty"`
+
+	// Graphics configuration for the domain
+	// +kubebuilder:validation:Optional
+	Graphics []DomainGraphics `json:"graphics,omitempty"`
 }
 
 // DomainDisk represents a disk device
 type DomainDisk struct {
-	// Device type (e.g., "disk", "cdrom")
-	// +kubebuilder:validation:Required
-	Device string `json:"device"`
+	// VolumeRef references a Volume resource (for cross-resource references)
+	// +kubebuilder:validation:Optional
+	VolumeRef *xpv1.Reference `json:"volumeRef,omitempty"`
 
-	// Source for the disk
-	// +kubebuilder:validation:Required
-	Source string `json:"source"`
+	// File path for direct file access (legacy)
+	// +kubebuilder:validation:Optional
+	File string `json:"file,omitempty"`
 
-	// Target device name
-	// +kubebuilder:validation:Required
-	Target string `json:"target"`
+	// Device name (e.g., "vda", "vdb")
+	// +kubebuilder:validation:Optional
+	Device string `json:"device,omitempty"`
+
+	// Type of the disk interface (e.g., "virtio", "ide", "scsi")
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default="virtio"
+	Type string `json:"type,omitempty"`
+
+	// BootOrder for this disk
+	// +kubebuilder:validation:Optional
+	BootOrder *int32 `json:"bootOrder,omitempty"`
 
 	// Bus type (e.g., "virtio", "ide", "scsi")
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default="virtio"
 	Bus string `json:"bus,omitempty"`
+
+	// WWN (World Wide Name) for the disk
+	// +kubebuilder:validation:Optional
+	WWN string `json:"wwn,omitempty"`
 }
 
 // DomainNetworkInterface represents a network interface
 type DomainNetworkInterface struct {
-	// Network name
-	// +kubebuilder:validation:Required
-	Network string `json:"network"`
+	// NetworkRef references a Network resource (for cross-resource references)
+	// +kubebuilder:validation:Optional
+	NetworkRef *xpv1.Reference `json:"networkRef,omitempty"`
+
+	// NetworkName for direct network name (legacy)
+	// +kubebuilder:validation:Optional
+	NetworkName string `json:"networkName,omitempty"`
 
 	// MAC address
 	// +kubebuilder:validation:Optional
@@ -92,6 +127,46 @@ type DomainNetworkInterface struct {
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default="virtio"
 	Model string `json:"model,omitempty"`
+
+	// WaitForLease waits for IP lease from DHCP
+	// +kubebuilder:validation:Optional
+	WaitForLease bool `json:"waitForLease,omitempty"`
+}
+
+// DomainConsole represents console configuration
+type DomainConsole struct {
+	// Type of console (e.g., "pty", "tcp")
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default="pty"
+	Type string `json:"type,omitempty"`
+
+	// Target for console output
+	// +kubebuilder:validation:Optional
+	Target string `json:"target,omitempty"`
+}
+
+// DomainGraphics represents graphics configuration
+type DomainGraphics struct {
+	// Type of graphics (e.g., "vnc", "spice", "rdp")
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default="vnc"
+	Type string `json:"type,omitempty"`
+
+	// Port for graphics connection
+	// +kubebuilder:validation:Optional
+	Port *int32 `json:"port,omitempty"`
+
+	// Listen address for graphics
+	// +kubebuilder:validation:Optional
+	Listen string `json:"listen,omitempty"`
+
+	// ListenAddress for graphics connection (alias for Listen)
+	// +kubebuilder:validation:Optional
+	ListenAddress string `json:"listenAddress,omitempty"`
+
+	// Autoport automatically assigns port
+	// +kubebuilder:validation:Optional
+	Autoport bool `json:"autoport,omitempty"`
 }
 
 // DomainStatus defines the observed state of Domain

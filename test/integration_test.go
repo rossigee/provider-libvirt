@@ -20,7 +20,7 @@ import (
 
 	xpv1 "github.com/crossplane/crossplane-runtime/v2/apis/common/v1"
 
-	"github.com/rossigee/provider-libvirt/apis/v1alpha1"
+	"github.com/rossigee/provider-libvirt/apis/v1beta1"
 )
 
 // TestDomainLifecycle tests the complete lifecycle of a Domain resource
@@ -34,19 +34,19 @@ func TestDomainLifecycle(t *testing.T) {
 	// For now, it demonstrates the test structure
 	
 	scheme := runtime.NewScheme()
-	_ = v1alpha1.SchemeBuilder.AddToScheme(scheme)
+	_ = v1beta1.SchemeBuilder.AddToScheme(scheme)
 	_ = corev1.AddToScheme(scheme)
 
 	// Create fake client for this test
 	fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
 
 	// Test data
-	providerConfig := &v1alpha1.ProviderConfig{
+	providerConfig := &v1beta1.ProviderConfig{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "test-provider-config",
 		},
-		Spec: v1alpha1.ProviderConfigSpec{
-			Credentials: v1alpha1.ProviderCredentials{
+		Spec: v1beta1.ProviderConfigSpec{
+			Credentials: v1beta1.ProviderCredentials{
 				Source: xpv1.CredentialsSourceSecret,
 				CommonCredentialSelectors: xpv1.CommonCredentialSelectors{
 					SecretRef: &xpv1.SecretKeySelector{
@@ -61,32 +61,32 @@ func TestDomainLifecycle(t *testing.T) {
 		},
 	}
 
-	domain := &v1alpha1.Domain{
+	domain := &v1beta1.Domain{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "test-domain",
 		},
-		Spec: v1alpha1.DomainSpec{
+		Spec: v1beta1.DomainSpec{
 			ResourceSpec: xpv1.ResourceSpec{
 				ProviderConfigReference: &xpv1.Reference{
 					Name: "test-provider-config",
 				},
 				DeletionPolicy: xpv1.DeletionDelete,
 			},
-			ForProvider: v1alpha1.DomainParameters{
+			ForProvider: v1beta1.DomainParameters{
 				Name:    "test-integration-vm",
 				Memory:  1073741824, // 1GB
 				Vcpu:    1,
 				Type:    "kvm",
 				Arch:    "x86_64",
-				Running: false, // Start stopped for safety
+				Running: &[]bool{false}[0], // Start stopped for safety
 				Boot:    []string{"hd"},
-				Disk: []v1alpha1.DomainDisk{
+				Disk: []v1beta1.DomainDisk{
 					{
 						File: "/tmp/test-vm.qcow2",
 						Type: "virtio",
 					},
 				},
-				NetworkInterface: []v1alpha1.DomainNetworkInterface{
+				NetworkInterface: []v1beta1.DomainNetworkInterface{
 					{
 						NetworkName: "default",
 						Model:       "virtio",
@@ -120,7 +120,7 @@ func TestDomainLifecycle(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 
 	// Verify domain was created
-	var retrievedDomain v1alpha1.Domain
+	var retrievedDomain v1beta1.Domain
 	err = fakeClient.Get(ctx, client.ObjectKey{Name: "test-domain"}, &retrievedDomain)
 	if err != nil {
 		t.Fatalf("Failed to retrieve Domain: %v", err)
@@ -152,17 +152,17 @@ func TestDomainLifecycle(t *testing.T) {
 func TestProviderConfigValidation(t *testing.T) {
 	tests := []struct {
 		name    string
-		config  *v1alpha1.ProviderConfig
+		config  *v1beta1.ProviderConfig
 		wantErr bool
 	}{
 		{
 			name: "ValidConfig",
-			config: &v1alpha1.ProviderConfig{
+			config: &v1beta1.ProviderConfig{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "valid-config",
 				},
-				Spec: v1alpha1.ProviderConfigSpec{
-					Credentials: v1alpha1.ProviderCredentials{
+				Spec: v1beta1.ProviderConfigSpec{
+					Credentials: v1beta1.ProviderCredentials{
 						Source: xpv1.CredentialsSourceSecret,
 						CommonCredentialSelectors: xpv1.CommonCredentialSelectors{
 							SecretRef: &xpv1.SecretKeySelector{
@@ -181,7 +181,7 @@ func TestProviderConfigValidation(t *testing.T) {
 	}
 
 	scheme := runtime.NewScheme()
-	_ = v1alpha1.SchemeBuilder.AddToScheme(scheme)
+	_ = v1beta1.SchemeBuilder.AddToScheme(scheme)
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -204,22 +204,22 @@ func TestProviderConfigValidation(t *testing.T) {
 func TestDomainSpecValidation(t *testing.T) {
 	tests := []struct {
 		name    string
-		domain  *v1alpha1.Domain
+		domain  *v1beta1.Domain
 		wantErr bool
 	}{
 		{
 			name: "ValidDomain",
-			domain: &v1alpha1.Domain{
+			domain: &v1beta1.Domain{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "valid-domain",
 				},
-				Spec: v1alpha1.DomainSpec{
+				Spec: v1beta1.DomainSpec{
 					ResourceSpec: xpv1.ResourceSpec{
 						ProviderConfigReference: &xpv1.Reference{
 							Name: "test-config",
 						},
 					},
-					ForProvider: v1alpha1.DomainParameters{
+					ForProvider: v1beta1.DomainParameters{
 						Name:   "test-vm",
 						Memory: 1073741824,
 						Vcpu:   1,
@@ -230,17 +230,17 @@ func TestDomainSpecValidation(t *testing.T) {
 		},
 		{
 			name: "MinimalDomain",
-			domain: &v1alpha1.Domain{
+			domain: &v1beta1.Domain{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "minimal-domain",
 				},
-				Spec: v1alpha1.DomainSpec{
+				Spec: v1beta1.DomainSpec{
 					ResourceSpec: xpv1.ResourceSpec{
 						ProviderConfigReference: &xpv1.Reference{
 							Name: "test-config",
 						},
 					},
-					ForProvider: v1alpha1.DomainParameters{
+					ForProvider: v1beta1.DomainParameters{
 						Name:   "minimal-vm",
 						Memory: 512 * 1024 * 1024, // 512MB
 						Vcpu:   1,
@@ -252,7 +252,7 @@ func TestDomainSpecValidation(t *testing.T) {
 	}
 
 	scheme := runtime.NewScheme()
-	_ = v1alpha1.SchemeBuilder.AddToScheme(scheme)
+	_ = v1beta1.SchemeBuilder.AddToScheme(scheme)
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

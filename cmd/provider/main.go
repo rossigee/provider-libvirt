@@ -16,9 +16,10 @@ import (
 
 	"github.com/crossplane/crossplane-runtime/v2/pkg/logging"
 
-	"github.com/rossigee/provider-libvirt/apis/v1alpha1"
+	"github.com/rossigee/provider-libvirt/apis/v1beta1"
 	"github.com/rossigee/provider-libvirt/internal/controller/domain"
 	"github.com/rossigee/provider-libvirt/internal/controller/network"
+	"github.com/rossigee/provider-libvirt/internal/controller/nodedevice"
 	"github.com/rossigee/provider-libvirt/internal/controller/secret"
 	"github.com/rossigee/provider-libvirt/internal/controller/storagepool"
 	"github.com/rossigee/provider-libvirt/internal/controller/volume"
@@ -50,10 +51,11 @@ func main() {
 	})
 	kingpin.FatalIfError(err, "Cannot create controller manager")
 
-	kingpin.FatalIfError(v1alpha1.SchemeBuilder.AddToScheme(mgr.GetScheme()), "Cannot add v1alpha1 APIs to scheme")
+	kingpin.FatalIfError(v1beta1.SchemeBuilder.AddToScheme(mgr.GetScheme()), "Cannot add v1beta1 APIs to scheme")
 
 	kingpin.FatalIfError(domain.Setup(mgr, log), "Cannot setup Domain controller")
 	kingpin.FatalIfError(network.Setup(mgr, log), "Cannot setup Network controller")
+	kingpin.FatalIfError(nodedevice.Setup(mgr, log), "Cannot setup NodeDevice controller")
 	kingpin.FatalIfError(secret.Setup(mgr, log), "Cannot setup Secret controller")
 	kingpin.FatalIfError(storagepool.Setup(mgr, log), "Cannot setup StoragePool controller")
 	kingpin.FatalIfError(volume.Setup(mgr, log), "Cannot setup Volume controller")

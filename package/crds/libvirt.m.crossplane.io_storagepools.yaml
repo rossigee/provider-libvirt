@@ -4,14 +4,18 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.18.0
-  name: nodedevices.libvirt.crossplane.io
+  name: storagepools.libvirt.m.crossplane.io
 spec:
-  group: libvirt.crossplane.io
+  group: libvirt.m.crossplane.io
   names:
-    kind: NodeDevice
-    listKind: NodeDeviceList
-    plural: nodedevices
-    singular: nodedevice
+    categories:
+    - crossplane
+    - managed
+    - libvirt
+    kind: StoragePool
+    listKind: StoragePoolList
+    plural: storagepools
+    singular: storagepool
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
@@ -21,19 +25,17 @@ spec:
     - jsonPath: .status.conditions[?(@.type=='Synced')].status
       name: SYNCED
       type: string
-    - jsonPath: .spec.forProvider.type
-      name: TYPE
-      type: string
-    - jsonPath: .status.atProvider.state
-      name: STATE
+    - jsonPath: .metadata.annotations.crossplane\.io/external-name
+      name: EXTERNAL-NAME
       type: string
     - jsonPath: .metadata.creationTimestamp
       name: AGE
       type: date
-    name: v1alpha1
+    name: v1beta1
     schema:
       openAPIV3Schema:
-        description: A NodeDevice is a libvirt host hardware device for passthrough.
+        description: A StoragePool is a managed resource that represents a libvirt
+          storage pool.
         properties:
           apiVersion:
             description: |-
@@ -53,7 +55,7 @@ spec:
           metadata:
             type: object
           spec:
-            description: NodeDeviceSpec defines the desired state of NodeDevice
+            description: StoragePoolSpec defines the desired state of StoragePool
             properties:
               deletionPolicy:
                 default: Delete
@@ -70,142 +72,126 @@ spec:
                 - Delete
                 type: string
               forProvider:
-                description: NodeDeviceParameters are the configurable fields of a
-                  NodeDevice.
+                description: StoragePoolParameters are the configurable fields of
+                  a StoragePool.
                 properties:
                   autostart:
-                    default: false
-                    description: Autostart device on host boot
-                    type: boolean
-                  detached:
-                    default: false
-                    description: Detach device from host driver for passthrough
-                    type: boolean
-                  driver:
-                    description: Driver to use for detached device (e.g., "vfio-pci")
-                    type: string
-                  managed:
                     default: true
-                    description: Device management settings - libvirt manages device
-                      lifecycle
+                    description: Autostart determines if pool starts automatically
                     type: boolean
-                  mediatedDevice:
-                    description: Mediated device configuration
-                    properties:
-                      attributes:
-                        additionalProperties:
-                          type: string
-                        description: Attributes for mdev creation
-                        type: object
-                      parent:
-                        description: Parent device name (must be an existing PCI device)
-                        type: string
-                      type:
-                        description: Mediated device type (e.g., "nvidia-63", "i915-GVTg_V5_4")
-                        type: string
-                      uuid:
-                        description: UUID for the mediated device (auto-generated
-                          if not specified)
-                        pattern: ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
-                        type: string
-                    required:
-                    - parent
-                    - type
-                    type: object
+                  capacity:
+                    description: Capacity of the storage pool in bytes (for supported
+                      pool types)
+                    format: int64
+                    minimum: 0
+                    type: integer
                   name:
-                    description: Device name (auto-discovered or user-specified)
+                    description: Name of the storage pool
                     type: string
-                  pciAddress:
-                    description: Device address for PCI devices
+                  permissions:
+                    description: Permissions for the storage pool
                     properties:
-                      bus:
-                        description: PCI bus
-                        pattern: ^0x[0-9a-fA-F]{2}$
+                      group:
+                        description: Group of the pool
                         type: string
-                      domain:
-                        description: PCI domain (usually 0x0000)
-                        pattern: ^0x[0-9a-fA-F]{4}$
+                      label:
+                        description: Label for SELinux
                         type: string
-                      function:
-                        description: PCI function
-                        pattern: ^0x[0-9a-fA-F]$
+                      mode:
+                        description: Mode of the pool (e.g., 0755)
                         type: string
-                      slot:
-                        description: PCI slot
-                        pattern: ^0x[0-9a-fA-F]{2}$
+                      owner:
+                        description: Owner of the pool
                         type: string
-                    required:
-                    - bus
-                    - domain
-                    - function
-                    - slot
                     type: object
-                  persistent:
-                    default: true
-                    description: Persistent device definition
-                    type: boolean
-                  scsiDevice:
-                    description: SCSI device identification
+                  source:
+                    description: Source configuration for the storage pool
                     properties:
-                      adapter:
-                        description: SCSI adapter name
+                      device:
+                        description: Device for block-based storage (disk, logical)
+                        properties:
+                          path:
+                            description: Path to the device
+                            type: string
+                        required:
+                        - path
+                        type: object
+                      dir:
+                        description: Directory for directory-based storage
                         type: string
-                      bus:
-                        description: SCSI bus
-                        format: int32
-                        minimum: 0
-                        type: integer
-                      target:
-                        description: SCSI target
-                        format: int32
-                        minimum: 0
-                        type: integer
-                      unit:
-                        description: SCSI unit/LUN
-                        format: int32
-                        minimum: 0
-                        type: integer
+                      format:
+                        description: Format for the source
+                        properties:
+                          type:
+                            description: Type of the format
+                            type: string
+                        required:
+                        - type
+                        type: object
+                      host:
+                        description: Host for network-based storage (netfs, iscsi,
+                          rbd, gluster)
+                        properties:
+                          name:
+                            description: Name or IP address of the host
+                            type: string
+                          port:
+                            description: Port number for the connection
+                            format: int32
+                            type: integer
+                        required:
+                        - name
+                        type: object
+                      name:
+                        description: Name of the source (for various pool types)
+                        type: string
+                    type: object
+                  target:
+                    description: Target configuration for the storage pool
+                    properties:
+                      path:
+                        description: Path for the storage pool target
+                        type: string
+                      permissions:
+                        description: Permissions for the target
+                        properties:
+                          group:
+                            description: Group of the pool
+                            type: string
+                          label:
+                            description: Label for SELinux
+                            type: string
+                          mode:
+                            description: Mode of the pool (e.g., 0755)
+                            type: string
+                          owner:
+                            description: Owner of the pool
+                            type: string
+                        type: object
                     required:
-                    - adapter
-                    - bus
-                    - target
-                    - unit
+                    - path
                     type: object
                   type:
-                    description: 'Device type: pci, usb, scsi, mdev, net, storage'
+                    description: Type of the storage pool (dir, fs, netfs, iscsi,
+                      scsi, mpath, disk, logical, zfs, rbd, gluster)
                     enum:
-                    - pci
-                    - usb
+                    - dir
+                    - fs
+                    - netfs
+                    - iscsi
                     - scsi
-                    - mdev
-                    - net
-                    - storage
+                    - mpath
+                    - disk
+                    - logical
+                    - zfs
+                    - rbd
+                    - gluster
+                    - sheepdog
+                    - vstorage
                     type: string
-                  usbDevice:
-                    description: USB device identification
-                    properties:
-                      bus:
-                        description: USB bus number
-                        format: int32
-                        maximum: 255
-                        minimum: 1
-                        type: integer
-                      device:
-                        description: USB device number
-                        format: int32
-                        maximum: 127
-                        minimum: 1
-                        type: integer
-                      productId:
-                        description: Product ID (hexadecimal)
-                        pattern: ^0x[0-9a-fA-F]{4}$
-                        type: string
-                      vendorId:
-                        description: Vendor ID (hexadecimal)
-                        pattern: ^0x[0-9a-fA-F]{4}$
-                        type: string
-                    type: object
                 required:
+                - name
+                - target
                 - type
                 type: object
               managementPolicies:
@@ -295,118 +281,73 @@ spec:
             - forProvider
             type: object
           status:
-            description: NodeDeviceStatus defines the observed state of NodeDevice
+            description: StoragePoolStatus defines the observed state of StoragePool
             properties:
               atProvider:
-                description: NodeDeviceObservation are the observable fields of a
-                  NodeDevice.
+                description: StoragePoolObservation are the observable fields of a
+                  StoragePool.
                 properties:
-                  capabilities:
-                    description: Device capabilities detected by libvirt
-                    items:
-                      description: NodeDeviceCapability represents device capability
-                        information
-                      properties:
-                        data:
-                          additionalProperties:
-                            type: string
-                          description: Additional capability-specific data
-                          type: object
-                        type:
-                          description: Capability type (e.g., "pci", "usb", "scsi")
-                          type: string
-                      required:
-                      - type
-                      type: object
-                    type: array
-                  driver:
-                    description: Driver currently bound to device
+                  active:
+                    description: Active status of the storage pool
+                    type: boolean
+                  allocation:
+                    description: Allocation of the storage pool in bytes
+                    format: int64
+                    type: integer
+                  autoStart:
+                    description: AutoStart status of the storage pool
+                    type: boolean
+                  available:
+                    description: Available space in the storage pool in bytes
+                    format: int64
+                    type: integer
+                  capacity:
+                    description: Capacity of the storage pool in bytes
+                    format: int64
+                    type: integer
+                  name:
+                    description: Name of the storage pool
                     type: string
-                  iommuGroup:
-                    description: IOMMU group information (for PCI devices)
-                    properties:
-                      devices:
-                        description: Other devices in the same IOMMU group
-                        items:
-                          type: string
-                        type: array
-                      number:
-                        description: IOMMU group number
-                        format: int32
-                        type: integer
-                    required:
-                    - number
-                    type: object
-                  mdevTypes:
-                    description: Available mediated device types (for mdev-capable
-                      devices)
+                  persistent:
+                    description: Persistent status of the storage pool
+                    type: boolean
+                  state:
+                    description: State of the storage pool
+                    type: string
+                  uuid:
+                    description: UUID of the storage pool in libvirt
+                    type: string
+                  volumeCount:
+                    description: Number of volumes in the storage pool
+                    type: integer
+                  volumes:
+                    description: Volumes in the storage pool
                     items:
-                      description: MdevType represents available mediated device types
+                      description: StoragePoolVolume represents a volume in a storage
+                        pool
                       properties:
-                        availableInstances:
-                          description: Available instances
-                          format: int32
+                        allocation:
+                          description: Allocation of the volume
+                          format: int64
                           type: integer
-                        description:
-                          description: Description of capabilities
-                          type: string
-                        deviceApi:
-                          description: Device API type
-                          type: string
-                        id:
-                          description: Mediated device type identifier
+                        capacity:
+                          description: Capacity of the volume
+                          format: int64
+                          type: integer
+                        key:
+                          description: Key of the volume
                           type: string
                         name:
-                          description: Human-readable name
+                          description: Name of the volume
                           type: string
-                      required:
-                      - availableInstances
-                      - id
-                      - name
+                        path:
+                          description: Path to the volume
+                          type: string
+                        type:
+                          description: Type of the volume
+                          type: string
                       type: object
                     type: array
-                  name:
-                    description: Device name as known to libvirt
-                    type: string
-                  numaNode:
-                    description: NUMA node affinity
-                    format: int32
-                    type: integer
-                  parent:
-                    description: Parent device (for dependent devices like mdev)
-                    type: string
-                  product:
-                    description: Product information
-                    properties:
-                      id:
-                        description: Product ID (hexadecimal)
-                        type: string
-                      name:
-                        description: Product name/description
-                        type: string
-                    required:
-                    - id
-                    - name
-                    type: object
-                  state:
-                    description: 'Device state: active, inactive, detached'
-                    type: string
-                  sysfsPath:
-                    description: Device path in sysfs
-                    type: string
-                  vendor:
-                    description: Vendor information
-                    properties:
-                      id:
-                        description: Vendor ID (hexadecimal)
-                        type: string
-                      name:
-                        description: Vendor name
-                        type: string
-                    required:
-                    - id
-                    - name
-                    type: object
                 type: object
               conditions:
                 description: Conditions of the resource.

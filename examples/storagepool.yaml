@@ -1,4 +1,4 @@
-apiVersion: libvirt.crossplane.io/v1alpha1
+apiVersion: libvirt.m.crossplane.io/v1beta1
 kind: StoragePool
 metadata:
   name: default-dir-pool
@@ -17,7 +17,7 @@ spec:
         mode: 0755   # rwxr-xr-x
   deletionPolicy: Delete
 ---
-apiVersion: libvirt.crossplane.io/v1alpha1
+apiVersion: libvirt.m.crossplane.io/v1beta1
 kind: StoragePool
 metadata:
   name: filesystem-pool
@@ -41,7 +41,7 @@ spec:
         type: ext4
   deletionPolicy: Delete
 ---
-apiVersion: libvirt.crossplane.io/v1alpha1
+apiVersion: libvirt.m.crossplane.io/v1beta1
 kind: StoragePool
 metadata:
   name: nfs-pool
@@ -63,7 +63,7 @@ spec:
         type: nfs
   deletionPolicy: Delete
 ---
-apiVersion: libvirt.crossplane.io/v1alpha1
+apiVersion: libvirt.m.crossplane.io/v1beta1
 kind: StoragePool
 metadata:
   name: iscsi-pool
@@ -90,7 +90,7 @@ spec:
           usage: libvirt-iscsi-secret
   deletionPolicy: Delete
 ---
-apiVersion: libvirt.crossplane.io/v1alpha1
+apiVersion: libvirt.m.crossplane.io/v1beta1
 kind: StoragePool
 metadata:
   name: logical-pool
@@ -114,7 +114,7 @@ spec:
           end: 1023
   deletionPolicy: Delete
 ---
-apiVersion: libvirt.crossplane.io/v1alpha1
+apiVersion: libvirt.m.crossplane.io/v1beta1
 kind: StoragePool
 metadata:
   name: disk-pool
@@ -133,7 +133,7 @@ spec:
         partTable: gpt
   deletionPolicy: Delete
 ---
-apiVersion: libvirt.crossplane.io/v1alpha1
+apiVersion: libvirt.m.crossplane.io/v1beta1
 kind: StoragePool
 metadata:
   name: rbd-pool
@@ -159,7 +159,7 @@ spec:
           uuid: 2ec115d7-3a88-3ceb-bc12-67c7b6e4c5e7
   deletionPolicy: Delete
 ---
-apiVersion: libvirt.crossplane.io/v1alpha1
+apiVersion: libvirt.m.crossplane.io/v1beta1
 kind: StoragePool
 metadata:
   name: gluster-pool
@@ -180,7 +180,7 @@ spec:
       dir: /libvirt-images
   deletionPolicy: Delete
 ---
-apiVersion: libvirt.crossplane.io/v1alpha1
+apiVersion: libvirt.m.crossplane.io/v1beta1
 kind: StoragePool
 metadata:
   name: zfs-pool
@@ -199,7 +199,7 @@ spec:
         path: /dev/sde
   deletionPolicy: Delete
 ---
-apiVersion: libvirt.crossplane.io/v1alpha1
+apiVersion: libvirt.m.crossplane.io/v1beta1
 kind: StoragePool
 metadata:
   name: encrypted-pool

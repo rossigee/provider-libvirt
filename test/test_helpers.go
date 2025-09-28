@@ -19,70 +19,76 @@ import (
 
 	xpv1 "github.com/crossplane/crossplane-runtime/v2/apis/common/v1"
 
-	"github.com/rossigee/provider-libvirt/apis/v1alpha1"
-	"github.com/rossigee/provider-libvirt/internal/utils"
+	"github.com/rossigee/provider-libvirt/apis/v1beta1"
 )
 
+// Helper function to create int64 pointer
+func int64Ptr(v int64) *int64 {
+	return &v
+}
+
 // createTestStoragePool creates a basic StoragePool for testing
-func createTestStoragePool(name string) *v1alpha1.StoragePool {
-	return &v1alpha1.StoragePool{
+func createTestStoragePool(name string) *v1beta1.StoragePool {
+	return &v1beta1.StoragePool{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
 		},
-		Spec: v1alpha1.StoragePoolSpec{
+		Spec: v1beta1.StoragePoolSpec{
 			ResourceSpec: xpv1.ResourceSpec{
 				ProviderConfigReference: &xpv1.Reference{Name: "test-provider-config"},
 			},
-			ForProvider: v1alpha1.StoragePoolParameters{
+			ForProvider: v1beta1.StoragePoolParameters{
 				Name: name,
 				Type: "dir",
-				Target: &v1alpha1.StoragePoolTarget{
+				Target: &v1beta1.StoragePoolTarget{
 					Path: "/tmp/" + name,
 				},
-				AutoStart: &[]bool{true}[0],
+				Autostart: &[]bool{true}[0],
 			},
 		},
 	}
 }
 
 // createTestVolume creates a basic Volume for testing
-func createTestVolume(name, poolName string) *v1alpha1.Volume {
-	return &v1alpha1.Volume{
+func createTestVolume(name, poolName string) *v1beta1.Volume {
+	return &v1beta1.Volume{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
 		},
-		Spec: v1alpha1.VolumeSpec{
+		Spec: v1beta1.VolumeSpec{
 			ResourceSpec: xpv1.ResourceSpec{
 				ProviderConfigReference: &xpv1.Reference{Name: "test-provider-config"},
 			},
-			ForProvider: v1alpha1.VolumeParameters{
+			ForProvider: v1beta1.VolumeParameters{
 				Name:   name + ".qcow2",
 				Pool:   poolName,
 				Format: "qcow2",
-				Size:   "10G", // 10GB using human-readable format
+				Size:   int64Ptr(10737418240), // 10GB in bytes
 			},
 		},
 	}
 }
 
 // createTestNetwork creates a basic Network for testing
-func createTestNetwork(name string) *v1alpha1.Network {
-	return &v1alpha1.Network{
+func createTestNetwork(name string) *v1beta1.Network {
+	return &v1beta1.Network{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
 		},
-		Spec: v1alpha1.NetworkSpec{
+		Spec: v1beta1.NetworkSpec{
 			ResourceSpec: xpv1.ResourceSpec{
 				ProviderConfigReference: &xpv1.Reference{Name: "test-provider-config"},
 			},
-			ForProvider: v1alpha1.NetworkParameters{
+			ForProvider: v1beta1.NetworkParameters{
 				Name: name,
 				Mode: "nat",
-				IP: &v1alpha1.NetworkIP{
-					Address: "192.168.122.1",
-					Netmask: "255.255.255.0",
+				IP: []v1beta1.NetworkIP{
+					{
+						Address: "192.168.122.1",
+						Netmask: "255.255.255.0",
+					},
 				},
-				AutoStart: &[]bool{true}[0],
+				Autostart: &[]bool{true}[0],
 			},
 		},
 	}
@@ -106,13 +112,13 @@ func makeResourceReady(t *testing.T, ctx context.Context, k8sClient client.Clien
 
 	// Set the resource as ready based on its type
 	switch resource := obj.(type) {
-	case *v1alpha1.StoragePool:
+	case *v1beta1.StoragePool:
 		resource.Status.SetConditions(xpv1.Available())
 		resource.Status.AtProvider.State = "active"
 		resource.Status.AtProvider.Capacity = 107374182400 // 100GB
 		resource.Status.AtProvider.Available = 107374182400
 
-	case *v1alpha1.Volume:
+	case *v1beta1.Volume:
 		resource.Status.SetConditions(xpv1.Available())
 		resource.Status.AtProvider.Path = "/tmp/" + resource.Spec.ForProvider.Pool + "/" + resource.Spec.ForProvider.Name
 
@@ -127,13 +133,13 @@ func makeResourceReady(t *testing.T, ctx context.Context, k8sClient client.Clien
 		resource.Status.AtProvider.Type = "file"
 		resource.Status.AtProvider.Format = resource.Spec.ForProvider.Format
 
-	case *v1alpha1.Network:
+	case *v1beta1.Network:
 		resource.Status.SetConditions(xpv1.Available())
 		resource.Status.AtProvider.Active = true
 		resource.Status.AtProvider.Persistent = true
-		resource.Status.AtProvider.AutoStart = true
+		resource.Status.AtProvider.Autostart = true
 
-	case *v1alpha1.Domain:
+	case *v1beta1.Domain:
 		resource.Status.SetConditions(xpv1.Available())
 		resource.Status.AtProvider.State = "shut off" // Start in stopped state for safety
 		resource.Status.AtProvider.ID = "123"
@@ -153,12 +159,12 @@ func makeResourceReady(t *testing.T, ctx context.Context, k8sClient client.Clien
 // setupTestEnvironment performs common test environment setup
 func setupTestEnvironment(t *testing.T, ctx context.Context, k8sClient client.Client) {
 	// Create test provider config
-	providerConfig := &v1alpha1.ProviderConfig{
+	providerConfig := &v1beta1.ProviderConfig{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "test-provider-config",
 		},
-		Spec: v1alpha1.ProviderConfigSpec{
-			Credentials: v1alpha1.ProviderCredentials{
+		Spec: v1beta1.ProviderConfigSpec{
+			Credentials: v1beta1.ProviderCredentials{
 				Source: xpv1.CredentialsSourceSecret,
 				CommonCredentialSelectors: xpv1.CommonCredentialSelectors{
 					SecretRef: &xpv1.SecretKeySelector{
@@ -204,14 +210,10 @@ func setupTestEnvironment(t *testing.T, ctx context.Context, k8sClient client.Cl
 
 // resolveCapacityFromParameters resolves the volume capacity from either Size or Capacity fields
 // Size takes precedence over Capacity if both are specified
-func resolveCapacityFromParameters(spec v1alpha1.VolumeParameters) (int64, error) {
-	if spec.Size != "" {
-		// Parse human-readable size (e.g., "100G")
-		capacity, err := utils.ParseSize(spec.Size)
-		if err != nil {
-			return 0, err
-		}
-		return capacity, nil
+func resolveCapacityFromParameters(spec v1beta1.VolumeParameters) (int64, error) {
+	if spec.Size != nil {
+		// Use byte capacity directly
+		return *spec.Size, nil
 	}
 
 	if spec.Capacity != nil {

@@ -205,7 +205,7 @@ type IOMMUGroup struct {
 ### 3. **Integration Patterns**
 ```yaml
 # GPU Passthrough Example
-apiVersion: libvirt.crossplane.io/v1alpha1
+apiVersion: libvirt.m.crossplane.io/v1beta1
 kind: NodeDevice
 metadata:
   name: gpu-nvidia-rtx4090
@@ -223,7 +223,7 @@ spec:
     persistent: true
 ---
 # Domain using the GPU
-apiVersion: libvirt.crossplane.io/v1alpha1
+apiVersion: libvirt.m.crossplane.io/v1beta1
 kind: Domain
 metadata:
   name: ml-workstation
@@ -239,7 +239,7 @@ spec:
 ### 4. **Mediated Device Support**
 ```yaml
 # GPU vGPU Creation
-apiVersion: libvirt.crossplane.io/v1alpha1
+apiVersion: libvirt.m.crossplane.io/v1beta1
 kind: NodeDevice
 metadata:
   name: vgpu-instance-1

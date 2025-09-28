@@ -39,17 +39,17 @@ All PostgreSQL disaster recovery infrastructure resources have been successfully
 kubectl --kubeconfig ~/.kube/golder-master-admin.conf get volumes,domains,networks -n crossplane-system
 
 NAME                                                   READY   SYNCED   POOL   CAPACITY   FORMAT   AGE
-volume.libvirt.crossplane.io/postgres-primary-data             False                               [TIME]
-volume.libvirt.crossplane.io/postgres-primary-root             False                               [TIME]
-volume.libvirt.crossplane.io/postgres-secondary-data           False                               [TIME]
-volume.libvirt.crossplane.io/postgres-secondary-root           False                               [TIME]
+volume.libvirt.m.crossplane.io/postgres-primary-data             False                               [TIME]
+volume.libvirt.m.crossplane.io/postgres-primary-root             False                               [TIME]
+volume.libvirt.m.crossplane.io/postgres-secondary-data           False                               [TIME]
+volume.libvirt.m.crossplane.io/postgres-secondary-root           False                               [TIME]
 
 NAME                                              READY   SYNCED   STATE   AGE
-domain.libvirt.crossplane.io/postgres-primary             False            [TIME]
-domain.libvirt.crossplane.io/postgres-secondary           False            [TIME]
+domain.libvirt.m.crossplane.io/postgres-primary             False            [TIME]
+domain.libvirt.m.crossplane.io/postgres-secondary           False            [TIME]
 
 NAME                                                   READY   SYNCED   MODE   ACTIVE   BRIDGE   AGE
-network.libvirt.crossplane.io/postgres-dr-network-ns           False    nat                      [TIME]
+network.libvirt.m.crossplane.io/postgres-dr-network-ns           False    nat                      [TIME]
 ```
 
 ### 🔧 **Provider Configuration**

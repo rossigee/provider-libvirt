@@ -6,27 +6,20 @@ package clients
 
 import (
 	"context"
-	"crypto/tls"
-	"crypto/x509"
 	"encoding/json"
 	"fmt"
-	"net"
-	"net/url"
-	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
-	"github.com/digitalocean/go-libvirt"
-	"github.com/digitalocean/go-libvirt/socket/dialers"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"libvirt.org/go/libvirt"
 
 	xpv1 "github.com/crossplane/crossplane-runtime/v2/apis/common/v1"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/resource"
 
-	"github.com/rossigee/provider-libvirt/apis/v1alpha1"
+	"github.com/rossigee/provider-libvirt/apis/v1beta1"
 )
 
 // Note: The go-libvirt library automatically includes storage operations
@@ -52,22 +45,22 @@ const (
 // LibvirtCredentials represents libvirt connection credentials
 type LibvirtCredentials map[string]string
 
-// LibvirtClient wraps go-libvirt connection with additional metadata
+// LibvirtClient wraps libvirt CGO connection with additional metadata
 type LibvirtClient struct {
-	*libvirt.Libvirt
-	conn net.Conn
-	uri  string
+	*libvirt.Connect
+	uri string
 }
 
 // Close closes the libvirt connection
 func (c *LibvirtClient) Close() error {
-	if c.Libvirt != nil {
-		if err := c.Disconnect(); err != nil {
+	if c.Connect != nil {
+		res, err := c.Connect.Close()
+		if err != nil {
 			return err
 		}
-	}
-	if c.conn != nil {
-		return c.conn.Close()
+		if res != 0 {
+			return fmt.Errorf("libvirt close returned error code: %d", res)
+		}
 	}
 	return nil
 }
@@ -90,7 +83,7 @@ func GetLibvirtClient(ctx context.Context, kube client.Client, mg resource.Manag
 	}
 
 	// First try to find the ProviderConfig in the managed resource's namespace
-	pc := &v1alpha1.ProviderConfig{}
+	pc := &v1beta1.ProviderConfig{}
 	pcNamespace := mg.GetNamespace()
 	if pcNamespace == "" {
 		pcNamespace = "crossplane-system" // Default for cluster-scoped resources
@@ -128,131 +121,17 @@ func GetLibvirtClient(ctx context.Context, kube client.Client, mg resource.Manag
 		return nil, errors.New("libvirt URI not found in credentials")
 	}
 
-	// Parse and connect to libvirt
-	conn, err := connectToLibvirt(uri)
+	// Connect to libvirt using CGO bindings
+	// This uses the same connection logic as virsh and handles TLS automatically
+	conn, err := libvirt.NewConnect(uri)
 	if err != nil {
-		return nil, errors.Wrap(err, errConnectLibvirt)
-	}
-
-	libvirtClient := libvirt.NewWithDialer(dialers.NewAlreadyConnected(conn))
-
-	// Connect to libvirt daemon
-	if err := libvirtClient.Connect(); err != nil {
-		_ = conn.Close() // Ignore error during cleanup
-		return nil, errors.Wrap(err, "cannot connect to libvirt daemon")
-	}
-
-	// Perform authentication if required
-	authTypes, err := libvirtClient.AuthList()
-	if err != nil {
-		_ = conn.Close() // Ignore error during cleanup
-		return nil, errors.Wrap(err, "cannot get authentication types")
-	}
-
-	// If authentication is required, perform it
-	if len(authTypes) > 0 {
-		// For TLS connections, usually no additional auth is needed beyond certificates
-		// but some setups might require Polkit or SASL
-		for _, authType := range authTypes {
-			if authType == 2 { // AuthTypePolkit (usually for local connections)
-				_, err := libvirtClient.AuthPolkit()
-				if err != nil {
-					_ = conn.Close() // Ignore error during cleanup
-					return nil, errors.Wrap(err, "polkit authentication failed")
-				}
-				break
-			}
-			// For TLS, usually just the certificate validation is sufficient
-			// and no additional authentication procedure is needed
-		}
+		return nil, errors.Wrap(err, "cannot connect to libvirt")
 	}
 
 	return &LibvirtClient{
-		Libvirt: libvirtClient,
-		conn:    conn,
+		Connect: conn,
 		uri:     uri,
 	}, nil
-}
-
-// connectToLibvirt establishes connection based on URI scheme
-func connectToLibvirt(uri string) (net.Conn, error) {
-	parsedURI, err := url.Parse(uri)
-	if err != nil {
-		return nil, errors.Wrap(err, errParseURI)
-	}
-
-	switch parsedURI.Scheme {
-	case "qemu+ssh":
-		// For SSH connections, we need to handle the SSH tunnel
-		// This is a simplified implementation - in production you'd want
-		// proper SSH key management and connection pooling
-		host := parsedURI.Host
-		if !strings.Contains(host, ":") {
-			host += ":22" // default SSH port
-		}
-		
-		// For now, we'll use a simple TCP connection to the libvirt daemon
-		// In production, this would go through SSH tunnel
-		return net.Dial("tcp", host)
-		
-	case "qemu+tcp":
-		// Direct TCP connection
-		host := parsedURI.Host
-		if !strings.Contains(host, ":") {
-			host += ":16509" // default libvirt TCP port
-		}
-		return net.Dial("tcp", host)
-		
-	case "qemu+unix":
-		// Unix socket connection
-		path := parsedURI.Path
-		if path == "" {
-			path = "/var/run/libvirt/libvirt-sock"
-		}
-		return net.Dial("unix", path)
-
-	case "qemu+tls":
-		// TLS connection with client certificate authentication
-		hostname := parsedURI.Hostname()
-		host := parsedURI.Host
-		if !strings.Contains(host, ":") {
-			host += ":16514" // default libvirt TLS port
-		}
-
-		// Load client certificates for libvirt TLS authentication
-		tlsConfig, err := loadLibvirtTLSConfig()
-		if err != nil {
-			return nil, errors.Wrap(err, "cannot load TLS certificates")
-		}
-
-		// Set the server name from the URI hostname for certificate validation
-		tlsConfig.ServerName = hostname
-
-		conn, err := tls.Dial("tcp", host, tlsConfig)
-		if err != nil {
-			return nil, err
-		}
-
-		// Read the server verification byte after TLS handshake
-		// The libvirt server sends a verification byte to indicate
-		// client certificate/IP address verification status
-		verifyBuf := make([]byte, 1)
-		if _, err := conn.Read(verifyBuf); err != nil {
-			_ = conn.Close()
-			return nil, errors.Wrap(err, "failed to read server verification byte")
-		}
-
-		// Check verification result
-		if verifyBuf[0] != 1 {
-			_ = conn.Close()
-			return nil, fmt.Errorf("server verification failed (code: %d)", verifyBuf[0])
-		}
-
-		return conn, nil
-
-	default:
-		return nil, fmt.Errorf("unsupported libvirt URI scheme: %s", parsedURI.Scheme)
-	}
 }
 
 // NewLibvirtClient creates a new libvirt client from credentials
@@ -262,47 +141,15 @@ func NewLibvirtClient(creds LibvirtCredentials) (*LibvirtClient, error) {
 		return nil, errors.New("libvirt URI not found in credentials")
 	}
 
-	conn, err := connectToLibvirt(uri)
+	// Connect to libvirt using CGO bindings
+	// This uses the same connection logic as virsh and handles TLS automatically
+	conn, err := libvirt.NewConnect(uri)
 	if err != nil {
-		return nil, errors.Wrap(err, errConnectLibvirt)
-	}
-
-	libvirtClient := libvirt.NewWithDialer(dialers.NewAlreadyConnected(conn))
-
-	// Connect to libvirt daemon
-	if err := libvirtClient.Connect(); err != nil {
-		_ = conn.Close() // Ignore error during cleanup
-		return nil, errors.Wrap(err, "cannot connect to libvirt daemon")
-	}
-
-	// Perform authentication if required
-	authTypes, err := libvirtClient.AuthList()
-	if err != nil {
-		_ = conn.Close() // Ignore error during cleanup
-		return nil, errors.Wrap(err, "cannot get authentication types")
-	}
-
-	// If authentication is required, perform it
-	if len(authTypes) > 0 {
-		// For TLS connections, usually no additional auth is needed beyond certificates
-		// but some setups might require Polkit or SASL
-		for _, authType := range authTypes {
-			if authType == 2 { // AuthTypePolkit (usually for local connections)
-				_, err := libvirtClient.AuthPolkit()
-				if err != nil {
-					_ = conn.Close() // Ignore error during cleanup
-					return nil, errors.Wrap(err, "polkit authentication failed")
-				}
-				break
-			}
-			// For TLS, usually just the certificate validation is sufficient
-			// and no additional authentication procedure is needed
-		}
+		return nil, errors.Wrap(err, "cannot connect to libvirt")
 	}
 
 	return &LibvirtClient{
-		Libvirt: libvirtClient,
-		conn:    conn,
+		Connect: conn,
 		uri:     uri,
 	}, nil
 }
@@ -372,101 +219,350 @@ func StringToUUID(uuidStr string) ([16]byte, error) {
 	return uuid, nil
 }
 
-// loadLibvirtTLSConfig loads TLS configuration for libvirt connections
-// This function searches for certificates in standard locations and supports
-// both Kubernetes mounted secrets and local development configurations
-func loadLibvirtTLSConfig() (*tls.Config, error) {
-	// Define possible certificate locations in order of preference
-	certPaths := []struct {
-		cert   string
-		key    string
-		ca     string
-		desc   string
-	}{
-		{
-			// Kubernetes mounted secret path (production)
-			cert: "/etc/libvirt-tls/tls.crt",
-			key:  "/etc/libvirt-tls/tls.key",
-			ca:   "/etc/libvirt-tls/ca.crt",
-			desc: "Kubernetes mounted secret",
-		},
-		{
-			// Alternative Kubernetes secret path
-			cert: "/var/run/secrets/libvirt-tls/clientcert.pem",
-			key:  "/var/run/secrets/libvirt-tls/clientkey.pem",
-			ca:   "/var/run/secrets/libvirt-tls/cacert.pem",
-			desc: "Alternative Kubernetes secret",
-		},
-		{
-			// User-specific libvirt configuration (development)
-			cert: filepath.Join(os.Getenv("HOME"), ".config/libvirt/timewarp-rossg.crt"),
-			key:  filepath.Join(os.Getenv("HOME"), ".config/libvirt/timewarp-rossg.key"),
-			ca:   filepath.Join(os.Getenv("HOME"), ".config/libvirt/timewarp-rossg-ca.crt"),
-			desc: "User configuration directory",
-		},
-		{
-			// Standard libvirt PKI paths
-			cert: "/etc/pki/libvirt/clientcert.pem",
-			key:  "/etc/pki/libvirt/private/clientkey.pem",
-			ca:   "/etc/pki/CA/cacert.pem",
-			desc: "System PKI directory",
-		},
-	}
+// Note: TLS configuration is now handled automatically by the libvirt CGO bindings
+// The library uses standard libvirt configuration paths and environment variables
 
-	var lastErr error
+// Compatibility layer methods to maintain interface compatibility with controllers
+// These methods wrap the CGO bindings to match the old go-libvirt interface
 
-	// Try each certificate location
-	for _, paths := range certPaths {
-		// Check if all required files exist
-		if !fileExists(paths.cert) || !fileExists(paths.key) || !fileExists(paths.ca) {
-			lastErr = fmt.Errorf("%s: missing certificate files (cert: %s, key: %s, ca: %s)",
-				paths.desc, paths.cert, paths.key, paths.ca)
-			continue
-		}
-
-		// Load client certificate and key
-		clientCert, err := tls.LoadX509KeyPair(paths.cert, paths.key)
-		if err != nil {
-			lastErr = errors.Wrapf(err, "%s: failed to load client certificate", paths.desc)
-			continue
-		}
-
-		// Load CA certificate
-		caCert, err := os.ReadFile(paths.ca)
-		if err != nil {
-			lastErr = errors.Wrapf(err, "%s: failed to read CA certificate", paths.desc)
-			continue
-		}
-
-		// Create CA certificate pool
-		caCertPool := x509.NewCertPool()
-		if !caCertPool.AppendCertsFromPEM(caCert) {
-			lastErr = fmt.Errorf("%s: failed to parse CA certificate", paths.desc)
-			continue
-		}
-
-		// Create TLS configuration
-		tlsConfig := &tls.Config{
-			Certificates: []tls.Certificate{clientCert},
-			RootCAs:      caCertPool,
-			// ServerName will be set dynamically based on the connection URI
-			MinVersion:   tls.VersionTLS12,
-		}
-
-		fmt.Printf("Successfully loaded TLS certificates from %s\n", paths.desc)
-		return tlsConfig, nil
-	}
-
-	// If we get here, none of the certificate locations worked
-	if lastErr != nil {
-		return nil, errors.Wrap(lastErr, "failed to load TLS certificates from any location")
-	}
-
-	return nil, errors.New("no TLS certificates found in any standard location")
+// DomainLookupByName looks up a domain by name
+func (c *LibvirtClient) DomainLookupByName(name string) (*libvirt.Domain, error) {
+	return c.LookupDomainByName(name)
 }
 
-// fileExists checks if a file exists and is readable
-func fileExists(path string) bool {
-	_, err := os.Stat(path)
-	return err == nil
+// DomainGetState gets the state of a domain
+func (c *LibvirtClient) DomainGetState(domain *libvirt.Domain, flags uint32) (libvirt.DomainState, int, error) {
+	state, reason, err := domain.GetState()
+	return libvirt.DomainState(state), reason, err
+}
+
+// DomainGetInfo gets information about a domain
+func (c *LibvirtClient) DomainGetInfo(domain *libvirt.Domain) (libvirt.DomainState, uint64, uint64, uint16, uint64, error) {
+	info, err := domain.GetInfo()
+	if err != nil {
+		return 0, 0, 0, 0, 0, err
+	}
+	return libvirt.DomainState(info.State), info.MaxMem, info.Memory, uint16(info.NrVirtCpu), info.CpuTime, nil
+}
+
+// DomainDefineXML defines a domain from XML
+func (c *LibvirtClient) DomainDefineXML(xml string) (*libvirt.Domain, error) {
+	return c.Connect.DomainDefineXML(xml)
+}
+
+// DomainCreate starts a domain
+func (c *LibvirtClient) DomainCreate(domain *libvirt.Domain) error {
+	return domain.Create()
+}
+
+// DomainShutdown gracefully shuts down a domain
+func (c *LibvirtClient) DomainShutdown(domain *libvirt.Domain) error {
+	return domain.Shutdown()
+}
+
+// DomainDestroy forcefully destroys a domain
+func (c *LibvirtClient) DomainDestroy(domain *libvirt.Domain) error {
+	return domain.Destroy()
+}
+
+// DomainUndefine undefines a domain
+func (c *LibvirtClient) DomainUndefine(domain *libvirt.Domain) error {
+	return domain.Undefine()
+}
+
+// DomainSetAutostart sets domain autostart behavior
+func (c *LibvirtClient) DomainSetAutostart(domain *libvirt.Domain, autostart int) error {
+	return domain.SetAutostart(autostart != 0)
+}
+
+// Network compatibility methods
+
+// NetworkLookupByName looks up a network by name
+func (c *LibvirtClient) NetworkLookupByName(name string) (*libvirt.Network, error) {
+	return c.LookupNetworkByName(name)
+}
+
+// NetworkIsActive checks if a network is active
+func (c *LibvirtClient) NetworkIsActive(network *libvirt.Network) (bool, error) {
+	return network.IsActive()
+}
+
+// NetworkIsPersistent checks if a network is persistent
+func (c *LibvirtClient) NetworkIsPersistent(network *libvirt.Network) (bool, error) {
+	return network.IsPersistent()
+}
+
+// NetworkGetAutostart gets network autostart status
+func (c *LibvirtClient) NetworkGetAutostart(network *libvirt.Network) (bool, error) {
+	return network.GetAutostart()
+}
+
+// NetworkGetXMLDesc gets network XML description
+func (c *LibvirtClient) NetworkGetXMLDesc(network *libvirt.Network, flags uint32) (string, error) {
+	return network.GetXMLDesc(libvirt.NetworkXMLFlags(flags))
+}
+
+
+// NetworkCreate starts a network
+func (c *LibvirtClient) NetworkCreate(network *libvirt.Network) error {
+	return network.Create()
+}
+
+// NetworkDefineXML defines a network from XML
+func (c *LibvirtClient) NetworkDefineXML(xml string) (*libvirt.Network, error) {
+	return c.Connect.NetworkDefineXML(xml)
+}
+
+// NetworkDestroy forcefully destroys a network
+func (c *LibvirtClient) NetworkDestroy(network *libvirt.Network) error {
+	return network.Destroy()
+}
+
+// NetworkUndefine undefines a network
+func (c *LibvirtClient) NetworkUndefine(network *libvirt.Network) error {
+	return network.Undefine()
+}
+
+// StoragePool compatibility methods
+
+// StoragePoolLookupByName looks up a storage pool by name
+func (c *LibvirtClient) StoragePoolLookupByName(name string) (*libvirt.StoragePool, error) {
+	return c.LookupStoragePoolByName(name)
+}
+
+// StoragePoolIsActive checks if a storage pool is active
+func (c *LibvirtClient) StoragePoolIsActive(pool *libvirt.StoragePool) (bool, error) {
+	return pool.IsActive()
+}
+
+// StoragePoolIsPersistent checks if a storage pool is persistent
+func (c *LibvirtClient) StoragePoolIsPersistent(pool *libvirt.StoragePool) (bool, error) {
+	return pool.IsPersistent()
+}
+
+// StoragePoolGetAutostart gets storage pool autostart status
+func (c *LibvirtClient) StoragePoolGetAutostart(pool *libvirt.StoragePool) (bool, error) {
+	return pool.GetAutostart()
+}
+
+// StoragePoolGetInfo gets storage pool info
+func (c *LibvirtClient) StoragePoolGetInfo(pool *libvirt.StoragePool) (*libvirt.StoragePoolInfo, error) {
+	return pool.GetInfo()
+}
+
+// StoragePoolListAllVolumes lists all volumes in a storage pool
+func (c *LibvirtClient) StoragePoolListAllVolumes(pool *libvirt.StoragePool, flags uint32) ([]libvirt.StorageVol, error) {
+	return pool.ListAllStorageVolumes(flags)
+}
+
+
+// StoragePoolBuild builds a storage pool
+func (c *LibvirtClient) StoragePoolBuild(pool *libvirt.StoragePool, flags uint32) error {
+	return pool.Build(libvirt.StoragePoolBuildFlags(flags))
+}
+
+// StoragePoolCreate starts a storage pool
+func (c *LibvirtClient) StoragePoolCreate(pool *libvirt.StoragePool, flags uint32) error {
+	return pool.Create(libvirt.StoragePoolCreateFlags(flags))
+}
+
+// StoragePoolDefineXML defines a storage pool from XML
+func (c *LibvirtClient) StoragePoolDefineXML(xml string, flags uint32) (*libvirt.StoragePool, error) {
+	return c.Connect.StoragePoolDefineXML(xml, libvirt.StoragePoolDefineFlags(flags))
+}
+
+// StoragePoolDestroy forcefully destroys a storage pool
+func (c *LibvirtClient) StoragePoolDestroy(pool *libvirt.StoragePool) error {
+	return pool.Destroy()
+}
+
+// StoragePoolUndefine undefines a storage pool
+func (c *LibvirtClient) StoragePoolUndefine(pool *libvirt.StoragePool) error {
+	return pool.Undefine()
+}
+
+// StorageVol compatibility methods
+
+// StorageVolLookupByName looks up a storage volume by name
+func (c *LibvirtClient) StorageVolLookupByName(pool *libvirt.StoragePool, name string) (*libvirt.StorageVol, error) {
+	return pool.LookupStorageVolByName(name)
+}
+
+// StorageVolGetInfo gets storage volume info
+func (c *LibvirtClient) StorageVolGetInfo(vol *libvirt.StorageVol) (*libvirt.StorageVolInfo, error) {
+	return vol.GetInfo()
+}
+
+// StorageVolGetXMLDesc gets storage volume XML description
+func (c *LibvirtClient) StorageVolGetXMLDesc(vol *libvirt.StorageVol, flags uint32) (string, error) {
+	return vol.GetXMLDesc(flags)
+}
+
+// StorageVolCreateXML creates a storage volume from XML
+func (c *LibvirtClient) StorageVolCreateXML(pool *libvirt.StoragePool, xml string, flags uint32) (*libvirt.StorageVol, error) {
+	return pool.StorageVolCreateXML(xml, libvirt.StorageVolCreateFlags(flags))
+}
+
+// StorageVolDelete deletes a storage volume
+func (c *LibvirtClient) StorageVolDelete(vol *libvirt.StorageVol, flags uint32) error {
+	return vol.Delete(libvirt.StorageVolDeleteFlags(flags))
+}
+
+// Secret compatibility methods
+
+// SecretLookupByUUID looks up a secret by UUID
+func (c *LibvirtClient) SecretLookupByUUID(uuid string) (*libvirt.Secret, error) {
+	return c.LookupSecretByUUIDString(uuid)
+}
+
+// SecretSetValue sets secret value
+func (c *LibvirtClient) SecretSetValue(secret *libvirt.Secret, value []byte, flags uint32) error {
+	return secret.SetValue(value, flags)
+}
+
+// SecretGetValue gets secret value
+func (c *LibvirtClient) SecretGetValue(secret *libvirt.Secret, flags uint32) ([]byte, error) {
+	return secret.GetValue(flags)
+}
+
+// SecretDefineXML defines a secret from XML
+func (c *LibvirtClient) SecretDefineXML(xml string, flags uint32) (*libvirt.Secret, error) {
+	return c.Connect.SecretDefineXML(xml, libvirt.SecretDefineFlags(flags))
+}
+
+// SecretUndefine undefines a secret
+func (c *LibvirtClient) SecretUndefine(secret *libvirt.Secret) error {
+	return secret.Undefine()
+}
+
+// NodeDevice compatibility methods
+
+// NodeDeviceLookupByName looks up a node device by name
+func (c *LibvirtClient) NodeDeviceLookupByName(name string) (libvirt.NodeDevice, error) {
+	device, err := c.LookupDeviceByName(name)
+	if err != nil {
+		return libvirt.NodeDevice{}, err
+	}
+	return *device, nil
+}
+
+// NodeDeviceGetXMLDesc gets node device XML description
+func (c *LibvirtClient) NodeDeviceGetXMLDesc(name string, flags uint32) (string, error) {
+	device, err := c.LookupDeviceByName(name)
+	if err != nil {
+		return "", err
+	}
+	return device.GetXMLDesc(libvirt.NodeDeviceXMLFlags(flags))
+}
+
+// Additional compatibility methods for missing client functions
+
+// StorageVolCreateXMLFrom creates storage volume from another volume
+func (c *LibvirtClient) StorageVolCreateXMLFrom(pool *libvirt.StoragePool, xml string, source *libvirt.StorageVol, flags uint32) (*libvirt.StorageVol, error) {
+	return pool.StorageVolCreateXMLFrom(xml, source, libvirt.StorageVolCreateFlags(flags))
+}
+
+// ConnectListAllNodeDevices lists all node devices
+func (c *LibvirtClient) ConnectListAllNodeDevices(need int32, flags uint32) ([]libvirt.NodeDevice, uint32, error) {
+	devices, err := c.ListAllNodeDevices(libvirt.ConnectListAllNodeDeviceFlags(flags))
+	return devices, uint32(len(devices)), err
+}
+
+// NodeDeviceCreateXML creates a node device from XML
+func (c *LibvirtClient) NodeDeviceCreateXML(xml string, flags uint32) (libvirt.NodeDevice, error) {
+	device, err := c.DeviceCreateXML(xml, libvirt.NodeDeviceCreateXMLFlags(flags))
+	if err != nil {
+		return libvirt.NodeDevice{}, err
+	}
+	return *device, nil
+}
+
+// NodeDeviceDefineXML defines a node device from XML
+func (c *LibvirtClient) NodeDeviceDefineXML(xml string, flags uint32) (libvirt.NodeDevice, error) {
+	device, err := c.DeviceDefineXML(xml, libvirt.NodeDeviceDefineXMLFlags(flags))
+	if err != nil {
+		return libvirt.NodeDevice{}, err
+	}
+	return *device, nil
+}
+
+// NodeDeviceUndefine undefines a node device
+func (c *LibvirtClient) NodeDeviceUndefine(name string, flags uint32) error {
+	device, err := c.LookupDeviceByName(name)
+	if err != nil {
+		return err
+	}
+	return device.Undefine(flags)
+}
+
+// NodeDeviceDetachFlags detaches a node device
+func (c *LibvirtClient) NodeDeviceDetachFlags(name string, driverName string, flags uint32) error {
+	device, err := c.LookupDeviceByName(name)
+	if err != nil {
+		return err
+	}
+	return device.DetachFlags(driverName, flags)
+}
+
+// NodeDeviceReAttach reattaches a node device
+func (c *LibvirtClient) NodeDeviceReAttach(name string) error {
+	device, err := c.LookupDeviceByName(name)
+	if err != nil {
+		return err
+	}
+	return device.ReAttach()
+}
+
+// NodeDeviceSetAutostart sets node device autostart
+func (c *LibvirtClient) NodeDeviceSetAutostart(name string, autostart int32) error {
+	device, err := c.LookupDeviceByName(name)
+	if err != nil {
+		return err
+	}
+	return device.SetAutostart(autostart != 0)
+}
+
+// NodeDeviceDestroy destroys a node device
+func (c *LibvirtClient) NodeDeviceDestroy(name string) error {
+	device, err := c.LookupDeviceByName(name)
+	if err != nil {
+		return err
+	}
+	return device.Destroy()
+}
+
+// NetworkSetAutostart sets network autostart
+func (c *LibvirtClient) NetworkSetAutostart(network *libvirt.Network, autostart bool) error {
+	return network.SetAutostart(autostart)
+}
+
+// StorageVolResize resizes a storage volume
+func (c *LibvirtClient) StorageVolResize(volume *libvirt.StorageVol, capacity uint64, flags libvirt.StorageVolResizeFlags) error {
+	return volume.Resize(capacity, flags)
+}
+
+// StoragePoolSetAutostart sets storage pool autostart
+func (c *LibvirtClient) StoragePoolSetAutostart(pool *libvirt.StoragePool, autostart bool) error {
+	return pool.SetAutostart(autostart)
+}
+
+// NodeDeviceGetAutostart gets node device autostart setting
+func (c *LibvirtClient) NodeDeviceGetAutostart(name string) (int32, error) {
+	device, err := c.LookupDeviceByName(name)
+	if err != nil {
+		return 0, err
+	}
+	autostart, err := device.GetAutostart()
+	if err != nil {
+		return 0, err
+	}
+	if autostart {
+		return 1, nil
+	}
+	return 0, nil
+}
+
+// Disconnect closes the libvirt connection
+func (c *LibvirtClient) Disconnect() error {
+	return c.Close()
 }

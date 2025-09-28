@@ -18,35 +18,185 @@ type VolumeSpec struct {
 }
 
 // VolumeParameters are the configurable fields of a Volume.
+// +kubebuilder:validation:XValidation:rule="has(self.capacity) || has(self.size)",message="Either capacity or size must be specified"
 type VolumeParameters struct {
 	// Name of the volume
 	// +kubebuilder:validation:Required
 	Name string `json:"name"`
 
-	// Pool where the volume should be created
+	// Storage pool name where the volume will be created
 	// +kubebuilder:validation:Required
 	Pool string `json:"pool"`
 
-	// Size of the volume in bytes
-	// +kubebuilder:validation:Required
-	Size int64 `json:"size"`
+	// Capacity of the volume in bytes (deprecated - use Size instead)
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:Minimum=1048576
+	Capacity *int64 `json:"capacity,omitempty"`
 
-	// Format of the volume (e.g., "qcow2", "raw")
+	// Size of the volume in bytes
+	// Takes precedence over Capacity if both are specified
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:Minimum=1048576
+	Size *int64 `json:"size,omitempty"`
+
+	// Format of the volume (qcow2, raw, vmdk, etc.)
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default="qcow2"
 	Format string `json:"format,omitempty"`
 
+	// Allocation of the volume in bytes (for sparse files)
+	// +kubebuilder:validation:Optional
+	Allocation *int64 `json:"allocation,omitempty"`
+
 	// Source volume to clone from
 	// +kubebuilder:validation:Optional
-	Source string `json:"source,omitempty"`
+	Source *VolumeSource `json:"source,omitempty"`
 
-	// Base volume for backing store
+	// Base volume for backing store (for qcow2)
+	// +kubebuilder:validation:Optional
+	BackingStore *VolumeBackingStore `json:"backingStore,omitempty"`
+
+	// Encryption settings for the volume
+	// +kubebuilder:validation:Optional
+	Encryption *VolumeEncryption `json:"encryption,omitempty"`
+
+	// Target configuration for the volume
+	// +kubebuilder:validation:Optional
+	Target *VolumeTarget `json:"target,omitempty"`
+
+	// Base volume pool for backing store
 	// +kubebuilder:validation:Optional
 	BaseVolumePool string `json:"baseVolumePool,omitempty"`
 
 	// Base volume name for backing store
 	// +kubebuilder:validation:Optional
 	BaseVolumeName string `json:"baseVolumeName,omitempty"`
+}
+
+// VolumeSource represents the source for volume creation
+type VolumeSource struct {
+	// Volume name to clone from
+	// +kubebuilder:validation:Optional
+	Volume string `json:"volume,omitempty"`
+
+	// Pool name where the source volume resides
+	// +kubebuilder:validation:Optional
+	Pool string `json:"pool,omitempty"`
+
+	// URL to download volume from
+	// +kubebuilder:validation:Optional
+	URL string `json:"url,omitempty"`
+
+	// File path to copy from (for file-based pools)
+	// +kubebuilder:validation:Optional
+	File string `json:"file,omitempty"`
+}
+
+// VolumeBackingStore represents backing store configuration
+type VolumeBackingStore struct {
+	// Path to the backing store file
+	// +kubebuilder:validation:Required
+	Path string `json:"path"`
+
+	// Format of the backing store
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default="qcow2"
+	Format string `json:"format,omitempty"`
+}
+
+// VolumeEncryption represents volume encryption settings
+type VolumeEncryption struct {
+	// Encryption format (luks, qcow)
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Enum=luks;qcow
+	Format string `json:"format"`
+
+	// SecretRef references a Secret resource for encryption
+	// +kubebuilder:validation:Optional
+	SecretRef *xpv1.Reference `json:"secretRef,omitempty"`
+
+	// Secret containing encryption key (legacy - use SecretRef instead)
+	// +kubebuilder:validation:Optional
+	Secret *VolumeEncryptionSecret `json:"secret,omitempty"`
+}
+
+// VolumeEncryptionSecret represents encryption secret reference (legacy)
+type VolumeEncryptionSecret struct {
+	// Type of secret (passphrase, aes)
+	// +kubebuilder:validation:Required
+	Type string `json:"type"`
+
+	// UUID of the secret
+	// +kubebuilder:validation:Optional
+	UUID string `json:"uuid,omitempty"`
+
+	// Usage type for the secret
+	// +kubebuilder:validation:Optional
+	Usage string `json:"usage,omitempty"`
+}
+
+// VolumeTarget represents target device configuration
+type VolumeTarget struct {
+	// Path where the volume will be accessible
+	// +kubebuilder:validation:Optional
+	Path string `json:"path,omitempty"`
+
+	// Format for the target
+	// +kubebuilder:validation:Optional
+	Format string `json:"format,omitempty"`
+
+	// Permissions for the volume
+	// +kubebuilder:validation:Optional
+	Permissions *VolumePermissions `json:"permissions,omitempty"`
+
+	// Timestamps configuration
+	// +kubebuilder:validation:Optional
+	Timestamps *VolumeTimestamps `json:"timestamps,omitempty"`
+
+	// Compat settings for the volume
+	// +kubebuilder:validation:Optional
+	Compat string `json:"compat,omitempty"`
+
+	// Features for the volume
+	// +kubebuilder:validation:Optional
+	Features *VolumeFeatures `json:"features,omitempty"`
+}
+
+// VolumePermissions represents permission settings
+type VolumePermissions struct {
+	// Mode of the volume (e.g., 0644)
+	// +kubebuilder:validation:Optional
+	Mode string `json:"mode,omitempty"`
+
+	// Owner of the volume
+	// +kubebuilder:validation:Optional
+	Owner string `json:"owner,omitempty"`
+
+	// Group of the volume
+	// +kubebuilder:validation:Optional
+	Group string `json:"group,omitempty"`
+
+	// Label for SELinux
+	// +kubebuilder:validation:Optional
+	Label string `json:"label,omitempty"`
+}
+
+// VolumeTimestamps represents timestamp settings
+type VolumeTimestamps struct {
+	// Atime settings
+	// +kubebuilder:validation:Optional
+	Atime string `json:"atime,omitempty"`
+
+	// Mtime settings
+	// +kubebuilder:validation:Optional
+	Mtime string `json:"mtime,omitempty"`
+}
+
+// VolumeFeatures represents volume features
+type VolumeFeatures struct {
+	// Lazy refcounts
+	// +kubebuilder:validation:Optional
+	LazyRefcounts *bool `json:"lazy_refcounts,omitempty"`
 }
 
 // VolumeStatus defines the observed state of Volume
@@ -68,6 +218,18 @@ type VolumeObservation struct {
 
 	// Key of the volume
 	Key string `json:"key,omitempty"`
+
+	// Type of the volume
+	Type string `json:"type,omitempty"`
+
+	// Capacity of the volume
+	Capacity int64 `json:"capacity,omitempty"`
+
+	// Allocation of the volume
+	Allocation int64 `json:"allocation,omitempty"`
+
+	// Pool name where the volume resides
+	Pool string `json:"pool,omitempty"`
 }
 
 // +kubebuilder:object:root=true

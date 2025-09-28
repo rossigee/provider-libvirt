@@ -37,9 +37,9 @@ func TestDomainSpec(t *testing.T) {
 				Vcpu:   2,
 				Disk: []DomainDisk{
 					{
-						Device: "disk",
-						Source: "/var/lib/libvirt/images/test-disk.qcow2",
-						Target: "vda",
+						File:   "/var/lib/libvirt/images/test-disk.qcow2",
+						Device: "vda",
+						Type:   "virtio",
 						Bus:    "virtio",
 					},
 				},

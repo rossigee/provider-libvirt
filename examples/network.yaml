@@ -1,4 +1,4 @@
-apiVersion: libvirt.crossplane.io/v1alpha1
+apiVersion: libvirt.m.crossplane.io/v1beta1
 kind: Network
 metadata:
   name: default-nat-network
@@ -34,7 +34,7 @@ spec:
       managed: true
   deletionPolicy: Delete
 ---
-apiVersion: libvirt.crossplane.io/v1alpha1
+apiVersion: libvirt.m.crossplane.io/v1beta1
 kind: Network
 metadata:
   name: isolated-network
@@ -66,7 +66,7 @@ spec:
           hostname: test-vm.local
   deletionPolicy: Delete
 ---
-apiVersion: libvirt.crossplane.io/v1alpha1
+apiVersion: libvirt.m.crossplane.io/v1beta1
 kind: Network
 metadata:
   name: bridge-network
@@ -84,7 +84,7 @@ spec:
         - dev: eth0
   deletionPolicy: Delete
 ---
-apiVersion: libvirt.crossplane.io/v1alpha1
+apiVersion: libvirt.m.crossplane.io/v1beta1
 kind: Network
 metadata:
   name: routed-network
@@ -123,7 +123,7 @@ spec:
           value: "path=/service"
   deletionPolicy: Delete
 ---
-apiVersion: libvirt.crossplane.io/v1alpha1
+apiVersion: libvirt.m.crossplane.io/v1beta1
 kind: Network
 metadata:
   name: enterprise-network

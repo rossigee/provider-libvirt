@@ -30,7 +30,7 @@ echo ""
 echo "🎮 Test 1: GPU Passthrough"
 echo "Applying GPU passthrough configuration..."
 kubectl apply -f - <<EOF
-apiVersion: nodedevice.libvirt.crossplane.io/v1alpha1
+apiVersion: nodedevice.libvirt.m.crossplane.io/v1beta1
 kind: NodeDevice
 metadata:
   name: test-gpu-passthrough
@@ -57,7 +57,7 @@ check_resource_status nodedevice test-gpu-passthrough
 echo ""
 echo "🔌 Test 2: USB Device Management"
 kubectl apply -f - <<EOF
-apiVersion: nodedevice.libvirt.crossplane.io/v1alpha1
+apiVersion: nodedevice.libvirt.m.crossplane.io/v1beta1
 kind: NodeDevice
 metadata:
   name: test-usb-device
@@ -83,7 +83,7 @@ check_resource_status nodedevice test-usb-device
 echo ""
 echo "🖥️  Test 3: Mediated Device (vGPU)"
 kubectl apply -f - <<EOF
-apiVersion: nodedevice.libvirt.crossplane.io/v1alpha1
+apiVersion: nodedevice.libvirt.m.crossplane.io/v1beta1
 kind: NodeDevice
 metadata:
   name: test-vgpu

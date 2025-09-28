@@ -13,34 +13,34 @@ import (
 	"github.com/crossplane/crossplane-runtime/v2/pkg/resource"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/test"
 
-	"github.com/rossigee/provider-libvirt/apis/v1alpha1"
+	"github.com/rossigee/provider-libvirt/apis/v1beta1"
 )
 
 var (
 	errBoom = errors.New("boom")
 )
 
-type secretModifier func(*v1alpha1.Secret)
+type secretModifier func(*v1beta1.Secret)
 
 
-func secret(m ...secretModifier) *v1alpha1.Secret {
-	i := &v1alpha1.Secret{
+func secret(m ...secretModifier) *v1beta1.Secret {
+	i := &v1beta1.Secret{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Secret",
-			APIVersion: "libvirt.crossplane.io/v1alpha1",
+			APIVersion: "libvirt.m.crossplane.io/v1beta1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-secret",
 			Namespace: "default",
 		},
-		Spec: v1alpha1.SecretSpec{
-			ForProvider: v1alpha1.SecretParameters{
+		Spec: v1beta1.SecretSpec{
+			ForProvider: v1beta1.SecretParameters{
 				Type:        "volume",
 				Usage:       "test-volume",
 				Description: "Test secret for volume",
-				Data: v1alpha1.SecretData{
-					Volume: &v1alpha1.VolumeSecretData{
-						Passphrase: &v1alpha1.SecretReference{
+				Data: v1beta1.SecretData{
+					Volume: &v1beta1.VolumeSecretData{
+						Passphrase: &v1beta1.SecretReference{
 							Name:      "test-passphrase",
 							Key:       "passphrase",
 							Namespace: "default",
@@ -49,7 +49,7 @@ func secret(m ...secretModifier) *v1alpha1.Secret {
 				},
 			},
 		},
-		Status: v1alpha1.SecretStatus{},
+		Status: v1beta1.SecretStatus{},
 	}
 	for _, f := range m {
 		f(i)
@@ -103,11 +103,11 @@ func TestGetUsageType(t *testing.T) {
 
 func TestGenerateUsageID(t *testing.T) {
 	cases := map[string]struct {
-		secret *v1alpha1.Secret
+		secret *v1beta1.Secret
 		want   string
 	}{
 		"WithNamespace": {
-			secret: &v1alpha1.Secret{
+			secret: &v1beta1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-secret",
 					Namespace: "test-namespace",
@@ -116,7 +116,7 @@ func TestGenerateUsageID(t *testing.T) {
 			want: "test-namespace-test-secret",
 		},
 		"WithoutNamespace": {
-			secret: &v1alpha1.Secret{
+			secret: &v1beta1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test-secret",
 				},
@@ -185,7 +185,7 @@ func TestExternalObserve(t *testing.T) {
 	}{
 		"NotASecret": {
 			args: func() (managed.ExternalClient, resource.Managed) {
-				return &external{}, &v1alpha1.Domain{}
+				return &external{}, &v1beta1.Domain{}
 			},
 			want: want{
 				err: errors.New(errNotSecret),
@@ -229,7 +229,7 @@ func TestExternalCreate(t *testing.T) {
 	}{
 		"NotASecret": {
 			args: func() (managed.ExternalClient, resource.Managed) {
-				return &external{}, &v1alpha1.Domain{}
+				return &external{}, &v1beta1.Domain{}
 			},
 			want: want{
 				err: errors.New(errNotSecret),
@@ -263,7 +263,7 @@ func TestExternalUpdate(t *testing.T) {
 	}{
 		"NotASecret": {
 			args: func() (managed.ExternalClient, resource.Managed) {
-				return &external{}, &v1alpha1.Domain{}
+				return &external{}, &v1beta1.Domain{}
 			},
 			want: want{
 				err: errors.New(errNotSecret),
@@ -297,7 +297,7 @@ func TestExternalDelete(t *testing.T) {
 	}{
 		"NotASecret": {
 			args: func() (managed.ExternalClient, resource.Managed) {
-				return &external{}, &v1alpha1.Domain{}
+				return &external{}, &v1beta1.Domain{}
 			},
 			want: want{
 				err: errors.New(errNotSecret),
@@ -329,7 +329,7 @@ func TestExternalDelete(t *testing.T) {
 
 func TestGetSecretFromK8s(t *testing.T) {
 	type args struct {
-		ref *v1alpha1.SecretReference
+		ref *v1beta1.SecretReference
 	}
 	type want struct {
 		data []byte
@@ -342,7 +342,7 @@ func TestGetSecretFromK8s(t *testing.T) {
 	}{
 		"EmptyName": {
 			args: args{
-				ref: &v1alpha1.SecretReference{
+				ref: &v1beta1.SecretReference{
 					Name: "",
 					Key:  "test-key",
 				},
@@ -353,7 +353,7 @@ func TestGetSecretFromK8s(t *testing.T) {
 		},
 		"EmptyKey": {
 			args: args{
-				ref: &v1alpha1.SecretReference{
+				ref: &v1beta1.SecretReference{
 					Name: "test-secret",
 					Key:  "",
 				},
@@ -396,7 +396,7 @@ func TestConnect(t *testing.T) {
 	}{
 		"NotASecret": {
 			args: func() (context.Context, resource.Managed) {
-				return context.Background(), &v1alpha1.Domain{}
+				return context.Background(), &v1beta1.Domain{}
 			},
 			want: want{
 				err: errors.New(errNotSecret),

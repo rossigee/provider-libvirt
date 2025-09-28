@@ -1,4 +1,4 @@
-apiVersion: libvirt.crossplane.io/v1alpha1
+apiVersion: libvirt.m.crossplane.io/v1beta1
 kind: Volume
 metadata:
   name: example-volume
@@ -13,7 +13,7 @@ spec:
     allocation: 1073741824  # 1GB initial allocation (sparse)
   deletionPolicy: Delete
 ---
-apiVersion: libvirt.crossplane.io/v1alpha1
+apiVersion: libvirt.m.crossplane.io/v1beta1
 kind: Volume
 metadata:
   name: example-volume-with-backing
@@ -30,7 +30,7 @@ spec:
       format: qcow2
   deletionPolicy: Delete
 ---
-apiVersion: libvirt.crossplane.io/v1alpha1
+apiVersion: libvirt.m.crossplane.io/v1beta1
 kind: Volume
 metadata:
   name: cloned-volume
@@ -47,7 +47,7 @@ spec:
       pool: default
   deletionPolicy: Delete
 ---
-apiVersion: libvirt.crossplane.io/v1alpha1
+apiVersion: libvirt.m.crossplane.io/v1beta1
 kind: Volume
 metadata:
   name: encrypted-volume

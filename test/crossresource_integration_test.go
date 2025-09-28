@@ -20,7 +20,7 @@ import (
 
 	xpv1 "github.com/crossplane/crossplane-runtime/v2/apis/common/v1"
 
-	"github.com/rossigee/provider-libvirt/apis/v1alpha1"
+	"github.com/rossigee/provider-libvirt/apis/v1beta1"
 )
 
 
@@ -63,22 +63,22 @@ func TestCrossResourceIntegration(t *testing.T) {
 
 func testCompleteVMSetup(t *testing.T, ctx context.Context, k8sClient client.Client) {
 	// Step 1: Create StoragePool
-	storagePool := &v1alpha1.StoragePool{
+	storagePool := &v1beta1.StoragePool{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "test-storage-pool",
 		},
-		Spec: v1alpha1.StoragePoolSpec{
+		Spec: v1beta1.StoragePoolSpec{
 			ResourceSpec: xpv1.ResourceSpec{
 				ProviderConfigReference: &xpv1.Reference{Name: "test-provider-config"},
 				DeletionPolicy:          xpv1.DeletionDelete,
 			},
-			ForProvider: v1alpha1.StoragePoolParameters{
+			ForProvider: v1beta1.StoragePoolParameters{
 				Name: "test-pool",
 				Type: "dir",
-				Target: &v1alpha1.StoragePoolTarget{
+				Target: &v1beta1.StoragePoolTarget{
 					Path: "/tmp/test-pool",
 				},
-				AutoStart: &[]bool{true}[0],
+				Autostart: &[]bool{true}[0],
 			},
 		},
 	}
@@ -99,20 +99,20 @@ func testCompleteVMSetup(t *testing.T, ctx context.Context, k8sClient client.Cli
 	}
 
 	// Step 2: Create Volume in the StoragePool
-	volume := &v1alpha1.Volume{
+	volume := &v1beta1.Volume{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "test-vm-disk",
 		},
-		Spec: v1alpha1.VolumeSpec{
+		Spec: v1beta1.VolumeSpec{
 			ResourceSpec: xpv1.ResourceSpec{
 				ProviderConfigReference: &xpv1.Reference{Name: "test-provider-config"},
 				DeletionPolicy:          xpv1.DeletionDelete,
 			},
-			ForProvider: v1alpha1.VolumeParameters{
+			ForProvider: v1beta1.VolumeParameters{
 				Name:     "test-vm-disk.qcow2",
 				Pool:     "test-pool", // References the StoragePool
 				Format:   "qcow2",
-				Size: "20G", // 20GB using human-readable format
+				Size: int64Ptr(21474836480), // 20GB in bytes
 			},
 		},
 	}
@@ -133,29 +133,33 @@ func testCompleteVMSetup(t *testing.T, ctx context.Context, k8sClient client.Cli
 	}
 
 	// Step 3: Create Network
-	network := &v1alpha1.Network{
+	network := &v1beta1.Network{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "test-vm-network",
 		},
-		Spec: v1alpha1.NetworkSpec{
+		Spec: v1beta1.NetworkSpec{
 			ResourceSpec: xpv1.ResourceSpec{
 				ProviderConfigReference: &xpv1.Reference{Name: "test-provider-config"},
 				DeletionPolicy:          xpv1.DeletionDelete,
 			},
-			ForProvider: v1alpha1.NetworkParameters{
+			ForProvider: v1beta1.NetworkParameters{
 				Name: "test-network",
 				Mode: "nat",
-				IP: &v1alpha1.NetworkIP{
-					Address: "192.168.122.1",
-					Netmask: "255.255.255.0",
-				},
-				DHCP: &v1alpha1.NetworkDHCP{
-					Range: &v1alpha1.NetworkDHCPRange{
-						Start: "192.168.122.100",
-						End:   "192.168.122.200",
+				IP: []v1beta1.NetworkIP{
+					{
+						Address: "192.168.122.1",
+						Netmask: "255.255.255.0",
 					},
 				},
-				AutoStart: &[]bool{true}[0],
+				DHCP: &v1beta1.NetworkDHCP{
+					Ranges: []v1beta1.NetworkDHCPRange{
+						{
+							Start: "192.168.122.100",
+							End:   "192.168.122.200",
+						},
+					},
+				},
+				Autostart: &[]bool{true}[0],
 			},
 		},
 	}
@@ -174,25 +178,25 @@ func testCompleteVMSetup(t *testing.T, ctx context.Context, k8sClient client.Cli
 	}
 
 	// Step 4: Create Domain with cross-resource references
-	domain := &v1alpha1.Domain{
+	domain := &v1beta1.Domain{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "test-vm-with-refs",
 		},
-		Spec: v1alpha1.DomainSpec{
+		Spec: v1beta1.DomainSpec{
 			ResourceSpec: xpv1.ResourceSpec{
 				ProviderConfigReference: &xpv1.Reference{Name: "test-provider-config"},
 				DeletionPolicy:          xpv1.DeletionDelete,
 			},
-			ForProvider: v1alpha1.DomainParameters{
+			ForProvider: v1beta1.DomainParameters{
 				Name:    "test-integration-vm",
 				Memory:  2147483648, // 2GB
 				Vcpu:    2,
 				Type:    "kvm",
 				Arch:    "x86_64",
-				Running: false, // Start stopped for safety
+				Running: &[]bool{false}[0], // Start stopped for safety
 				Boot:    []string{"hd"},
 				// Disk with Volume reference (NEW cross-resource feature)
-				Disk: []v1alpha1.DomainDisk{
+				Disk: []v1beta1.DomainDisk{
 					{
 						VolumeRef: &xpv1.Reference{Name: "test-vm-disk"}, // Cross-resource reference
 						Type:      "virtio",
@@ -201,20 +205,24 @@ func testCompleteVMSetup(t *testing.T, ctx context.Context, k8sClient client.Cli
 					},
 				},
 				// Network interface with Network reference (NEW cross-resource feature)
-				NetworkInterface: []v1alpha1.DomainNetworkInterface{
+				NetworkInterface: []v1beta1.DomainNetworkInterface{
 					{
 						NetworkRef:    &xpv1.Reference{Name: "test-vm-network"}, // Cross-resource reference
 						Model:         "virtio",
 						WaitForLease:  true,
 					},
 				},
-				Console: &v1alpha1.DomainConsole{
-					Type: "pty",
+				Console: []v1beta1.DomainConsole{
+					{
+						Type: "pty",
+					},
 				},
-				Graphics: &v1alpha1.DomainGraphics{
-					Type:          "spice",
-					ListenAddress: "127.0.0.1",
-					Autoport:      true,
+				Graphics: []v1beta1.DomainGraphics{
+					{
+						Type:          "spice",
+						ListenAddress: "127.0.0.1",
+						Autoport:      true,
+					},
 				},
 			},
 		},
@@ -228,7 +236,7 @@ func testCompleteVMSetup(t *testing.T, ctx context.Context, k8sClient client.Cli
 	// Step 5: Verify all resources were created successfully
 	t.Run("VerifyResourceCreation", func(t *testing.T) {
 		// Verify StoragePool
-		var retrievedPool v1alpha1.StoragePool
+		var retrievedPool v1beta1.StoragePool
 		err := k8sClient.Get(ctx, types.NamespacedName{Name: "test-storage-pool"}, &retrievedPool)
 		if err != nil {
 			t.Errorf("Failed to retrieve StoragePool: %v", err)
@@ -238,7 +246,7 @@ func testCompleteVMSetup(t *testing.T, ctx context.Context, k8sClient client.Cli
 		}
 
 		// Verify Volume
-		var retrievedVolume v1alpha1.Volume
+		var retrievedVolume v1beta1.Volume
 		err = k8sClient.Get(ctx, types.NamespacedName{Name: "test-vm-disk"}, &retrievedVolume)
 		if err != nil {
 			t.Errorf("Failed to retrieve Volume: %v", err)
@@ -248,7 +256,7 @@ func testCompleteVMSetup(t *testing.T, ctx context.Context, k8sClient client.Cli
 		}
 
 		// Verify Network
-		var retrievedNetwork v1alpha1.Network
+		var retrievedNetwork v1beta1.Network
 		err = k8sClient.Get(ctx, types.NamespacedName{Name: "test-vm-network"}, &retrievedNetwork)
 		if err != nil {
 			t.Errorf("Failed to retrieve Network: %v", err)
@@ -258,7 +266,7 @@ func testCompleteVMSetup(t *testing.T, ctx context.Context, k8sClient client.Cli
 		}
 
 		// Verify Domain with cross-references
-		var retrievedDomain v1alpha1.Domain
+		var retrievedDomain v1beta1.Domain
 		err = k8sClient.Get(ctx, types.NamespacedName{Name: "test-vm-with-refs"}, &retrievedDomain)
 		if err != nil {
 			t.Errorf("Failed to retrieve Domain: %v", err)
@@ -320,19 +328,19 @@ func testCompleteVMSetup(t *testing.T, ctx context.Context, k8sClient client.Cli
 
 func testVolumeReferenceValidation(t *testing.T, ctx context.Context, k8sClient client.Client) {
 	// Test case: Domain referencing non-existent Volume should handle gracefully
-	domain := &v1alpha1.Domain{
+	domain := &v1beta1.Domain{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "test-invalid-volume-ref",
 		},
-		Spec: v1alpha1.DomainSpec{
+		Spec: v1beta1.DomainSpec{
 			ResourceSpec: xpv1.ResourceSpec{
 				ProviderConfigReference: &xpv1.Reference{Name: "test-provider-config"},
 			},
-			ForProvider: v1alpha1.DomainParameters{
+			ForProvider: v1beta1.DomainParameters{
 				Name:   "test-vm-invalid-ref",
 				Memory: 1073741824,
 				Vcpu:   1,
-				Disk: []v1alpha1.DomainDisk{
+				Disk: []v1beta1.DomainDisk{
 					{
 						VolumeRef: &xpv1.Reference{Name: "non-existent-volume"},
 						Type:      "virtio",
@@ -348,7 +356,7 @@ func testVolumeReferenceValidation(t *testing.T, ctx context.Context, k8sClient 
 	}
 
 	// The Domain should be created but not become Ready due to missing Volume
-	var retrievedDomain v1alpha1.Domain
+	var retrievedDomain v1beta1.Domain
 	err = k8sClient.Get(ctx, types.NamespacedName{Name: "test-invalid-volume-ref"}, &retrievedDomain)
 	if err != nil {
 		t.Fatalf("Failed to retrieve Domain: %v", err)
@@ -370,19 +378,19 @@ func testVolumeReferenceValidation(t *testing.T, ctx context.Context, k8sClient 
 
 func testNetworkReferenceValidation(t *testing.T, ctx context.Context, k8sClient client.Client) {
 	// Test case: Domain referencing non-existent Network should handle gracefully
-	domain := &v1alpha1.Domain{
+	domain := &v1beta1.Domain{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "test-invalid-network-ref",
 		},
-		Spec: v1alpha1.DomainSpec{
+		Spec: v1beta1.DomainSpec{
 			ResourceSpec: xpv1.ResourceSpec{
 				ProviderConfigReference: &xpv1.Reference{Name: "test-provider-config"},
 			},
-			ForProvider: v1alpha1.DomainParameters{
+			ForProvider: v1beta1.DomainParameters{
 				Name:   "test-vm-invalid-network",
 				Memory: 1073741824,
 				Vcpu:   1,
-				NetworkInterface: []v1alpha1.DomainNetworkInterface{
+				NetworkInterface: []v1beta1.DomainNetworkInterface{
 					{
 						NetworkRef: &xpv1.Reference{Name: "non-existent-network"},
 						Model:      "virtio",
@@ -397,7 +405,7 @@ func testNetworkReferenceValidation(t *testing.T, ctx context.Context, k8sClient
 		t.Fatalf("Failed to create Domain with invalid network reference: %v", err)
 	}
 
-	var retrievedDomain v1alpha1.Domain
+	var retrievedDomain v1beta1.Domain
 	err = k8sClient.Get(ctx, types.NamespacedName{Name: "test-invalid-network-ref"}, &retrievedDomain)
 	if err != nil {
 		t.Fatalf("Failed to retrieve Domain: %v", err)
@@ -418,27 +426,27 @@ func testNetworkReferenceValidation(t *testing.T, ctx context.Context, k8sClient
 
 func testBackwardCompatibility(t *testing.T, ctx context.Context, k8sClient client.Client) {
 	// Test case: Domain using legacy direct file paths should still work
-	domain := &v1alpha1.Domain{
+	domain := &v1beta1.Domain{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "test-legacy-paths",
 		},
-		Spec: v1alpha1.DomainSpec{
+		Spec: v1beta1.DomainSpec{
 			ResourceSpec: xpv1.ResourceSpec{
 				ProviderConfigReference: &xpv1.Reference{Name: "test-provider-config"},
 			},
-			ForProvider: v1alpha1.DomainParameters{
+			ForProvider: v1beta1.DomainParameters{
 				Name:   "test-legacy-vm",
 				Memory: 1073741824,
 				Vcpu:   1,
 				// Legacy disk configuration (direct file path)
-				Disk: []v1alpha1.DomainDisk{
+				Disk: []v1beta1.DomainDisk{
 					{
 						File: "/tmp/legacy-disk.qcow2", // Direct file path
 						Type: "virtio",
 					},
 				},
 				// Legacy network configuration (direct network name)
-				NetworkInterface: []v1alpha1.DomainNetworkInterface{
+				NetworkInterface: []v1beta1.DomainNetworkInterface{
 					{
 						NetworkName: "default", // Direct network name
 						Model:       "virtio",
@@ -453,7 +461,7 @@ func testBackwardCompatibility(t *testing.T, ctx context.Context, k8sClient clie
 		t.Fatalf("Failed to create Domain with legacy configuration: %v", err)
 	}
 
-	var retrievedDomain v1alpha1.Domain
+	var retrievedDomain v1beta1.Domain
 	err = k8sClient.Get(ctx, types.NamespacedName{Name: "test-legacy-paths"}, &retrievedDomain)
 	if err != nil {
 		t.Fatalf("Failed to retrieve Domain: %v", err)
@@ -489,25 +497,25 @@ func testResourceDependencyOrdering(t *testing.T, ctx context.Context, k8sClient
 	// Test case: Create Domain before its dependencies to verify proper error handling
 	
 	// Try to create Domain that references non-existent resources
-	domain := &v1alpha1.Domain{
+	domain := &v1beta1.Domain{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "test-dependency-ordering",
 		},
-		Spec: v1alpha1.DomainSpec{
+		Spec: v1beta1.DomainSpec{
 			ResourceSpec: xpv1.ResourceSpec{
 				ProviderConfigReference: &xpv1.Reference{Name: "test-provider-config"},
 			},
-			ForProvider: v1alpha1.DomainParameters{
+			ForProvider: v1beta1.DomainParameters{
 				Name:   "test-dependency-vm",
 				Memory: 1073741824,
 				Vcpu:   1,
-				Disk: []v1alpha1.DomainDisk{
+				Disk: []v1beta1.DomainDisk{
 					{
 						VolumeRef: &xpv1.Reference{Name: "future-volume"},
 						Type:      "virtio",
 					},
 				},
-				NetworkInterface: []v1alpha1.DomainNetworkInterface{
+				NetworkInterface: []v1beta1.DomainNetworkInterface{
 					{
 						NetworkRef: &xpv1.Reference{Name: "future-network"},
 						Model:      "virtio",
@@ -524,39 +532,41 @@ func testResourceDependencyOrdering(t *testing.T, ctx context.Context, k8sClient
 	}
 
 	// Now create the dependencies
-	volume := &v1alpha1.Volume{
+	volume := &v1beta1.Volume{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "future-volume",
 		},
-		Spec: v1alpha1.VolumeSpec{
+		Spec: v1beta1.VolumeSpec{
 			ResourceSpec: xpv1.ResourceSpec{
 				ProviderConfigReference: &xpv1.Reference{Name: "test-provider-config"},
 			},
-			ForProvider: v1alpha1.VolumeParameters{
+			ForProvider: v1beta1.VolumeParameters{
 				Name:     "future-volume.qcow2",
 				Pool:     "default",
 				Format:   "qcow2",
-				Size: "10G", // 10GB using human-readable format
+				Size: int64Ptr(10737418240), // 10GB in bytes
 			},
 		},
 	}
 
-	network := &v1alpha1.Network{
+	network := &v1beta1.Network{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "future-network",
 		},
-		Spec: v1alpha1.NetworkSpec{
+		Spec: v1beta1.NetworkSpec{
 			ResourceSpec: xpv1.ResourceSpec{
 				ProviderConfigReference: &xpv1.Reference{Name: "test-provider-config"},
 			},
-			ForProvider: v1alpha1.NetworkParameters{
+			ForProvider: v1beta1.NetworkParameters{
 				Name: "future-network",
 				Mode: "nat",
-				IP: &v1alpha1.NetworkIP{
-					Address: "10.0.0.1",
-					Netmask: "255.255.255.0",
+				IP: []v1beta1.NetworkIP{
+					{
+						Address: "10.0.0.1",
+						Netmask: "255.255.255.0",
+					},
 				},
-				AutoStart: &[]bool{true}[0],
+				Autostart: &[]bool{true}[0],
 			},
 		},
 	}
@@ -572,19 +582,19 @@ func testResourceDependencyOrdering(t *testing.T, ctx context.Context, k8sClient
 	}
 
 	// Verify all resources exist
-	var retrievedDomain v1alpha1.Domain
+	var retrievedDomain v1beta1.Domain
 	err = k8sClient.Get(ctx, types.NamespacedName{Name: "test-dependency-ordering"}, &retrievedDomain)
 	if err != nil {
 		t.Fatalf("Failed to retrieve Domain: %v", err)
 	}
 
-	var retrievedVolume v1alpha1.Volume
+	var retrievedVolume v1beta1.Volume
 	err = k8sClient.Get(ctx, types.NamespacedName{Name: "future-volume"}, &retrievedVolume)
 	if err != nil {
 		t.Fatalf("Failed to retrieve Volume: %v", err)
 	}
 
-	var retrievedNetwork v1alpha1.Network
+	var retrievedNetwork v1beta1.Network
 	err = k8sClient.Get(ctx, types.NamespacedName{Name: "future-network"}, &retrievedNetwork)
 	if err != nil {
 		t.Fatalf("Failed to retrieve Network: %v", err)
@@ -608,7 +618,7 @@ func testResourceDependencyOrdering(t *testing.T, ctx context.Context, k8sClient
 // Helper function to create test scheme with all required types
 func createTestScheme() *runtime.Scheme {
 	scheme := runtime.NewScheme()
-	_ = v1alpha1.SchemeBuilder.AddToScheme(scheme)
+	_ = v1beta1.SchemeBuilder.AddToScheme(scheme)
 	_ = corev1.AddToScheme(scheme)
 	return scheme
 }

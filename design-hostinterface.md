@@ -342,7 +342,7 @@ type VLANStatus struct {
 
 ```yaml
 # High-Availability Bond Interface
-apiVersion: libvirt.crossplane.io/v1alpha1
+apiVersion: libvirt.m.crossplane.io/v1beta1
 kind: HostInterface
 metadata:
   name: bond-primary
@@ -365,7 +365,7 @@ spec:
         dns: ["8.8.8.8", "8.8.4.4"]
 ---
 # VLAN Interface for Tenant Isolation
-apiVersion: libvirt.crossplane.io/v1alpha1
+apiVersion: libvirt.m.crossplane.io/v1beta1
 kind: HostInterface
 metadata:
   name: vlan-tenant-100
@@ -382,7 +382,7 @@ spec:
         method: dhcp
 ---
 # Bridge for VM Networking
-apiVersion: libvirt.crossplane.io/v1alpha1
+apiVersion: libvirt.m.crossplane.io/v1beta1
 kind: HostInterface
 metadata:
   name: vm-bridge
@@ -402,7 +402,7 @@ spec:
 ### 4. **Integration with Existing Resources**
 ```yaml
 # Network using HostInterface bridge
-apiVersion: libvirt.crossplane.io/v1alpha1
+apiVersion: libvirt.m.crossplane.io/v1beta1
 kind: Network
 metadata:
   name: tenant-network

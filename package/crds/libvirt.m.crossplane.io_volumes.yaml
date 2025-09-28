@@ -77,34 +77,183 @@ spec:
               forProvider:
                 description: VolumeParameters are the configurable fields of a Volume.
                 properties:
+                  allocation:
+                    description: Allocation of the volume in bytes (for sparse files)
+                    format: int64
+                    type: integer
+                  backingStore:
+                    description: Base volume for backing store (for qcow2)
+                    properties:
+                      format:
+                        default: qcow2
+                        description: Format of the backing store
+                        type: string
+                      path:
+                        description: Path to the backing store file
+                        type: string
+                    required:
+                    - path
+                    type: object
                   baseVolumeName:
                     description: Base volume name for backing store
                     type: string
                   baseVolumePool:
-                    description: Base volume for backing store
+                    description: Base volume pool for backing store
                     type: string
+                  capacity:
+                    description: Capacity of the volume in bytes (deprecated - use
+                      Size instead)
+                    format: int64
+                    minimum: 1048576
+                    type: integer
+                  encryption:
+                    description: Encryption settings for the volume
+                    properties:
+                      format:
+                        description: Encryption format (luks, qcow)
+                        enum:
+                        - luks
+                        - qcow
+                        type: string
+                      secret:
+                        description: Secret containing encryption key (legacy - use
+                          SecretRef instead)
+                        properties:
+                          type:
+                            description: Type of secret (passphrase, aes)
+                            type: string
+                          usage:
+                            description: Usage type for the secret
+                            type: string
+                          uuid:
+                            description: UUID of the secret
+                            type: string
+                        required:
+                        - type
+                        type: object
+                      secretRef:
+                        description: SecretRef references a Secret resource for encryption
+                        properties:
+                          name:
+                            description: Name of the referenced object.
+                            type: string
+                          policy:
+                            description: Policies for referencing.
+                            properties:
+                              resolution:
+                                default: Required
+                                description: |-
+                                  Resolution specifies whether resolution of this reference is required.
+                                  The default is 'Required', which means the reconcile will fail if the
+                                  reference cannot be resolved. 'Optional' means this reference will be
+                                  a no-op if it cannot be resolved.
+                                enum:
+                                - Required
+                                - Optional
+                                type: string
+                              resolve:
+                                description: |-
+                                  Resolve specifies when this reference should be resolved. The default
+                                  is 'IfNotPresent', which will attempt to resolve the reference only when
+                                  the corresponding field is not present. Use 'Always' to resolve the
+                                  reference on every reconcile.
+                                enum:
+                                - Always
+                                - IfNotPresent
+                                type: string
+                            type: object
+                        required:
+                        - name
+                        type: object
+                    required:
+                    - format
+                    type: object
                   format:
                     default: qcow2
-                    description: Format of the volume (e.g., "qcow2", "raw")
+                    description: Format of the volume (qcow2, raw, vmdk, etc.)
                     type: string
                   name:
                     description: Name of the volume
                     type: string
                   pool:
-                    description: Pool where the volume should be created
+                    description: Storage pool name where the volume will be created
                     type: string
                   size:
-                    description: Size of the volume in bytes
+                    description: |-
+                      Size of the volume in bytes
+                      Takes precedence over Capacity if both are specified
                     format: int64
+                    minimum: 1048576
                     type: integer
                   source:
                     description: Source volume to clone from
-                    type: string
+                    properties:
+                      file:
+                        description: File path to copy from (for file-based pools)
+                        type: string
+                      pool:
+                        description: Pool name where the source volume resides
+                        type: string
+                      url:
+                        description: URL to download volume from
+                        type: string
+                      volume:
+                        description: Volume name to clone from
+                        type: string
+                    type: object
+                  target:
+                    description: Target configuration for the volume
+                    properties:
+                      compat:
+                        description: Compat settings for the volume
+                        type: string
+                      features:
+                        description: Features for the volume
+                        properties:
+                          lazy_refcounts:
+                            description: Lazy refcounts
+                            type: boolean
+                        type: object
+                      format:
+                        description: Format for the target
+                        type: string
+                      path:
+                        description: Path where the volume will be accessible
+                        type: string
+                      permissions:
+                        description: Permissions for the volume
+                        properties:
+                          group:
+                            description: Group of the volume
+                            type: string
+                          label:
+                            description: Label for SELinux
+                            type: string
+                          mode:
+                            description: Mode of the volume (e.g., 0644)
+                            type: string
+                          owner:
+                            description: Owner of the volume
+                            type: string
+                        type: object
+                      timestamps:
+                        description: Timestamps configuration
+                        properties:
+                          atime:
+                            description: Atime settings
+                            type: string
+                          mtime:
+                            description: Mtime settings
+                            type: string
+                        type: object
+                    type: object
                 required:
                 - name
                 - pool
-                - size
                 type: object
+                x-kubernetes-validations:
+                - message: Either capacity or size must be specified
+                  rule: has(self.capacity) || has(self.size)
               managementPolicies:
                 default:
                 - '*'
@@ -197,6 +346,14 @@ spec:
               atProvider:
                 description: VolumeObservation are the observable fields of a Volume.
                 properties:
+                  allocation:
+                    description: Allocation of the volume
+                    format: int64
+                    type: integer
+                  capacity:
+                    description: Capacity of the volume
+                    format: int64
+                    type: integer
                   format:
                     description: Format of the volume
                     type: string
@@ -206,10 +363,16 @@ spec:
                   path:
                     description: Path to the volume file
                     type: string
+                  pool:
+                    description: Pool name where the volume resides
+                    type: string
                   size:
                     description: Actual size of the volume
                     format: int64
                     type: integer
+                  type:
+                    description: Type of the volume
+                    type: string
                 type: object
               conditions:
                 description: Conditions of the resource.

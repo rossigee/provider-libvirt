@@ -78,33 +78,116 @@ spec:
                     default: x86_64
                     description: Architecture
                     type: string
+                  autostart:
+                    default: false
+                    description: Autostart determines if domain starts automatically
+                    type: boolean
                   boot:
                     description: Boot devices in order of preference
                     items:
                       type: string
+                    type: array
+                  console:
+                    description: Console configuration for the domain
+                    items:
+                      description: DomainConsole represents console configuration
+                      properties:
+                        target:
+                          description: Target for console output
+                          type: string
+                        type:
+                          default: pty
+                          description: Type of console (e.g., "pty", "tcp")
+                          type: string
+                      type: object
                     type: array
                   disk:
                     description: Disk devices
                     items:
                       description: DomainDisk represents a disk device
                       properties:
+                        bootOrder:
+                          description: BootOrder for this disk
+                          format: int32
+                          type: integer
                         bus:
                           default: virtio
                           description: Bus type (e.g., "virtio", "ide", "scsi")
                           type: string
                         device:
-                          description: Device type (e.g., "disk", "cdrom")
+                          description: Device name (e.g., "vda", "vdb")
                           type: string
-                        source:
-                          description: Source for the disk
+                        file:
+                          description: File path for direct file access (legacy)
                           type: string
-                        target:
-                          description: Target device name
+                        type:
+                          default: virtio
+                          description: Type of the disk interface (e.g., "virtio",
+                            "ide", "scsi")
                           type: string
-                      required:
-                      - device
-                      - source
-                      - target
+                        volumeRef:
+                          description: VolumeRef references a Volume resource (for
+                            cross-resource references)
+                          properties:
+                            name:
+                              description: Name of the referenced object.
+                              type: string
+                            policy:
+                              description: Policies for referencing.
+                              properties:
+                                resolution:
+                                  default: Required
+                                  description: |-
+                                    Resolution specifies whether resolution of this reference is required.
+                                    The default is 'Required', which means the reconcile will fail if the
+                                    reference cannot be resolved. 'Optional' means this reference will be
+                                    a no-op if it cannot be resolved.
+                                  enum:
+                                  - Required
+                                  - Optional
+                                  type: string
+                                resolve:
+                                  description: |-
+                                    Resolve specifies when this reference should be resolved. The default
+                                    is 'IfNotPresent', which will attempt to resolve the reference only when
+                                    the corresponding field is not present. Use 'Always' to resolve the
+                                    reference on every reconcile.
+                                  enum:
+                                  - Always
+                                  - IfNotPresent
+                                  type: string
+                              type: object
+                          required:
+                          - name
+                          type: object
+                        wwn:
+                          description: WWN (World Wide Name) for the disk
+                          type: string
+                      type: object
+                    type: array
+                  graphics:
+                    description: Graphics configuration for the domain
+                    items:
+                      description: DomainGraphics represents graphics configuration
+                      properties:
+                        autoport:
+                          description: Autoport automatically assigns port
+                          type: boolean
+                        listen:
+                          description: Listen address for graphics
+                          type: string
+                        listenAddress:
+                          description: ListenAddress for graphics connection (alias
+                            for Listen)
+                          type: string
+                        port:
+                          description: Port for graphics connection
+                          format: int32
+                          type: integer
+                        type:
+                          default: vnc
+                          description: Type of graphics (e.g., "vnc", "spice", "rdp")
+                          type: string
                       type: object
                     type: array
                   machine:
@@ -129,13 +212,53 @@ spec:
                           default: virtio
                           description: Model type
                           type: string
-                        network:
-                          description: Network name
+                        networkName:
+                          description: NetworkName for direct network name (legacy)
                           type: string
-                      required:
-                      - network
+                        networkRef:
+                          description: NetworkRef references a Network resource (for
+                            cross-resource references)
+                          properties:
+                            name:
+                              description: Name of the referenced object.
+                              type: string
+                            policy:
+                              description: Policies for referencing.
+                              properties:
+                                resolution:
+                                  default: Required
+                                  description: |-
+                                    Resolution specifies whether resolution of this reference is required.
+                                    The default is 'Required', which means the reconcile will fail if the
+                                    reference cannot be resolved. 'Optional' means this reference will be
+                                    a no-op if it cannot be resolved.
+                                  enum:
+                                  - Required
+                                  - Optional
+                                  type: string
+                                resolve:
+                                  description: |-
+                                    Resolve specifies when this reference should be resolved. The default
+                                    is 'IfNotPresent', which will attempt to resolve the reference only when
+                                    the corresponding field is not present. Use 'Always' to resolve the
+                                    reference on every reconcile.
+                                  enum:
+                                  - Always
+                                  - IfNotPresent
+                                  type: string
+                              type: object
+                          required:
+                          - name
+                          type: object
+                        waitForLease:
+                          description: WaitForLease waits for IP lease from DHCP
+                          type: boolean
                       type: object
                     type: array
+                  running:
+                    default: true
+                    description: Running determines if domain should be running
+                    type: boolean
                   type:
                     default: kvm
                     description: Domain type (e.g., "kvm", "qemu")

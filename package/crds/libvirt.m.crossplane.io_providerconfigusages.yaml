@@ -4,15 +4,19 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.18.0
-  name: providerconfigusages.libvirt.crossplane.io
+  name: providerconfigusages.libvirt.m.crossplane.io
 spec:
-  group: libvirt.crossplane.io
+  group: libvirt.m.crossplane.io
   names:
+    categories:
+    - crossplane
+    - provider
+    - libvirt
     kind: ProviderConfigUsage
     listKind: ProviderConfigUsageList
     plural: providerconfigusages
     singular: providerconfigusage
-  scope: Cluster
+  scope: Namespaced
   versions:
   - additionalPrinterColumns:
     - jsonPath: .metadata.creationTimestamp
@@ -27,7 +31,7 @@ spec:
     - jsonPath: .resourceRef.name
       name: RESOURCE-NAME
       type: string
-    name: v1alpha1
+    name: v1beta1
     schema:
       openAPIV3Schema:
         description: A ProviderConfigUsage indicates that a resource is using a ProviderConfig.
@@ -110,5 +114,4 @@ spec:
         type: object
     served: true
     storage: true
-    subresources:
-      status: {}
+    subresources: {}

@@ -360,7 +360,7 @@ type ZFSConfig struct {
 
 ### Volume Snapshots
 ```yaml
-apiVersion: libvirt.crossplane.io/v1alpha1
+apiVersion: libvirt.m.crossplane.io/v1beta1
 kind: VolumeSnapshot
 metadata:
   name: vm-data-backup-20250114
@@ -378,7 +378,7 @@ spec:
 
 ### Domain Snapshots
 ```yaml
-apiVersion: libvirt.crossplane.io/v1alpha1
+apiVersion: libvirt.m.crossplane.io/v1beta1
 kind: DomainSnapshot
 metadata:
   name: web-server-pre-update
@@ -399,7 +399,7 @@ spec:
 
 ### Storage Migration
 ```yaml
-apiVersion: libvirt.crossplane.io/v1alpha1
+apiVersion: libvirt.m.crossplane.io/v1beta1
 kind: StorageMigration
 metadata:
   name: migrate-to-ssd-pool
@@ -418,7 +418,7 @@ spec:
 ### Advanced Storage Pools
 ```yaml
 # Ceph RBD Pool
-apiVersion: libvirt.crossplane.io/v1alpha1
+apiVersion: libvirt.m.crossplane.io/v1beta1
 kind: StoragePool
 metadata:
   name: ceph-rbd-pool
@@ -434,7 +434,7 @@ spec:
         name: ceph-secret
 ---
 # High-Performance iSCSI Pool
-apiVersion: libvirt.crossplane.io/v1alpha1
+apiVersion: libvirt.m.crossplane.io/v1beta1
 kind: StoragePool
 metadata:
   name: enterprise-iscsi

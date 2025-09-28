@@ -1,5 +1,5 @@
 # PostgreSQL Primary VM Root Volume
-apiVersion: libvirt.crossplane.io/v1alpha1
+apiVersion: libvirt.m.crossplane.io/v1beta1
 kind: Volume
 metadata:
   name: postgres-primary-root
@@ -16,7 +16,7 @@ spec:
   deletionPolicy: Delete
 ---
 # PostgreSQL Primary VM Data Volume
-apiVersion: libvirt.crossplane.io/v1alpha1
+apiVersion: libvirt.m.crossplane.io/v1beta1
 kind: Volume
 metadata:
   name: postgres-primary-data
@@ -33,7 +33,7 @@ spec:
   deletionPolicy: Delete
 ---
 # PostgreSQL Secondary VM Root Volume
-apiVersion: libvirt.crossplane.io/v1alpha1
+apiVersion: libvirt.m.crossplane.io/v1beta1
 kind: Volume
 metadata:
   name: postgres-secondary-root
@@ -50,7 +50,7 @@ spec:
   deletionPolicy: Delete
 ---
 # PostgreSQL Secondary VM Data Volume
-apiVersion: libvirt.crossplane.io/v1alpha1
+apiVersion: libvirt.m.crossplane.io/v1beta1
 kind: Volume
 metadata:
   name: postgres-secondary-data

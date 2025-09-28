@@ -39,7 +39,7 @@ func TestNetworkSpec(t *testing.T) {
 			ForProvider: NetworkParameters{
 				Name:      "test-net",
 				Mode:      "nat",
-				Bridge:    "virbr0",
+				Bridge:    &NetworkBridge{Name: "virbr0"},
 				Domain:    "test.local",
 				Addresses: []string{"192.168.100.1/24"},
 				DNS: &NetworkDNS{
@@ -74,8 +74,8 @@ func TestNetworkSpec(t *testing.T) {
 	if network.Spec.ForProvider.Mode != "nat" {
 		t.Errorf("Expected mode 'nat', got '%s'", network.Spec.ForProvider.Mode)
 	}
-	if network.Spec.ForProvider.Bridge != "virbr0" {
-		t.Errorf("Expected bridge 'virbr0', got '%s'", network.Spec.ForProvider.Bridge)
+	if network.Spec.ForProvider.Bridge == nil || network.Spec.ForProvider.Bridge.Name != "virbr0" {
+		t.Errorf("Expected bridge name 'virbr0', got %v", network.Spec.ForProvider.Bridge)
 	}
 }
 

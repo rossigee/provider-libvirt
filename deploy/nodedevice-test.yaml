@@ -1,6 +1,6 @@
 # Test NodeDevice implementation - GPU Passthrough for ML Workload
 # This example demonstrates the new NodeDevice resource for hardware passthrough
-apiVersion: nodedevice.libvirt.crossplane.io/v1alpha1
+apiVersion: nodedevice.libvirt.m.crossplane.io/v1beta1
 kind: NodeDevice
 metadata:
   name: gpu-passthrough-test
@@ -20,7 +20,7 @@ spec:
   deletionPolicy: Delete
 ---
 # Test USB passthrough for security token
-apiVersion: nodedevice.libvirt.crossplane.io/v1alpha1
+apiVersion: nodedevice.libvirt.m.crossplane.io/v1beta1
 kind: NodeDevice
 metadata:
   name: usb-security-token
@@ -39,7 +39,7 @@ spec:
   deletionPolicy: Delete
 ---
 # Test mediated device (vGPU) creation
-apiVersion: nodedevice.libvirt.crossplane.io/v1alpha1
+apiVersion: nodedevice.libvirt.m.crossplane.io/v1beta1
 kind: NodeDevice
 metadata:
   name: vgpu-instance

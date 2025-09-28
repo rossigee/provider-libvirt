@@ -4,14 +4,18 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.18.0
-  name: volumes.libvirt.crossplane.io
+  name: nodedevices.libvirt.m.crossplane.io
 spec:
-  group: libvirt.crossplane.io
+  group: libvirt.m.crossplane.io
   names:
-    kind: Volume
-    listKind: VolumeList
-    plural: volumes
-    singular: volume
+    categories:
+    - crossplane
+    - managed
+    - libvirt
+    kind: NodeDevice
+    listKind: NodeDeviceList
+    plural: nodedevices
+    singular: nodedevice
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
@@ -21,22 +25,17 @@ spec:
     - jsonPath: .status.conditions[?(@.type=='Synced')].status
       name: SYNCED
       type: string
-    - jsonPath: .status.atProvider.pool
-      name: POOL
-      type: string
-    - jsonPath: .status.atProvider.capacity
-      name: CAPACITY
-      type: string
-    - jsonPath: .status.atProvider.format
-      name: FORMAT
+    - jsonPath: .metadata.annotations.crossplane\.io/external-name
+      name: EXTERNAL-NAME
       type: string
     - jsonPath: .metadata.creationTimestamp
       name: AGE
       type: date
-    name: v1alpha1
+    name: v1beta1
     schema:
       openAPIV3Schema:
-        description: A Volume is a libvirt storage volume.
+        description: A NodeDevice is a managed resource that represents a libvirt
+          node device.
         properties:
           apiVersion:
             description: |-
@@ -56,7 +55,7 @@ spec:
           metadata:
             type: object
           spec:
-            description: VolumeSpec defines the desired state of Volume
+            description: NodeDeviceSpec defines the desired state of NodeDevice
             properties:
               deletionPolicy:
                 default: Delete
@@ -73,185 +72,146 @@ spec:
                 - Delete
                 type: string
               forProvider:
-                description: VolumeParameters are the configurable fields of a Volume.
+                description: NodeDeviceParameters are the configurable fields of a
+                  NodeDevice.
                 properties:
-                  allocation:
-                    description: Allocation of the volume in bytes (for sparse files)
-                    format: int64
-                    type: integer
-                  backingStore:
-                    description: Base volume for backing store (for qcow2)
-                    properties:
-                      format:
-                        default: qcow2
-                        description: Format of the backing store
-                        type: string
-                      path:
-                        description: Path to the backing store file
-                        type: string
-                    required:
-                    - path
-                    type: object
-                  capacity:
-                    description: Capacity of the volume in bytes (deprecated - use
-                      Size instead)
-                    format: int64
-                    minimum: 1048576
-                    type: integer
-                  encryption:
-                    description: Encryption settings for the volume
-                    properties:
-                      format:
-                        description: Encryption format (luks, qcow)
-                        enum:
-                        - luks
-                        - qcow
-                        type: string
-                      secret:
-                        description: Secret containing encryption key (legacy - use
-                          SecretRef instead)
-                        properties:
-                          type:
-                            description: Type of secret (passphrase, aes)
-                            type: string
-                          usage:
-                            description: Usage type for the secret
-                            type: string
-                          uuid:
-                            description: UUID of the secret
-                            type: string
-                        required:
-                        - type
-                        type: object
-                      secretRef:
-                        description: SecretRef references a Secret resource for encryption
-                        properties:
-                          name:
-                            description: Name of the referenced object.
-                            type: string
-                          policy:
-                            description: Policies for referencing.
-                            properties:
-                              resolution:
-                                default: Required
-                                description: |-
-                                  Resolution specifies whether resolution of this reference is required.
-                                  The default is 'Required', which means the reconcile will fail if the
-                                  reference cannot be resolved. 'Optional' means this reference will be
-                                  a no-op if it cannot be resolved.
-                                enum:
-                                - Required
-                                - Optional
-                                type: string
-                              resolve:
-                                description: |-
-                                  Resolve specifies when this reference should be resolved. The default
-                                  is 'IfNotPresent', which will attempt to resolve the reference only when
-                                  the corresponding field is not present. Use 'Always' to resolve the
-                                  reference on every reconcile.
-                                enum:
-                                - Always
-                                - IfNotPresent
-                                type: string
-                            type: object
-                        required:
-                        - name
-                        type: object
-                    required:
-                    - format
-                    type: object
-                  format:
-                    default: qcow2
-                    description: Format of the volume (qcow2, raw, vmdk, etc.)
+                  autostart:
+                    default: false
+                    description: Autostart determines if device starts automatically
+                    type: boolean
+                  detached:
+                    default: false
+                    description: Detached determines if device should be detached
+                      from host
+                    type: boolean
+                  driver:
+                    description: Driver to bind/unbind the device
                     type: string
+                  mediatedDevice:
+                    description: MediatedDevice configuration for mdev devices
+                    properties:
+                      parent:
+                        description: Parent device for the mediated device
+                        type: string
+                      type:
+                        description: Type of the mediated device
+                        type: string
+                      uuid:
+                        description: UUID for the mediated device (optional, will
+                          be generated if not provided)
+                        type: string
+                    required:
+                    - parent
+                    - type
+                    type: object
                   name:
-                    description: Name of the volume
+                    description: Name of the node device (for existing devices)
                     type: string
-                  pool:
-                    description: Storage pool name where the volume will be created
-                    type: string
-                  size:
-                    description: |-
-                      Size of the volume using human-readable format (e.g., "100G", "1T", "512M")
-                      Takes precedence over Capacity if both are specified
-                    pattern: ^[0-9]+(\.[0-9]+)?[KMGTPE]?[iB]?$
-                    type: string
-                  source:
-                    description: Source volume to clone from
+                  pciAddress:
+                    description: PCI address for PCI devices
                     properties:
-                      file:
-                        description: File path to copy from (for file-based pools)
+                      bus:
+                        description: Bus of the PCI address
                         type: string
-                      pool:
-                        description: Pool name where the source volume resides
+                      domain:
+                        description: Domain of the PCI address
                         type: string
-                      url:
-                        description: URL to download volume from
+                      function:
+                        description: Function of the PCI address
                         type: string
-                      volume:
-                        description: Volume name to clone from
+                      slot:
+                        description: Slot of the PCI address
+                        type: string
+                    required:
+                    - bus
+                    - domain
+                    - function
+                    - slot
+                    type: object
+                  persistent:
+                    default: true
+                    description: Persistent determines if device definition is persistent
+                    type: boolean
+                  scsiAddress:
+                    description: SCSI address for SCSI devices
+                    properties:
+                      bus:
+                        description: Bus of the SCSI address
+                        type: string
+                      host:
+                        description: Host of the SCSI address
+                        type: string
+                      lun:
+                        description: LUN of the SCSI address
+                        type: string
+                      target:
+                        description: Target of the SCSI address
+                        type: string
+                    required:
+                    - bus
+                    - host
+                    - lun
+                    - target
+                    type: object
+                  scsiDevice:
+                    description: SCSIDevice configuration for SCSI devices
+                    properties:
+                      bus:
+                        description: Bus of the SCSI device
+                        type: string
+                      host:
+                        description: Host of the SCSI device
+                        type: string
+                      lun:
+                        description: LUN of the SCSI device
+                        type: string
+                      target:
+                        description: Target of the SCSI device
                         type: string
                     type: object
-                  target:
-                    description: Target configuration for the volume
+                  type:
+                    description: Type of the node device (pci, usb, scsi, storage,
+                      net, mdev)
+                    enum:
+                    - pci
+                    - usb
+                    - scsi
+                    - storage
+                    - net
+                    - mdev
+                    type: string
+                  usbAddress:
+                    description: USB address for USB devices
                     properties:
-                      compat:
-                        description: Compatibility settings
+                      bus:
+                        description: Bus number of the USB device
                         type: string
-                      features:
-                        description: Features enabled for the volume
-                        items:
-                          type: string
-                        type: array
-                      format:
-                        description: Format for the target
+                      device:
+                        description: Device number of the USB device
                         type: string
-                      path:
-                        description: Path where the volume will be accessible
+                    required:
+                    - bus
+                    - device
+                    type: object
+                  usbDevice:
+                    description: USBDevice configuration for USB devices
+                    properties:
+                      bus:
+                        description: Bus number for the USB device
                         type: string
-                      permissions:
-                        description: Permissions for the volume
-                        properties:
-                          group:
-                            description: Group of the volume
-                            format: int32
-                            type: integer
-                          label:
-                            description: SELinux label
-                            type: string
-                          mode:
-                            description: Mode (permissions) of the volume
-                            format: int32
-                            type: integer
-                          owner:
-                            description: Owner of the volume
-                            format: int32
-                            type: integer
-                        type: object
-                      timestamps:
-                        description: Timestamps configuration
-                        properties:
-                          atime:
-                            description: Access time
-                            format: date-time
-                            type: string
-                          ctime:
-                            description: Creation time
-                            format: date-time
-                            type: string
-                          mtime:
-                            description: Modification time
-                            format: date-time
-                            type: string
-                        type: object
+                      device:
+                        description: Device number for the USB device
+                        type: string
+                      product:
+                        description: Product ID of the USB device
+                        type: string
+                      vendor:
+                        description: Vendor ID of the USB device
+                        type: string
                     type: object
                 required:
-                - name
-                - pool
+                - type
                 type: object
-                x-kubernetes-validations:
-                - message: Either capacity or size must be specified
-                  rule: has(self.capacity) || has(self.size)
               managementPolicies:
                 default:
                 - '*'
@@ -339,64 +299,91 @@ spec:
             - forProvider
             type: object
           status:
-            description: VolumeStatus defines the observed state of Volume
+            description: NodeDeviceStatus defines the observed state of NodeDevice
             properties:
               atProvider:
-                description: VolumeObservation are the observable fields of a Volume.
+                description: NodeDeviceObservation are the observable fields of a
+                  NodeDevice.
                 properties:
-                  allocation:
-                    description: Allocation of the volume in bytes
-                    format: int64
-                    type: integer
-                  backingStore:
-                    description: BackingStore information if present
-                    properties:
-                      allocation:
-                        description: Allocation of the backing store
-                        format: int64
-                        type: integer
-                      capacity:
-                        description: Capacity of the backing store
-                        format: int64
-                        type: integer
-                      format:
-                        description: Format of the backing store
-                        type: string
-                      path:
-                        description: Path to the backing store
-                        type: string
-                    type: object
-                  capacity:
-                    description: Capacity of the volume in bytes
-                    format: int64
-                    type: integer
-                  creationTime:
-                    description: CreationTime when the volume was created
-                    format: date-time
+                  active:
+                    description: Active status of the node device
+                    type: boolean
+                  capability:
+                    description: Capability of the device
                     type: string
-                  format:
-                    description: Format of the volume
+                  driver:
+                    description: Driver currently bound to the device
                     type: string
-                  key:
-                    description: Key is the libvirt volume key
+                  name:
+                    description: Name of the node device in libvirt
                     type: string
-                  modificationTime:
-                    description: ModificationTime when the volume was last modified
-                    format: date-time
+                  parent:
+                    description: Parent device name
                     type: string
                   path:
-                    description: Path is the full path to the volume
+                    description: Path of the device
                     type: string
-                  physical:
-                    description: Physical size of the volume in bytes
-                    format: int64
-                    type: integer
-                  pool:
-                    description: Pool the volume belongs to
+                  pciAddress:
+                    description: PCI address (for PCI devices)
+                    properties:
+                      bus:
+                        description: Bus of the PCI address
+                        type: string
+                      domain:
+                        description: Domain of the PCI address
+                        type: string
+                      function:
+                        description: Function of the PCI address
+                        type: string
+                      slot:
+                        description: Slot of the PCI address
+                        type: string
+                    required:
+                    - bus
+                    - domain
+                    - function
+                    - slot
+                    type: object
+                  scsiAddress:
+                    description: SCSI address (for SCSI devices)
+                    properties:
+                      bus:
+                        description: Bus of the SCSI address
+                        type: string
+                      host:
+                        description: Host of the SCSI address
+                        type: string
+                      lun:
+                        description: LUN of the SCSI address
+                        type: string
+                      target:
+                        description: Target of the SCSI address
+                        type: string
+                    required:
+                    - bus
+                    - host
+                    - lun
+                    - target
+                    type: object
+                  state:
+                    description: State of the node device
                     type: string
                   type:
-                    description: Type of the volume (file, block, dir, network)
+                    description: Type of the node device
                     type: string
+                  usbAddress:
+                    description: USB address (for USB devices)
+                    properties:
+                      bus:
+                        description: Bus number of the USB device
+                        type: string
+                      device:
+                        description: Device number of the USB device
+                        type: string
+                    required:
+                    - bus
+                    - device
+                    type: object
                 type: object
               conditions:
                 description: Conditions of the resource.

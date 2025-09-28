@@ -1,7 +1,7 @@
 # Example demonstrating cross-resource integration with Domain referencing Volume and Network resources
 ---
 # First, create a StoragePool
-apiVersion: libvirt.crossplane.io/v1alpha1
+apiVersion: libvirt.m.crossplane.io/v1beta1
 kind: StoragePool
 metadata:
   name: vm-storage-pool
@@ -15,7 +15,7 @@ spec:
     name: default
 ---
 # Create a Volume in the StoragePool
-apiVersion: libvirt.crossplane.io/v1alpha1
+apiVersion: libvirt.m.crossplane.io/v1beta1
 kind: Volume
 metadata:
   name: ubuntu-vm-disk
@@ -30,7 +30,7 @@ spec:
     name: default
 ---
 # Create a Virtual Network
-apiVersion: libvirt.crossplane.io/v1alpha1
+apiVersion: libvirt.m.crossplane.io/v1beta1
 kind: Network
 metadata:
   name: vm-network
@@ -50,7 +50,7 @@ spec:
     name: default
 ---
 # Create a Domain that references the Volume and Network
-apiVersion: libvirt.crossplane.io/v1alpha1
+apiVersion: libvirt.m.crossplane.io/v1beta1
 kind: Domain
 metadata:
   name: ubuntu-vm-with-refs
@@ -89,7 +89,7 @@ spec:
     name: default
 ---
 # Alternative Domain showing backward compatibility with direct paths
-apiVersion: libvirt.crossplane.io/v1alpha1
+apiVersion: libvirt.m.crossplane.io/v1beta1
 kind: Domain
 metadata:
   name: ubuntu-vm-legacy

@@ -13,7 +13,7 @@ data:
   credentials: ewogICJ1cmkiOiAicWVtdTovLy9zeXN0ZW0iCn0K  # {"uri": "qemu:///system"}
 
 ---
-apiVersion: libvirt.crossplane.io/v1alpha1
+apiVersion: libvirt.m.crossplane.io/v1beta1
 kind: ProviderConfig
 metadata:
   name: default-vgpu
@@ -27,7 +27,7 @@ spec:
 
 ---
 # vGPU instance 1 - High-performance profile for CAD workstation
-apiVersion: libvirt.crossplane.io/v1alpha1
+apiVersion: libvirt.m.crossplane.io/v1beta1
 kind: NodeDevice
 metadata:
   name: vgpu-cad-workstation
@@ -48,7 +48,7 @@ spec:
 
 ---
 # vGPU instance 2 - Medium performance profile for development
-apiVersion: libvirt.crossplane.io/v1alpha1
+apiVersion: libvirt.m.crossplane.io/v1beta1
 kind: NodeDevice
 metadata:
   name: vgpu-dev-workstation
@@ -69,7 +69,7 @@ spec:
 
 ---
 # vGPU instance 3 - Light profile for testing
-apiVersion: libvirt.crossplane.io/v1alpha1
+apiVersion: libvirt.m.crossplane.io/v1beta1
 kind: NodeDevice
 metadata:
   name: vgpu-test-workstation
@@ -89,7 +89,7 @@ spec:
 
 ---
 # CAD Workstation Domain using vGPU
-apiVersion: libvirt.crossplane.io/v1alpha1
+apiVersion: libvirt.m.crossplane.io/v1beta1
 kind: Domain
 metadata:
   name: cad-workstation
@@ -143,7 +143,7 @@ spec:
 
 ---
 # Development Workstation Domain using different vGPU instance
-apiVersion: libvirt.crossplane.io/v1alpha1
+apiVersion: libvirt.m.crossplane.io/v1beta1
 kind: Domain
 metadata:
   name: dev-workstation
@@ -192,7 +192,7 @@ spec:
 
 ---
 # Shared storage pool for workstation volumes
-apiVersion: libvirt.crossplane.io/v1alpha1
+apiVersion: libvirt.m.crossplane.io/v1beta1
 kind: StoragePool
 metadata:
   name: workstation-storage
@@ -211,7 +211,7 @@ spec:
 
 ---
 # CAD workstation OS volume
-apiVersion: libvirt.crossplane.io/v1alpha1
+apiVersion: libvirt.m.crossplane.io/v1beta1
 kind: Volume
 metadata:
   name: cad-os-volume
@@ -230,7 +230,7 @@ spec:
 
 ---
 # CAD projects data volume
-apiVersion: libvirt.crossplane.io/v1alpha1
+apiVersion: libvirt.m.crossplane.io/v1beta1
 kind: Volume
 metadata:
   name: cad-projects-volume
@@ -246,7 +246,7 @@ spec:
 
 ---
 # Development workstation OS volume
-apiVersion: libvirt.crossplane.io/v1alpha1
+apiVersion: libvirt.m.crossplane.io/v1beta1
 kind: Volume
 metadata:
   name: dev-os-volume
@@ -265,7 +265,7 @@ spec:
 
 ---
 # Shared network for workstations
-apiVersion: libvirt.crossplane.io/v1alpha1
+apiVersion: libvirt.m.crossplane.io/v1beta1
 kind: Network
 metadata:
   name: workstation-network

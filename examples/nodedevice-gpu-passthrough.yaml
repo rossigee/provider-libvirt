@@ -13,7 +13,7 @@ data:
   credentials: ewogICJ1cmkiOiAicWVtdTovLy9zeXN0ZW0iCn0K  # {"uri": "qemu:///system"}
 
 ---
-apiVersion: libvirt.crossplane.io/v1alpha1
+apiVersion: libvirt.m.crossplane.io/v1beta1
 kind: ProviderConfig
 metadata:
   name: default-gpu
@@ -27,7 +27,7 @@ spec:
 
 ---
 # NodeDevice for NVIDIA RTX 4090 GPU passthrough
-apiVersion: libvirt.crossplane.io/v1alpha1
+apiVersion: libvirt.m.crossplane.io/v1beta1
 kind: NodeDevice
 metadata:
   name: gpu-nvidia-rtx4090
@@ -50,7 +50,7 @@ spec:
 
 ---
 # Domain that uses the GPU for ML workloads
-apiVersion: libvirt.crossplane.io/v1alpha1
+apiVersion: libvirt.m.crossplane.io/v1beta1
 kind: Domain
 metadata:
   name: ml-workstation
@@ -110,7 +110,7 @@ spec:
 
 ---
 # Storage pool for ML workstation volumes
-apiVersion: libvirt.crossplane.io/v1alpha1
+apiVersion: libvirt.m.crossplane.io/v1beta1
 kind: StoragePool
 metadata:
   name: ml-storage
@@ -129,7 +129,7 @@ spec:
 
 ---
 # OS volume for ML workstation
-apiVersion: libvirt.crossplane.io/v1alpha1
+apiVersion: libvirt.m.crossplane.io/v1beta1
 kind: Volume
 metadata:
   name: ml-os-volume
@@ -149,7 +149,7 @@ spec:
 
 ---
 # Data volume for ML datasets and models
-apiVersion: libvirt.crossplane.io/v1alpha1
+apiVersion: libvirt.m.crossplane.io/v1beta1
 kind: Volume
 metadata:
   name: ml-data-volume
@@ -165,7 +165,7 @@ spec:
 
 ---
 # Network for ML workstation
-apiVersion: libvirt.crossplane.io/v1alpha1
+apiVersion: libvirt.m.crossplane.io/v1beta1
 kind: Network
 metadata:
   name: ml-network

@@ -13,7 +13,7 @@ data:
   credentials: ewogICJ1cmkiOiAicWVtdTovLy9zeXN0ZW0iCn0K  # {"uri": "qemu:///system"}
 
 ---
-apiVersion: libvirt.crossplane.io/v1alpha1
+apiVersion: libvirt.m.crossplane.io/v1beta1
 kind: ProviderConfig
 metadata:
   name: default-usb
@@ -27,7 +27,7 @@ spec:
 
 ---
 # USB Security Token - YubiKey 5 NFC
-apiVersion: libvirt.crossplane.io/v1alpha1
+apiVersion: libvirt.m.crossplane.io/v1beta1
 kind: NodeDevice
 metadata:
   name: yubikey-security-token
@@ -47,7 +47,7 @@ spec:
 
 ---
 # USB Camera - Logitech C920 HD Pro Webcam
-apiVersion: libvirt.crossplane.io/v1alpha1
+apiVersion: libvirt.m.crossplane.io/v1beta1
 kind: NodeDevice
 metadata:
   name: webcam-logitech-c920
@@ -67,7 +67,7 @@ spec:
 
 ---
 # USB Storage Device - SanDisk USB 3.0 Flash Drive
-apiVersion: libvirt.crossplane.io/v1alpha1
+apiVersion: libvirt.m.crossplane.io/v1beta1
 kind: NodeDevice
 metadata:
   name: usb-storage-sandisk
@@ -87,7 +87,7 @@ spec:
 
 ---
 # Secure Development Workstation with USB token access
-apiVersion: libvirt.crossplane.io/v1alpha1
+apiVersion: libvirt.m.crossplane.io/v1beta1
 kind: Domain
 metadata:
   name: secure-dev-workstation
@@ -141,7 +141,7 @@ spec:
 
 ---
 # Video Conference Workstation with camera access
-apiVersion: libvirt.crossplane.io/v1alpha1
+apiVersion: libvirt.m.crossplane.io/v1beta1
 kind: Domain
 metadata:
   name: video-conf-workstation
@@ -191,7 +191,7 @@ spec:
 
 ---
 # File Transfer Workstation with USB storage access
-apiVersion: libvirt.crossplane.io/v1alpha1
+apiVersion: libvirt.m.crossplane.io/v1beta1
 kind: Domain
 metadata:
   name: file-transfer-workstation
@@ -241,7 +241,7 @@ spec:
 
 ---
 # Storage pool for USB-related workstations
-apiVersion: libvirt.crossplane.io/v1alpha1
+apiVersion: libvirt.m.crossplane.io/v1beta1
 kind: StoragePool
 metadata:
   name: usb-workstation-storage
@@ -260,7 +260,7 @@ spec:
 
 ---
 # Secure development workstation OS volume
-apiVersion: libvirt.crossplane.io/v1alpha1
+apiVersion: libvirt.m.crossplane.io/v1beta1
 kind: Volume
 metadata:
   name: secure-dev-os-volume
@@ -279,7 +279,7 @@ spec:
 
 ---
 # Video conference workstation OS volume
-apiVersion: libvirt.crossplane.io/v1alpha1
+apiVersion: libvirt.m.crossplane.io/v1beta1
 kind: Volume
 metadata:
   name: video-conf-os-volume
@@ -298,7 +298,7 @@ spec:
 
 ---
 # File transfer workstation OS volume
-apiVersion: libvirt.crossplane.io/v1alpha1
+apiVersion: libvirt.m.crossplane.io/v1beta1
 kind: Volume
 metadata:
   name: file-transfer-os-volume
@@ -317,7 +317,7 @@ spec:
 
 ---
 # Secure network for development workstation
-apiVersion: libvirt.crossplane.io/v1alpha1
+apiVersion: libvirt.m.crossplane.io/v1beta1
 kind: Network
 metadata:
   name: secure-network
@@ -348,7 +348,7 @@ spec:
 
 ---
 # Conference network with full internet access
-apiVersion: libvirt.crossplane.io/v1alpha1
+apiVersion: libvirt.m.crossplane.io/v1beta1
 kind: Network
 metadata:
   name: conference-network
@@ -379,7 +379,7 @@ spec:
 
 ---
 # Isolated network for file transfer workstation
-apiVersion: libvirt.crossplane.io/v1alpha1
+apiVersion: libvirt.m.crossplane.io/v1beta1
 kind: Network
 metadata:
   name: isolated-network

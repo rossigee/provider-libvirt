@@ -41,7 +41,7 @@ data:
   # Example: qemu+ssh://user@libvirt-host/system
   uri: cXVlbXUrc3NoOi8vdXNlckBsaWJ2aXJ0LWhvc3Qvc3lzdGVt
 ---
-apiVersion: libvirt.crossplane.io/v1beta1
+apiVersion: libvirt.m.crossplane.io/v1beta1
 kind: ProviderConfig
 metadata:
   name: default

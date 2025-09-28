@@ -19,7 +19,7 @@ import (
 
 	xpv1 "github.com/crossplane/crossplane-runtime/v2/apis/common/v1"
 
-	"github.com/rossigee/provider-libvirt/apis/v1alpha1"
+	"github.com/rossigee/provider-libvirt/apis/v1beta1"
 )
 
 // TestVMLifecycleWorkflows tests complete VM lifecycle scenarios
@@ -108,22 +108,22 @@ func testBasicVMLifecycle(t *testing.T, ctx context.Context, k8sClient client.Cl
 	makeResourceReady(t, ctx, k8sClient, network)
 
 	// Phase 2: Create VM (initially stopped)
-	domain := &v1alpha1.Domain{
+	domain := &v1beta1.Domain{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "basic-vm",
 		},
-		Spec: v1alpha1.DomainSpec{
+		Spec: v1beta1.DomainSpec{
 			ResourceSpec: xpv1.ResourceSpec{
 				ProviderConfigReference: &xpv1.Reference{Name: "test-provider-config"},
 				DeletionPolicy:          xpv1.DeletionDelete,
 			},
-			ForProvider: v1alpha1.DomainParameters{
+			ForProvider: v1beta1.DomainParameters{
 				Name:    "basic-test-vm",
 				Memory:  1073741824, // 1GB
 				Vcpu:    1,
 				Type:    "kvm",
-				Running: false, // Start stopped
-				Disk: []v1alpha1.DomainDisk{
+				Running: &[]bool{false}[0], // Start stopped
+				Disk: []v1beta1.DomainDisk{
 					{
 						VolumeRef: &xpv1.Reference{Name: volume.Name},
 						Type:      "virtio",
@@ -131,7 +131,7 @@ func testBasicVMLifecycle(t *testing.T, ctx context.Context, k8sClient client.Cl
 						BootOrder: &[]int32{1}[0],
 					},
 				},
-				NetworkInterface: []v1alpha1.DomainNetworkInterface{
+				NetworkInterface: []v1beta1.DomainNetworkInterface{
 					{
 						NetworkRef: &xpv1.Reference{Name: network.Name},
 						Model:      "virtio",
@@ -153,13 +153,13 @@ func testBasicVMLifecycle(t *testing.T, ctx context.Context, k8sClient client.Cl
 	// Phase 3: Start VM
 	t.Run("StartVM", func(t *testing.T) {
 		// Update domain spec to start VM
-		var currentDomain v1alpha1.Domain
+		var currentDomain v1beta1.Domain
 		err := k8sClient.Get(ctx, types.NamespacedName{Name: domain.Name}, &currentDomain)
 		if err != nil {
 			t.Fatalf("Failed to get domain: %v", err)
 		}
 
-		currentDomain.Spec.ForProvider.Running = true
+		currentDomain.Spec.ForProvider.Running = &[]bool{true}[0]
 		err = k8sClient.Update(ctx, &currentDomain)
 		if err != nil {
 			t.Fatalf("Failed to update domain to running: %v", err)
@@ -170,13 +170,13 @@ func testBasicVMLifecycle(t *testing.T, ctx context.Context, k8sClient client.Cl
 		updateResourceStatus(t, ctx, k8sClient, &currentDomain)
 
 		// Verify VM is running
-		var updatedDomain v1alpha1.Domain
+		var updatedDomain v1beta1.Domain
 		err = k8sClient.Get(ctx, types.NamespacedName{Name: domain.Name}, &updatedDomain)
 		if err != nil {
 			t.Fatalf("Failed to get updated domain: %v", err)
 		}
 
-		if !updatedDomain.Spec.ForProvider.Running {
+		if updatedDomain.Spec.ForProvider.Running == nil || !*updatedDomain.Spec.ForProvider.Running {
 			t.Error("Expected domain to be running")
 		}
 		if updatedDomain.Status.AtProvider.State != "running" {
@@ -186,13 +186,13 @@ func testBasicVMLifecycle(t *testing.T, ctx context.Context, k8sClient client.Cl
 
 	// Phase 4: Stop VM  
 	t.Run("StopVM", func(t *testing.T) {
-		var currentDomain v1alpha1.Domain
+		var currentDomain v1beta1.Domain
 		err := k8sClient.Get(ctx, types.NamespacedName{Name: domain.Name}, &currentDomain)
 		if err != nil {
 			t.Fatalf("Failed to get domain: %v", err)
 		}
 
-		currentDomain.Spec.ForProvider.Running = false
+		currentDomain.Spec.ForProvider.Running = &[]bool{false}[0]
 		err = k8sClient.Update(ctx, &currentDomain)
 		if err != nil {
 			t.Fatalf("Failed to update domain to stopped: %v", err)
@@ -203,13 +203,13 @@ func testBasicVMLifecycle(t *testing.T, ctx context.Context, k8sClient client.Cl
 		updateResourceStatus(t, ctx, k8sClient, &currentDomain)
 
 		// Verify VM is stopped
-		var updatedDomain v1alpha1.Domain
+		var updatedDomain v1beta1.Domain
 		err = k8sClient.Get(ctx, types.NamespacedName{Name: domain.Name}, &updatedDomain)
 		if err != nil {
 			t.Fatalf("Failed to get updated domain: %v", err)
 		}
 
-		if updatedDomain.Spec.ForProvider.Running {
+		if updatedDomain.Spec.ForProvider.Running != nil && *updatedDomain.Spec.ForProvider.Running {
 			t.Error("Expected domain to be stopped")
 		}
 		if updatedDomain.Status.AtProvider.State != "shutoff" {
@@ -225,7 +225,7 @@ func testBasicVMLifecycle(t *testing.T, ctx context.Context, k8sClient client.Cl
 		}
 
 		// Verify domain is deleted
-		var deletedDomain v1alpha1.Domain
+		var deletedDomain v1beta1.Domain
 		err = k8sClient.Get(ctx, types.NamespacedName{Name: domain.Name}, &deletedDomain)
 		if err == nil {
 			t.Error("Expected domain to be deleted, but it still exists")
@@ -253,20 +253,20 @@ func testMultiDiskVMLifecycle(t *testing.T, ctx context.Context, k8sClient clien
 	}
 
 	// Create VM with multiple disks
-	domain := &v1alpha1.Domain{
+	domain := &v1beta1.Domain{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "multi-disk-vm",
 		},
-		Spec: v1alpha1.DomainSpec{
+		Spec: v1beta1.DomainSpec{
 			ResourceSpec: xpv1.ResourceSpec{
 				ProviderConfigReference: &xpv1.Reference{Name: "test-provider-config"},
 			},
-			ForProvider: v1alpha1.DomainParameters{
+			ForProvider: v1beta1.DomainParameters{
 				Name:    "multi-disk-test-vm",
 				Memory:  4294967296, // 4GB
 				Vcpu:    2,
-				Running: false,
-				Disk: []v1alpha1.DomainDisk{
+				Running: &[]bool{false}[0],
+				Disk: []v1beta1.DomainDisk{
 					{
 						VolumeRef: &xpv1.Reference{Name: "system-disk"},
 						Type:      "virtio",
@@ -287,7 +287,7 @@ func testMultiDiskVMLifecycle(t *testing.T, ctx context.Context, k8sClient clien
 						WWN:       "0x50014ee20b2a559b",
 					},
 				},
-				NetworkInterface: []v1alpha1.DomainNetworkInterface{
+				NetworkInterface: []v1beta1.DomainNetworkInterface{
 					{
 						NetworkRef: &xpv1.Reference{Name: "multi-disk-network"},
 						Model:      "virtio",
@@ -301,7 +301,7 @@ func testMultiDiskVMLifecycle(t *testing.T, ctx context.Context, k8sClient clien
 	makeResourceReady(t, ctx, k8sClient, domain)
 
 	// Verify all disk references are preserved
-	var retrievedDomain v1alpha1.Domain
+	var retrievedDomain v1beta1.Domain
 	err := k8sClient.Get(ctx, types.NamespacedName{Name: "multi-disk-vm"}, &retrievedDomain)
 	if err != nil {
 		t.Fatalf("Failed to retrieve domain: %v", err)
@@ -356,41 +356,38 @@ func testMultiNetworkVMLifecycle(t *testing.T, ctx context.Context, k8sClient cl
 	}
 
 	// Create VM with multiple network interfaces
-	domain := &v1alpha1.Domain{
+	domain := &v1beta1.Domain{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "multi-network-vm",
 		},
-		Spec: v1alpha1.DomainSpec{
+		Spec: v1beta1.DomainSpec{
 			ResourceSpec: xpv1.ResourceSpec{
 				ProviderConfigReference: &xpv1.Reference{Name: "test-provider-config"},
 			},
-			ForProvider: v1alpha1.DomainParameters{
+			ForProvider: v1beta1.DomainParameters{
 				Name:    "multi-network-test-vm",
 				Memory:  2147483648, // 2GB
 				Vcpu:    2,
-				Running: false,
-				Disk: []v1alpha1.DomainDisk{
+				Running: &[]bool{false}[0],
+				Disk: []v1beta1.DomainDisk{
 					{
 						VolumeRef: &xpv1.Reference{Name: "multi-net-disk"},
 						Type:      "virtio",
 					},
 				},
-				NetworkInterface: []v1alpha1.DomainNetworkInterface{
+				NetworkInterface: []v1beta1.DomainNetworkInterface{
 					{
 						NetworkRef: &xpv1.Reference{Name: "dmz-network"},
 						Model:      "virtio",
-						Device:     "eth0",
 					},
 					{
 						NetworkRef: &xpv1.Reference{Name: "mgmt-network"},
 						Model:      "virtio", 
-						Device:     "eth1",
 					},
 					{
 						// Test mixed configuration - bridge interface
-						Bridge: "br0",
+						NetworkName: "br0",
 						Model:  "virtio",
-						Device: "eth2",
 					},
 				},
 			},
@@ -401,7 +398,7 @@ func testMultiNetworkVMLifecycle(t *testing.T, ctx context.Context, k8sClient cl
 	makeResourceReady(t, ctx, k8sClient, domain)
 
 	// Verify network interface configuration
-	var retrievedDomain v1alpha1.Domain
+	var retrievedDomain v1beta1.Domain
 	err := k8sClient.Get(ctx, types.NamespacedName{Name: "multi-network-vm"}, &retrievedDomain)
 	if err != nil {
 		t.Fatalf("Failed to retrieve domain: %v", err)
@@ -425,8 +422,8 @@ func testMultiNetworkVMLifecycle(t *testing.T, ctx context.Context, k8sClient cl
 	}
 	
 	// Third interface - bridge
-	if interfaces[2].Bridge != "br0" {
-		t.Errorf("Expected third interface to use bridge br0, got %s", interfaces[2].Bridge)
+	if interfaces[2].NetworkName != "br0" {
+		t.Errorf("Expected third interface to use bridge br0, got %s", interfaces[2].NetworkName)
 	}
 
 	t.Log("Multi-network VM lifecycle test completed successfully")
@@ -442,23 +439,23 @@ func testVMStateTransitions(t *testing.T, ctx context.Context, k8sClient client.
 	createResource(t, ctx, k8sClient, network)
 	makeResourceReady(t, ctx, k8sClient, network)
 
-	domain := &v1alpha1.Domain{
+	domain := &v1beta1.Domain{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "state-test-vm",
 		},
-		Spec: v1alpha1.DomainSpec{
+		Spec: v1beta1.DomainSpec{
 			ResourceSpec: xpv1.ResourceSpec{
 				ProviderConfigReference: &xpv1.Reference{Name: "test-provider-config"},
 			},
-			ForProvider: v1alpha1.DomainParameters{
+			ForProvider: v1beta1.DomainParameters{
 				Name:    "state-transition-vm",
 				Memory:  1073741824,
 				Vcpu:    1,
-				Running: false, // Start stopped
-				Disk: []v1alpha1.DomainDisk{
+				Running: &[]bool{false}[0], // Start stopped
+				Disk: []v1beta1.DomainDisk{
 					{VolumeRef: &xpv1.Reference{Name: "state-test-disk"}, Type: "virtio"},
 				},
-				NetworkInterface: []v1alpha1.DomainNetworkInterface{
+				NetworkInterface: []v1beta1.DomainNetworkInterface{
 					{NetworkRef: &xpv1.Reference{Name: "state-test-network"}, Model: "virtio"},
 				},
 			},
@@ -482,13 +479,13 @@ func testVMStateTransitions(t *testing.T, ctx context.Context, k8sClient client.
 	for _, state := range states {
 		t.Run(state.name, func(t *testing.T) {
 			// Update VM running state
-			var currentDomain v1alpha1.Domain
+			var currentDomain v1beta1.Domain
 			err := k8sClient.Get(ctx, types.NamespacedName{Name: "state-test-vm"}, &currentDomain)
 			if err != nil {
 				t.Fatalf("Failed to get domain: %v", err)
 			}
 
-			currentDomain.Spec.ForProvider.Running = state.running
+			currentDomain.Spec.ForProvider.Running = &state.running
 			err = k8sClient.Update(ctx, &currentDomain)
 			if err != nil {
 				t.Fatalf("Failed to update domain running state: %v", err)
@@ -499,13 +496,13 @@ func testVMStateTransitions(t *testing.T, ctx context.Context, k8sClient client.
 			updateResourceStatus(t, ctx, k8sClient, &currentDomain)
 
 			// Verify state
-			var updatedDomain v1alpha1.Domain
+			var updatedDomain v1beta1.Domain
 			err = k8sClient.Get(ctx, types.NamespacedName{Name: "state-test-vm"}, &updatedDomain)
 			if err != nil {
 				t.Fatalf("Failed to get updated domain: %v", err)
 			}
 
-			if updatedDomain.Spec.ForProvider.Running != state.running {
+			if (updatedDomain.Spec.ForProvider.Running == nil && state.running) || (updatedDomain.Spec.ForProvider.Running != nil && *updatedDomain.Spec.ForProvider.Running != state.running) {
 				t.Errorf("Expected running=%v, got %v", state.running, updatedDomain.Spec.ForProvider.Running)
 			}
 
@@ -528,23 +525,23 @@ func testVMConfigurationUpdates(t *testing.T, ctx context.Context, k8sClient cli
 	createResource(t, ctx, k8sClient, network)
 	makeResourceReady(t, ctx, k8sClient, network)
 
-	domain := &v1alpha1.Domain{
+	domain := &v1beta1.Domain{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "config-test-vm",
 		},
-		Spec: v1alpha1.DomainSpec{
+		Spec: v1beta1.DomainSpec{
 			ResourceSpec: xpv1.ResourceSpec{
 				ProviderConfigReference: &xpv1.Reference{Name: "test-provider-config"},
 			},
-			ForProvider: v1alpha1.DomainParameters{
+			ForProvider: v1beta1.DomainParameters{
 				Name:    "config-update-vm",
 				Memory:  1073741824, // 1GB
 				Vcpu:    1,
-				Running: false,
-				Disk: []v1alpha1.DomainDisk{
+				Running: &[]bool{false}[0],
+				Disk: []v1beta1.DomainDisk{
 					{VolumeRef: &xpv1.Reference{Name: "config-test-disk"}, Type: "virtio"},
 				},
-				NetworkInterface: []v1alpha1.DomainNetworkInterface{
+				NetworkInterface: []v1beta1.DomainNetworkInterface{
 					{NetworkRef: &xpv1.Reference{Name: "config-test-network"}, Model: "virtio"},
 				},
 			},
@@ -556,7 +553,7 @@ func testVMConfigurationUpdates(t *testing.T, ctx context.Context, k8sClient cli
 
 	// Test configuration updates
 	t.Run("UpdateMemory", func(t *testing.T) {
-		var currentDomain v1alpha1.Domain
+		var currentDomain v1beta1.Domain
 		err := k8sClient.Get(ctx, types.NamespacedName{Name: "config-test-vm"}, &currentDomain)
 		if err != nil {
 			t.Fatalf("Failed to get domain: %v", err)
@@ -570,7 +567,7 @@ func testVMConfigurationUpdates(t *testing.T, ctx context.Context, k8sClient cli
 		}
 
 		// Verify update
-		var updatedDomain v1alpha1.Domain
+		var updatedDomain v1beta1.Domain
 		err = k8sClient.Get(ctx, types.NamespacedName{Name: "config-test-vm"}, &updatedDomain)
 		if err != nil {
 			t.Fatalf("Failed to get updated domain: %v", err)
@@ -582,7 +579,7 @@ func testVMConfigurationUpdates(t *testing.T, ctx context.Context, k8sClient cli
 	})
 
 	t.Run("UpdateCPU", func(t *testing.T) {
-		var currentDomain v1alpha1.Domain
+		var currentDomain v1beta1.Domain
 		err := k8sClient.Get(ctx, types.NamespacedName{Name: "config-test-vm"}, &currentDomain)
 		if err != nil {
 			t.Fatalf("Failed to get domain: %v", err)
@@ -596,7 +593,7 @@ func testVMConfigurationUpdates(t *testing.T, ctx context.Context, k8sClient cli
 		}
 
 		// Verify update
-		var updatedDomain v1alpha1.Domain
+		var updatedDomain v1beta1.Domain
 		err = k8sClient.Get(ctx, types.NamespacedName{Name: "config-test-vm"}, &updatedDomain)
 		if err != nil {
 			t.Fatalf("Failed to get updated domain: %v", err)
@@ -614,20 +611,20 @@ func testVMErrorRecovery(t *testing.T, ctx context.Context, k8sClient client.Cli
 	// Test various error scenarios
 	
 	t.Run("MissingVolumeReference", func(t *testing.T) {
-		domain := &v1alpha1.Domain{
+		domain := &v1beta1.Domain{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "error-missing-volume",
 			},
-			Spec: v1alpha1.DomainSpec{
+			Spec: v1beta1.DomainSpec{
 				ResourceSpec: xpv1.ResourceSpec{
 					ProviderConfigReference: &xpv1.Reference{Name: "test-provider-config"},
 				},
-				ForProvider: v1alpha1.DomainParameters{
+				ForProvider: v1beta1.DomainParameters{
 					Name:    "error-vm",
 					Memory:  1073741824,
 					Vcpu:    1,
-					Running: false,
-					Disk: []v1alpha1.DomainDisk{
+					Running: &[]bool{false}[0],
+					Disk: []v1beta1.DomainDisk{
 						{VolumeRef: &xpv1.Reference{Name: "non-existent-volume"}, Type: "virtio"},
 					},
 				},
@@ -637,7 +634,7 @@ func testVMErrorRecovery(t *testing.T, ctx context.Context, k8sClient client.Cli
 		createResource(t, ctx, k8sClient, domain)
 		
 		// The domain should be created but not become ready
-		var retrievedDomain v1alpha1.Domain
+		var retrievedDomain v1beta1.Domain
 		err := k8sClient.Get(ctx, types.NamespacedName{Name: "error-missing-volume"}, &retrievedDomain)
 		if err != nil {
 			t.Fatalf("Failed to retrieve domain: %v", err)
@@ -658,20 +655,20 @@ func testVMErrorRecovery(t *testing.T, ctx context.Context, k8sClient client.Cli
 	})
 
 	t.Run("MissingNetworkReference", func(t *testing.T) {
-		domain := &v1alpha1.Domain{
+		domain := &v1beta1.Domain{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "error-missing-network",
 			},
-			Spec: v1alpha1.DomainSpec{
+			Spec: v1beta1.DomainSpec{
 				ResourceSpec: xpv1.ResourceSpec{
 					ProviderConfigReference: &xpv1.Reference{Name: "test-provider-config"},
 				},
-				ForProvider: v1alpha1.DomainParameters{
+				ForProvider: v1beta1.DomainParameters{
 					Name:    "error-network-vm",
 					Memory:  1073741824,
 					Vcpu:    1,
-					Running: false,
-					NetworkInterface: []v1alpha1.DomainNetworkInterface{
+					Running: &[]bool{false}[0],
+					NetworkInterface: []v1beta1.DomainNetworkInterface{
 						{NetworkRef: &xpv1.Reference{Name: "non-existent-network"}, Model: "virtio"},
 					},
 				},
@@ -680,7 +677,7 @@ func testVMErrorRecovery(t *testing.T, ctx context.Context, k8sClient client.Cli
 
 		createResource(t, ctx, k8sClient, domain)
 		
-		var retrievedDomain v1alpha1.Domain
+		var retrievedDomain v1beta1.Domain
 		err := k8sClient.Get(ctx, types.NamespacedName{Name: "error-missing-network"}, &retrievedDomain)
 		if err != nil {
 			t.Fatalf("Failed to retrieve domain: %v", err)
@@ -715,26 +712,26 @@ func testConcurrentVMOperations(t *testing.T, ctx context.Context, k8sClient cli
 
 	// Create multiple VMs concurrently
 	vmCount := 3
-	domains := make([]*v1alpha1.Domain, vmCount)
+	domains := make([]*v1beta1.Domain, vmCount)
 	
 	for i := 0; i < vmCount; i++ {
-		domains[i] = &v1alpha1.Domain{
+		domains[i] = &v1beta1.Domain{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: fmt.Sprintf("concurrent-vm-%d", i),
 			},
-			Spec: v1alpha1.DomainSpec{
+			Spec: v1beta1.DomainSpec{
 				ResourceSpec: xpv1.ResourceSpec{
 					ProviderConfigReference: &xpv1.Reference{Name: "test-provider-config"},
 				},
-				ForProvider: v1alpha1.DomainParameters{
+				ForProvider: v1beta1.DomainParameters{
 					Name:    fmt.Sprintf("concurrent-test-vm-%d", i),
 					Memory:  1073741824,
 					Vcpu:    1,
-					Running: false,
-					Disk: []v1alpha1.DomainDisk{
+					Running: &[]bool{false}[0],
+					Disk: []v1beta1.DomainDisk{
 						{VolumeRef: &xpv1.Reference{Name: "shared-disk"}, Type: "virtio"},
 					},
-					NetworkInterface: []v1alpha1.DomainNetworkInterface{
+					NetworkInterface: []v1beta1.DomainNetworkInterface{
 						{NetworkRef: &xpv1.Reference{Name: "shared-network"}, Model: "virtio"},
 					},
 				},
@@ -753,7 +750,7 @@ func testConcurrentVMOperations(t *testing.T, ctx context.Context, k8sClient cli
 
 	// Verify all VMs were created
 	for i, domain := range domains {
-		var retrievedDomain v1alpha1.Domain
+		var retrievedDomain v1beta1.Domain
 		err := k8sClient.Get(ctx, types.NamespacedName{Name: domain.Name}, &retrievedDomain)
 		if err != nil {
 			t.Errorf("Failed to retrieve VM %d: %v", i, err)

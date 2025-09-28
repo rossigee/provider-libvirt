@@ -71,7 +71,7 @@ Comprehensive secret management examples:
 
 2. **Create Provider Configuration**:
    ```yaml
-   apiVersion: libvirt.crossplane.io/v1alpha1
+   apiVersion: libvirt.m.crossplane.io/v1beta1
    kind: ProviderConfig
    metadata:
      name: default

@@ -9,7 +9,7 @@ import (
 	"encoding/base64"
 	"fmt"
 
-	"github.com/digitalocean/go-libvirt"
+	"libvirt.org/go/libvirt"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -23,7 +23,7 @@ import (
 	"github.com/crossplane/crossplane-runtime/v2/pkg/reconciler/managed"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/resource"
 
-	"github.com/rossigee/provider-libvirt/apis/v1alpha1"
+	"github.com/rossigee/provider-libvirt/apis/v1beta1"
 	"github.com/rossigee/provider-libvirt/internal/clients"
 )
 
@@ -44,10 +44,10 @@ const (
 
 // Setup adds a controller that reconciles Secret managed resources.
 func Setup(mgr ctrl.Manager, l logging.Logger) error {
-	name := managed.ControllerName(v1alpha1.SecretGroupKind.String())
+	name := managed.ControllerName(v1beta1.SecretGroupKind.String())
 
 	r := managed.NewReconciler(mgr,
-		resource.ManagedKind(v1alpha1.SecretGroupVersionKind),
+		resource.ManagedKind(v1beta1.SecretGroupVersionKind),
 		managed.WithExternalConnecter(&connector{
 			kube:         mgr.GetClient(),
 			usage:        resource.TrackerFn(func(ctx context.Context, mg resource.Managed) error { return nil }),
@@ -62,7 +62,7 @@ func Setup(mgr ctrl.Manager, l logging.Logger) error {
 		WithOptions(controller.Options{
 			MaxConcurrentReconciles: clients.DefaultMaxConcurrentReconciles,
 		}).
-		For(&v1alpha1.Secret{}).
+		For(&v1beta1.Secret{}).
 		Complete(r)
 }
 
@@ -80,7 +80,7 @@ type connector struct {
 // 3. Getting the credentials specified by the ProviderConfig.
 // 4. Using the credentials to form a client.
 func (c *connector) Connect(ctx context.Context, mg resource.Managed) (managed.ExternalClient, error) {
-	_, ok := mg.(*v1alpha1.Secret)
+	_, ok := mg.(*v1beta1.Secret)
 	if !ok {
 		return nil, errors.New(errNotSecret)
 	}
@@ -108,7 +108,7 @@ type external struct {
 }
 
 func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.ExternalObservation, error) {
-	cr, ok := mg.(*v1alpha1.Secret)
+	cr, ok := mg.(*v1beta1.Secret)
 	if !ok {
 		return managed.ExternalObservation{}, errors.New(errNotSecret)
 	}
@@ -121,12 +121,7 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 	}
 
 	// Check if the secret exists in libvirt
-	uuidBytes, err := clients.StringToUUID(cr.Status.AtProvider.UUID)
-	if err != nil {
-		return managed.ExternalObservation{}, errors.Wrap(err, "invalid UUID format")
-	}
-	
-	secret, err := c.service.SecretLookupByUUID(uuidBytes)
+	secret, err := c.service.SecretLookupByUUID(cr.Status.AtProvider.UUID)
 	if err != nil {
 		if clients.IsNotFound(err) {
 			return managed.ExternalObservation{
@@ -136,15 +131,29 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 		return managed.ExternalObservation{}, errors.Wrap(err, errDescribeSecret)
 	}
 
-	// Update observed state - convert UUID from [16]byte to string
-	cr.Status.AtProvider.UUID = clients.UUIDToString(secret.UUID)
-	cr.Status.AtProvider.UsageType = fmt.Sprintf("%d", secret.UsageType)
-	cr.Status.AtProvider.UsageID = secret.UsageID
+	// Update observed state
+	uuid, err := secret.GetUUIDString()
+	if err != nil {
+		return managed.ExternalObservation{}, errors.Wrap(err, "cannot get secret UUID")
+	}
+	cr.Status.AtProvider.UUID = uuid
+
+	usageType, err := secret.GetUsageType()
+	if err != nil {
+		return managed.ExternalObservation{}, errors.Wrap(err, "cannot get secret usage type")
+	}
+	cr.Status.AtProvider.UsageType = fmt.Sprintf("%d", usageType)
+
+	usageID, err := secret.GetUsageID()
+	if err != nil {
+		return managed.ExternalObservation{}, errors.Wrap(err, "cannot get secret usage ID")
+	}
+	cr.Status.AtProvider.UsageID = usageID
 	cr.Status.AtProvider.Type = cr.Spec.ForProvider.Type
 	cr.Status.AtProvider.Description = cr.Spec.ForProvider.Description
 
 	// Check if secret data needs updating by comparing usage patterns
-	upToDate := c.isUpToDate(cr, secret)
+	upToDate := c.isUpToDate(cr, *secret)
 
 	cr.Status.SetConditions(xpv1.Available())
 
@@ -155,7 +164,7 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 }
 
 func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.ExternalCreation, error) {
-	cr, ok := mg.(*v1alpha1.Secret)
+	cr, ok := mg.(*v1beta1.Secret)
 	if !ok {
 		return managed.ExternalCreation{}, errors.New(errNotSecret)
 	}
@@ -184,8 +193,12 @@ func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.Ext
 		return managed.ExternalCreation{}, errors.Wrap(err, errCreateSecret)
 	}
 
-	// Update status - convert UUID from [16]byte to string
-	cr.Status.AtProvider.UUID = clients.UUIDToString(secret.UUID)
+	// Update status
+	uuid, err := secret.GetUUIDString()
+	if err != nil {
+		return managed.ExternalCreation{}, errors.Wrap(err, "cannot get secret UUID")
+	}
+	cr.Status.AtProvider.UUID = uuid
 	cr.Status.AtProvider.UsageType = getUsageType(cr.Spec.ForProvider.Type, cr.Spec.ForProvider.Usage)
 	cr.Status.AtProvider.UsageID = generateUsageID(cr)
 	cr.Status.AtProvider.Type = cr.Spec.ForProvider.Type
@@ -194,7 +207,7 @@ func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.Ext
 }
 
 func (c *external) Update(ctx context.Context, mg resource.Managed) (managed.ExternalUpdate, error) {
-	cr, ok := mg.(*v1alpha1.Secret)
+	cr, ok := mg.(*v1beta1.Secret)
 	if !ok {
 		return managed.ExternalUpdate{}, errors.New(errNotSecret)
 	}
@@ -205,12 +218,10 @@ func (c *external) Update(ctx context.Context, mg resource.Managed) (managed.Ext
 		return managed.ExternalUpdate{}, errors.Wrap(err, errUpdateSecret)
 	}
 
-	uuidBytes, err := clients.StringToUUID(cr.Status.AtProvider.UUID)
+	secret, err := c.service.SecretLookupByUUID(cr.Status.AtProvider.UUID)
 	if err != nil {
-		return managed.ExternalUpdate{}, errors.Wrap(err, "invalid UUID format")
+		return managed.ExternalUpdate{}, errors.Wrap(err, "cannot find secret")
 	}
-	
-	secret := libvirt.Secret{UUID: uuidBytes}
 	if err := c.service.SecretSetValue(secret, secretValue, 0); err != nil {
 		return managed.ExternalUpdate{}, errors.Wrap(err, errUpdateSecret)
 	}
@@ -219,7 +230,7 @@ func (c *external) Update(ctx context.Context, mg resource.Managed) (managed.Ext
 }
 
 func (c *external) Delete(ctx context.Context, mg resource.Managed) (managed.ExternalDelete, error) {
-	cr, ok := mg.(*v1alpha1.Secret)
+	cr, ok := mg.(*v1beta1.Secret)
 	if !ok {
 		return managed.ExternalDelete{}, errors.New(errNotSecret)
 	}
@@ -230,12 +241,13 @@ func (c *external) Delete(ctx context.Context, mg resource.Managed) (managed.Ext
 		return managed.ExternalDelete{}, nil
 	}
 
-	uuidBytes, err := clients.StringToUUID(cr.Status.AtProvider.UUID)
+	secret, err := c.service.SecretLookupByUUID(cr.Status.AtProvider.UUID)
 	if err != nil {
-		return managed.ExternalDelete{}, errors.Wrap(err, "invalid UUID format")
+		if clients.IsNotFound(err) {
+			return managed.ExternalDelete{}, nil // Already deleted
+		}
+		return managed.ExternalDelete{}, errors.Wrap(err, "cannot find secret")
 	}
-	
-	secret := libvirt.Secret{UUID: uuidBytes}
 	return managed.ExternalDelete{}, errors.Wrap(c.service.SecretUndefine(secret), errDeleteSecret)
 }
 
@@ -246,19 +258,29 @@ func (c *external) Disconnect(ctx context.Context) error {
 
 // Helper functions
 
-func (c *external) isUpToDate(cr *v1alpha1.Secret, secret libvirt.Secret) bool {
+func (c *external) isUpToDate(cr *v1beta1.Secret, secret libvirt.Secret) bool {
 	// For secrets, we primarily check if the basic metadata matches
 	// Secret values are not readable from libvirt for security reasons
 	expectedUsageType := getUsageType(cr.Spec.ForProvider.Type, cr.Spec.ForProvider.Usage)
 	expectedUsageID := generateUsageID(cr)
 	
+	// Get actual usage type and ID from secret
+	usageType, err := secret.GetUsageType()
+	if err != nil {
+		return false
+	}
+	usageID, err := secret.GetUsageID()
+	if err != nil {
+		return false
+	}
+
 	// Convert libvirt UsageType (int) to string for comparison
-	actualUsageType := fmt.Sprintf("%d", secret.UsageType)
-	
-	return actualUsageType == expectedUsageType && secret.UsageID == expectedUsageID
+	actualUsageType := fmt.Sprintf("%d", usageType)
+
+	return actualUsageType == expectedUsageType && usageID == expectedUsageID
 }
 
-func (c *external) generateSecretXML(ctx context.Context, cr *v1alpha1.Secret) (string, error) {
+func (c *external) generateSecretXML(ctx context.Context, cr *v1beta1.Secret) (string, error) {
 	usageType := getUsageType(cr.Spec.ForProvider.Type, cr.Spec.ForProvider.Usage)
 	usageID := generateUsageID(cr)
 
@@ -287,7 +309,7 @@ func (c *external) generateSecretXML(ctx context.Context, cr *v1alpha1.Secret) (
 	return xml, nil
 }
 
-func (c *external) getSecretValue(ctx context.Context, cr *v1alpha1.Secret) ([]byte, error) {
+func (c *external) getSecretValue(ctx context.Context, cr *v1beta1.Secret) ([]byte, error) {
 	switch cr.Spec.ForProvider.Type {
 	case "volume":
 		return c.getVolumeSecretValue(ctx, cr)
@@ -302,7 +324,7 @@ func (c *external) getSecretValue(ctx context.Context, cr *v1alpha1.Secret) ([]b
 	}
 }
 
-func (c *external) getVolumeSecretValue(ctx context.Context, cr *v1alpha1.Secret) ([]byte, error) {
+func (c *external) getVolumeSecretValue(ctx context.Context, cr *v1beta1.Secret) ([]byte, error) {
 	if cr.Spec.ForProvider.Data.Volume == nil {
 		return nil, errors.New("volume secret data is required")
 	}
@@ -330,7 +352,7 @@ func (c *external) getVolumeSecretValue(ctx context.Context, cr *v1alpha1.Secret
 	return nil, errors.New("either passphrase or aesKey must be specified for volume secrets")
 }
 
-func (c *external) getCephSecretValue(ctx context.Context, cr *v1alpha1.Secret) ([]byte, error) {
+func (c *external) getCephSecretValue(ctx context.Context, cr *v1beta1.Secret) ([]byte, error) {
 	if cr.Spec.ForProvider.Data.Ceph == nil || cr.Spec.ForProvider.Data.Ceph.Key == nil {
 		return nil, errors.New("ceph key is required")
 	}
@@ -338,7 +360,7 @@ func (c *external) getCephSecretValue(ctx context.Context, cr *v1alpha1.Secret) 
 	return c.getSecretFromK8s(ctx, cr.Spec.ForProvider.Data.Ceph.Key)
 }
 
-func (c *external) getISCSISecretValue(ctx context.Context, cr *v1alpha1.Secret) ([]byte, error) {
+func (c *external) getISCSISecretValue(ctx context.Context, cr *v1beta1.Secret) ([]byte, error) {
 	if cr.Spec.ForProvider.Data.ISCSI == nil || cr.Spec.ForProvider.Data.ISCSI.Password == nil {
 		return nil, errors.New("iscsi password is required")
 	}
@@ -346,7 +368,7 @@ func (c *external) getISCSISecretValue(ctx context.Context, cr *v1alpha1.Secret)
 	return c.getSecretFromK8s(ctx, cr.Spec.ForProvider.Data.ISCSI.Password)
 }
 
-func (c *external) getTLSSecretValue(ctx context.Context, cr *v1alpha1.Secret) ([]byte, error) {
+func (c *external) getTLSSecretValue(ctx context.Context, cr *v1beta1.Secret) ([]byte, error) {
 	if cr.Spec.ForProvider.Data.TLS == nil || cr.Spec.ForProvider.Data.TLS.Certificate == nil {
 		return nil, errors.New("tls certificate is required")
 	}
@@ -354,7 +376,7 @@ func (c *external) getTLSSecretValue(ctx context.Context, cr *v1alpha1.Secret) (
 	return c.getSecretFromK8s(ctx, cr.Spec.ForProvider.Data.TLS.Certificate)
 }
 
-func (c *external) getSecretFromK8s(ctx context.Context, ref *v1alpha1.SecretReference) ([]byte, error) {
+func (c *external) getSecretFromK8s(ctx context.Context, ref *v1beta1.SecretReference) ([]byte, error) {
 	if ref.Name == "" || ref.Key == "" {
 		return nil, errors.New(errInvalidSecretRef)
 	}
@@ -399,7 +421,7 @@ func getUsageType(secretType, usage string) string {
 	}
 }
 
-func generateUsageID(cr *v1alpha1.Secret) string {
+func generateUsageID(cr *v1beta1.Secret) string {
 	// Generate a usage ID based on the secret name and namespace
 	usageID := cr.Name
 	if cr.Namespace != "" {

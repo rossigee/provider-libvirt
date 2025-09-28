@@ -8,7 +8,7 @@ data:
   # echo '{"uri":"qemu+tcp://libvirt-host:16509/system"}' | base64 -w 0
   credentials: eyJ1cmkiOiJxZW11K3RjcDovL2xpYnZpcnQtaG9zdDoxNjUwOS9zeXN0ZW0ifQ==
 ---
-apiVersion: libvirt.crossplane.io/v1alpha1
+apiVersion: libvirt.m.crossplane.io/v1beta1
 kind: ProviderConfig
 metadata:
   name: default
@@ -20,7 +20,7 @@ spec:
       name: libvirt-credentials
       key: credentials
 ---
-apiVersion: libvirt.crossplane.io/v1alpha1
+apiVersion: libvirt.m.crossplane.io/v1beta1
 kind: Domain
 metadata:
   name: example-vm

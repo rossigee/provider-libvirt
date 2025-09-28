@@ -1,5 +1,5 @@
 # Test network to verify libvirt connectivity
-apiVersion: libvirt.crossplane.io/v1alpha1
+apiVersion: libvirt.m.crossplane.io/v1beta1
 kind: Network
 metadata:
   name: postgres-dr-network

@@ -1,5 +1,5 @@
 # PostgreSQL DR Storage Pool
-apiVersion: libvirt.crossplane.io/v1alpha1
+apiVersion: libvirt.m.crossplane.io/v1beta1
 kind: StoragePool
 metadata:
   name: postgres-dr-pool

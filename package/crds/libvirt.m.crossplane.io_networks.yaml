@@ -86,8 +86,16 @@ spec:
                     description: Autostart the network
                     type: boolean
                   bridge:
-                    description: Bridge name for bridge mode
-                    type: string
+                    description: Bridge configuration for bridge mode
+                    properties:
+                      name:
+                        description: Name of the bridge
+                        type: string
+                      stpDelay:
+                        description: STP (Spanning Tree Protocol) delay
+                        format: int32
+                        type: integer
+                    type: object
                   dhcp:
                     description: DHCP configuration
                     properties:
@@ -98,6 +106,42 @@ spec:
                       end:
                         description: End IP address for DHCP range
                         type: string
+                      ranges:
+                        description: Ranges for DHCP (multiple ranges supported)
+                        items:
+                          description: NetworkDHCPRange represents DHCP range configuration
+                          properties:
+                            end:
+                              description: End IP address for DHCP range
+                              type: string
+                            hosts:
+                              description: DHCP hosts with fixed IP assignments
+                              items:
+                                description: NetworkDHCPHost represents a DHCP host
+                                  configuration
+                                properties:
+                                  ip:
+                                    description: IP address to assign to the host
+                                    type: string
+                                  mac:
+                                    description: MAC address of the host
+                                    type: string
+                                  name:
+                                    description: Name of the host
+                                    type: string
+                                required:
+                                - ip
+                                - mac
+                                type: object
+                              type: array
+                            start:
+                              description: Start IP address for DHCP range
+                              type: string
+                          required:
+                          - end
+                          - start
+                          type: object
+                        type: array
                       start:
                         description: Start IP address for DHCP range
                         type: string
@@ -118,6 +162,54 @@ spec:
                   domain:
                     description: Domain for the network
                     type: string
+                  ip:
+                    description: IP configuration for the network
+                    items:
+                      description: NetworkIP represents IP configuration
+                      properties:
+                        address:
+                          description: Address of the network
+                          type: string
+                        dhcp:
+                          description: DHCP configuration for this IP
+                          properties:
+                            end:
+                              description: End IP address for DHCP range
+                              type: string
+                            hosts:
+                              description: DHCP hosts with fixed IP assignments
+                              items:
+                                description: NetworkDHCPHost represents a DHCP host
+                                  configuration
+                                properties:
+                                  ip:
+                                    description: IP address to assign to the host
+                                    type: string
+                                  mac:
+                                    description: MAC address of the host
+                                    type: string
+                                  name:
+                                    description: Name of the host
+                                    type: string
+                                required:
+                                - ip
+                                - mac
+                                type: object
+                              type: array
+                            start:
+                              description: Start IP address for DHCP range
+                              type: string
+                          required:
+                          - end
+                          - start
+                          type: object
+                        netmask:
+                          description: Netmask for the network
+                          type: string
+                      required:
+                      - address
+                      type: object
+                    type: array
                   mode:
                     default: nat
                     description: Mode of the network (e.g., "nat", "bridge", "isolated")
@@ -222,6 +314,9 @@ spec:
                 properties:
                   active:
                     description: Active state of the network
+                    type: boolean
+                  autostart:
+                    description: Autostart state of the network
                     type: boolean
                   bridge:
                     description: Bridge name
