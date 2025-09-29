@@ -43,6 +43,11 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
 
+      - name: Install libvirt Development Libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libvirt-dev pkg-config
+
       - name: Vendor Dependencies
         run: go mod vendor
 
@@ -76,8 +81,15 @@ jobs:
           echo "Repository owner: ${{ github.repository_owner }}"
           echo "Version: ${VERSION}"
 
+          # Enable verbose output for debugging
+          set -x
+
+          # Verify libvirt libraries are available
+          pkg-config --exists libvirt || (echo "❌ libvirt not found" && exit 1)
+          echo "✅ libvirt development libraries detected"
+
           # Build and publish using make targets that handle Docker + Crossplane packages
-          make publish REGISTRY_ORGS="ghcr.io/${{ github.repository_owner }}" XPKG_REG_ORGS="ghcr.io/${{ github.repository_owner }}"
+          make publish REGISTRY_ORGS="ghcr.io/${{ github.repository_owner }}" XPKG_REG_ORGS="ghcr.io/${{ github.repository_owner }}" || (echo "❌ Build/publish failed" && exit 1)
 
           echo "✅ Published to ghcr.io/${{ github.repository_owner }}"
           echo "🏷️  Tags: ${VERSION}, latest"
