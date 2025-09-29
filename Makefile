@@ -36,6 +36,9 @@ UPTEST_VERSION = v0.11.1
 CROSSPLANE_CLI_VERSION = v2.0.2
 -include build/makelib/k8s_tools.mk
 
+# UP is an alias for CROSSPLANE_CLI (legacy compatibility)
+UP := $(CROSSPLANE_CLI)
+
 # Setup Images
 IMAGES = provider-libvirt
 REGISTRY_ORGS = ghcr.io/rossigee
