@@ -70,6 +70,9 @@ jobs:
         run: go mod vendor
 
       - name: Lint
+        env:
+          CGO_ENABLED: 1
+          PKG_CONFIG_PATH: /usr/lib/pkgconfig:/usr/lib/x86_64-linux-gnu/pkgconfig
         run: make lint
 
   check-diff:
@@ -96,6 +99,9 @@ jobs:
         run: go mod vendor
 
       - name: Check Diff
+        env:
+          CGO_ENABLED: 1
+          PKG_CONFIG_PATH: /usr/lib/pkgconfig:/usr/lib/x86_64-linux-gnu/pkgconfig
         run: |
           make reviewable
           git diff --exit-code
@@ -125,6 +131,9 @@ jobs:
         run: go mod vendor
 
       - name: Run Unit Tests
+        env:
+          CGO_ENABLED: 1
+          PKG_CONFIG_PATH: /usr/lib/pkgconfig:/usr/lib/x86_64-linux-gnu/pkgconfig
         run: make test
 
       - name: Upload Coverage Reports
@@ -161,6 +170,9 @@ jobs:
         run: go mod vendor
 
       - name: Run Go Vulnerability Check
+        env:
+          CGO_ENABLED: 1
+          PKG_CONFIG_PATH: /usr/lib/pkgconfig:/usr/lib/x86_64-linux-gnu/pkgconfig
         run: |
           go install golang.org/x/vuln/cmd/govulncheck@latest
           govulncheck ./...
