@@ -251,8 +251,17 @@ jobs:
           # Test CGO compilation with a simple libvirt import
           echo "🔍 Testing CGO libvirt compilation:"
           echo 'package main; import "libvirt.org/go/libvirt"; func main() { var _ *libvirt.Connect }' > /tmp/test_libvirt.go
-          go build -v /tmp/test_libvirt.go || (echo "❌ CGO libvirt compilation failed" && exit 1)
+          echo "📋 Test file contents:"
+          cat /tmp/test_libvirt.go
+          echo ""
+          echo "🏗️ Building with verbose output..."
+          go build -v -x /tmp/test_libvirt.go 2>&1 || (echo "❌ CGO libvirt compilation failed" && echo "🔍 Checking Go environment:" && go env && echo "🔍 Checking available packages:" && find $GOROOT -name "*.a" | grep -E "(cgo|runtime)" | head -5 && exit 1)
           echo "✅ CGO libvirt compilation successful"
+
+          # Test importing our own libvirt client
+          echo "🔍 Testing our libvirt client compilation:"
+          go build -v -x ./internal/clients 2>&1 || (echo "❌ Internal clients compilation failed" && exit 1)
+          echo "✅ Internal clients compilation successful"
 
           # Initialize build tools
           make build.init
