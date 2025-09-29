@@ -13,11 +13,20 @@ PLATFORMS ?= linux_amd64 linux_arm64
 GOLANGCILINT_VERSION ?= 2.4.0
 NPROCS ?= 1
 GO_TEST_PARALLEL := $(shell echo $$(( $(NPROCS) / 2 )))
-GO_STATIC_PACKAGES = $(GO_PROJECT)/cmd/provider
+# Provider requires CGO for libvirt, so don't use GO_STATIC_PACKAGES
+# GO_STATIC_PACKAGES = $(GO_PROJECT)/cmd/provider
+GO_CGO_PACKAGES = $(GO_PROJECT)/cmd/provider
 GO_LDFLAGS += -X $(GO_PROJECT)/internal/version.Version=$(VERSION)
 GO_SUBDIRS += cmd internal apis
 GO111MODULE = on
 GO_CGO_ENABLED = 1
+# Set CGO flags for libvirt
+export CGO_ENABLED=1
+export CGO_CFLAGS := $(shell pkg-config --cflags libvirt 2>/dev/null || echo "")
+export CGO_LDFLAGS := $(shell pkg-config --libs libvirt 2>/dev/null || echo "-lvirt")
+
+# Override the golang.mk CGO setting to ensure it propagates
+override GO_CGO_ENABLED = 1
 -include build/makelib/golang.mk
 
 # Setup Kubernetes tools
@@ -79,6 +88,13 @@ run: go.build
 	@$(INFO) Running Crossplane locally out-of-cluster . . .
 	@# To see other arguments that can be provided, run the command with --help instead
 	$(GO_OUT_DIR)/provider --debug
+
+# Custom build target for CGO packages (overrides the static build)
+go.build:
+	@$(INFO) go build $(PLATFORM) with CGO
+	@mkdir -p $(GO_OUT_DIR)
+	$(foreach p,$(GO_CGO_PACKAGES),@CGO_ENABLED=1 $(GO) build -v -o $(GO_OUT_DIR)/$(lastword $(subst /, ,$(p)))$(GO_OUT_EXT) $(GO_BUILDFLAGS) $(p) || $(FAIL) ${\n})
+	@$(OK) go build $(PLATFORM) with CGO
 
 # NOTE: we ensure up is installed prior to running platform-specific packaging steps in xpkg.build.
 xpkg.build: $(UP)
