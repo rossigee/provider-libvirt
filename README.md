@@ -2,6 +2,8 @@
 
 A **Crossplane v2 native provider** for libvirt that uses the Go libvirt API directly instead of terraform.
 
+> **Status**: CI/CD fixed - all libvirt compilation and crossplane packaging working correctly.
+
 ## Features
 
 - ✅ **Pure Go Implementation** - No terraform dependencies
