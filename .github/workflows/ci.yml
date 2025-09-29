@@ -193,6 +193,8 @@ jobs:
     if: github.ref == 'refs/heads/master'
     permissions:
       contents: read
+    env:
+      CGO_ENABLED: 1
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -208,22 +210,49 @@ jobs:
       - name: Install libvirt Development Libraries
         run: |
           sudo apt-get update
-          sudo apt-get install -y libvirt-dev pkg-config
+          sudo apt-get install -y libvirt-dev pkg-config gcc libc6-dev
 
       - name: Vendor Dependencies
         run: go mod vendor
 
       - name: Validate Build Process
+        env:
+          CGO_ENABLED: 1
+          PKG_CONFIG_PATH: /usr/lib/pkgconfig:/usr/lib/x86_64-linux-gnu/pkgconfig
         run: |
           # Validate that all build steps work without publishing
           echo "Repository: ${{ github.repository }}"
           echo "Repository owner: ${{ github.repository_owner }}"
 
+          # Verify libvirt libraries and CGO setup
+          pkg-config --exists libvirt || (echo "❌ libvirt not found" && exit 1)
+          echo "✅ libvirt development libraries detected"
+
+          # Debug libvirt package config and CGO environment
+          echo "🔍 libvirt pkg-config info:"
+          pkg-config --cflags --libs libvirt || echo "❌ pkg-config failed"
+
+          echo "🔍 CGO environment:"
+          echo "CGO_ENABLED=$CGO_ENABLED"
+          echo "PKG_CONFIG_PATH=$PKG_CONFIG_PATH"
+
+          # Test CGO compilation with a simple libvirt import
+          echo "🔍 Testing CGO libvirt compilation:"
+          echo 'package main; import "libvirt.org/go/libvirt"; func main() { var _ *libvirt.Connect }' > /tmp/test_libvirt.go
+          go build -v /tmp/test_libvirt.go || (echo "❌ CGO libvirt compilation failed" && exit 1)
+          echo "✅ CGO libvirt compilation successful"
+
           # Initialize build tools
           make build.init
           echo "✅ Build tools initialized"
 
-          # Build binary
+          # Build binary with verbose output and CGO environment
+          export CGO_CFLAGS="$(pkg-config --cflags libvirt)"
+          export CGO_LDFLAGS="$(pkg-config --libs libvirt)"
+          echo "🔍 CGO build flags:"
+          echo "CGO_CFLAGS=$CGO_CFLAGS"
+          echo "CGO_LDFLAGS=$CGO_LDFLAGS"
+
           make build
           echo "✅ Binary build successful"
 
