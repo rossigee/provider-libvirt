@@ -218,15 +218,19 @@ jobs:
           # Validate that all build steps work without publishing
           echo "Repository: ${{ github.repository }}"
           echo "Repository owner: ${{ github.repository_owner }}"
-          
+
+          # Initialize build tools
+          make build.init
+          echo "✅ Build tools initialized"
+
           # Build binary
           make build
           echo "✅ Binary build successful"
-          
+
           # Build Docker image locally (without push)
           make docker.build
           echo "✅ Docker image build successful"
-          
+
           # Build Crossplane package locally (without push)
           make xpkg.build
           echo "✅ Crossplane package build successful"
