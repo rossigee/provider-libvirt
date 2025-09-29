@@ -439,7 +439,7 @@ func (c *LibvirtClient) SecretUndefine(secret *libvirt.Secret) error {
 
 // NodeDeviceLookupByName looks up a node device by name
 func (c *LibvirtClient) NodeDeviceLookupByName(name string) (libvirt.NodeDevice, error) {
-	device, err := c.Connect.LookupDeviceByName(name)
+	device, err := c.LookupDeviceByName(name)
 	if err != nil {
 		return libvirt.NodeDevice{}, err
 	}
@@ -448,7 +448,7 @@ func (c *LibvirtClient) NodeDeviceLookupByName(name string) (libvirt.NodeDevice,
 
 // NodeDeviceGetXMLDesc gets node device XML description
 func (c *LibvirtClient) NodeDeviceGetXMLDesc(name string, flags uint32) (string, error) {
-	device, err := c.Connect.LookupDeviceByName(name)
+	device, err := c.LookupDeviceByName(name)
 	if err != nil {
 		return "", err
 	}
@@ -464,13 +464,13 @@ func (c *LibvirtClient) StorageVolCreateXMLFrom(pool *libvirt.StoragePool, xml s
 
 // ConnectListAllNodeDevices lists all node devices
 func (c *LibvirtClient) ConnectListAllNodeDevices(need int32, flags uint32) ([]libvirt.NodeDevice, uint32, error) {
-	devices, err := c.Connect.ListAllNodeDevices(libvirt.ConnectListAllNodeDeviceFlags(flags))
+	devices, err := c.ListAllNodeDevices(libvirt.ConnectListAllNodeDeviceFlags(flags))
 	return devices, uint32(len(devices)), err
 }
 
 // NodeDeviceCreateXML creates a node device from XML
 func (c *LibvirtClient) NodeDeviceCreateXML(xml string, flags uint32) (libvirt.NodeDevice, error) {
-	device, err := c.Connect.DeviceCreateXML(xml, libvirt.NodeDeviceCreateXMLFlags(flags))
+	device, err := c.DeviceCreateXML(xml, libvirt.NodeDeviceCreateXMLFlags(flags))
 	if err != nil {
 		return libvirt.NodeDevice{}, err
 	}
@@ -479,7 +479,7 @@ func (c *LibvirtClient) NodeDeviceCreateXML(xml string, flags uint32) (libvirt.N
 
 // NodeDeviceDefineXML defines a node device from XML
 func (c *LibvirtClient) NodeDeviceDefineXML(xml string, flags uint32) (libvirt.NodeDevice, error) {
-	device, err := c.Connect.DeviceDefineXML(xml, libvirt.NodeDeviceDefineXMLFlags(flags))
+	device, err := c.DeviceDefineXML(xml, libvirt.NodeDeviceDefineXMLFlags(flags))
 	if err != nil {
 		return libvirt.NodeDevice{}, err
 	}
@@ -488,7 +488,7 @@ func (c *LibvirtClient) NodeDeviceDefineXML(xml string, flags uint32) (libvirt.N
 
 // NodeDeviceUndefine undefines a node device
 func (c *LibvirtClient) NodeDeviceUndefine(name string, flags uint32) error {
-	device, err := c.Connect.LookupDeviceByName(name)
+	device, err := c.LookupDeviceByName(name)
 	if err != nil {
 		return err
 	}
@@ -497,7 +497,7 @@ func (c *LibvirtClient) NodeDeviceUndefine(name string, flags uint32) error {
 
 // NodeDeviceDetachFlags detaches a node device
 func (c *LibvirtClient) NodeDeviceDetachFlags(name string, driverName string, flags uint32) error {
-	device, err := c.Connect.LookupDeviceByName(name)
+	device, err := c.LookupDeviceByName(name)
 	if err != nil {
 		return err
 	}
@@ -506,7 +506,7 @@ func (c *LibvirtClient) NodeDeviceDetachFlags(name string, driverName string, fl
 
 // NodeDeviceReAttach reattaches a node device
 func (c *LibvirtClient) NodeDeviceReAttach(name string) error {
-	device, err := c.Connect.LookupDeviceByName(name)
+	device, err := c.LookupDeviceByName(name)
 	if err != nil {
 		return err
 	}
@@ -515,7 +515,7 @@ func (c *LibvirtClient) NodeDeviceReAttach(name string) error {
 
 // NodeDeviceSetAutostart sets node device autostart
 func (c *LibvirtClient) NodeDeviceSetAutostart(name string, autostart int32) error {
-	device, err := c.Connect.LookupDeviceByName(name)
+	device, err := c.LookupDeviceByName(name)
 	if err != nil {
 		return err
 	}
@@ -524,7 +524,7 @@ func (c *LibvirtClient) NodeDeviceSetAutostart(name string, autostart int32) err
 
 // NodeDeviceDestroy destroys a node device
 func (c *LibvirtClient) NodeDeviceDestroy(name string) error {
-	device, err := c.Connect.LookupDeviceByName(name)
+	device, err := c.LookupDeviceByName(name)
 	if err != nil {
 		return err
 	}
@@ -548,7 +548,7 @@ func (c *LibvirtClient) StoragePoolSetAutostart(pool *libvirt.StoragePool, autos
 
 // NodeDeviceGetAutostart gets node device autostart setting
 func (c *LibvirtClient) NodeDeviceGetAutostart(name string) (int32, error) {
-	device, err := c.Connect.LookupDeviceByName(name)
+	device, err := c.LookupDeviceByName(name)
 	if err != nil {
 		return 0, err
 	}
