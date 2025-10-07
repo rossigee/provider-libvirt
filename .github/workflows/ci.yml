@@ -140,7 +140,7 @@ jobs:
         uses: codecov/codecov-action@v4
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          file: ./coverage.out
+          file: _output/tests/linux_amd64/coverage.txt
           verbose: true
 
   security-scan:
