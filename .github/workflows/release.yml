@@ -1,33 +1,250 @@
-# Standardized Release Template for Crossplane Providers
-# Version: 2025-09-26 - Updated for Go 1.25.1
-#
-# This template handles ALL publishing for releases
-# - Only runs on version tag creation to avoid conflicts with CI
-# - Builds from source and publishes to primary registry
-# - Creates GitHub release with auto-generated notes
-# - Single source of truth for version and latest tags
-
 name: Release
 
 on:
   push:
     tags:
-      - 'v*.*.*'
-  workflow_dispatch:
-    inputs:
-      version:
-        description: 'Version tag to release (e.g., v1.0.0)'
-        required: true
-        type: string
+      - 'v*'
+
+permissions:
+  contents: read
+  packages: write
+  id-token: write
 
 env:
   GO_VERSION: '1.25.1'
+  GOLANGCI_VERSION: 'latest'
+  GOLANGCILINT_VERSION: '2.4.0'
+  # Registry configuration
+  PRIMARY_REGISTRY: ghcr.io/rossigee
+  ENABLE_HARBOR_PUBLISH: false
+  ENABLE_UPBOUND_PUBLISH: false
 
 jobs:
-  release:
+  detect-noop:
     runs-on: ubuntu-24.04
+    outputs:
+      noop: ${{ steps.noop.outputs.should_skip }}
+    steps:
+      - name: Detect No-op Changes
+        id: noop
+        uses: fkirc/skip-duplicate-actions@v5.3.0
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          paths_ignore: '["**.md", "**.png", "**.jpg"]'
+          do_not_skip: '["workflow_dispatch", "schedule", "push"]'
+
+  lint:
+    runs-on: ubuntu-24.04
+    needs: detect-noop
+    if: needs.detect-noop.outputs.noop != 'true'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Cache Go Dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Vendor Dependencies
+        run: go mod vendor
+
+      - name: Install Crossplane CLI
+        run: |
+          mkdir -p .cache/tools/linux_x86_64
+          curl -fsSLo .cache/tools/linux_x86_64/crossplane-cli-v1.20.0 --create-dirs https://releases.crossplane.io/stable/v1.20.0/bin/linux_amd64/crank?source=build
+          chmod +x .cache/tools/linux_x86_64/crossplane-cli-v1.20.0
+
+      - name: Lint
+        run: make lint
+
+  check-diff:
+    runs-on: ubuntu-24.04
+    needs: detect-noop
+    if: needs.detect-noop.outputs.noop != 'true'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Cache Go Dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Vendor Dependencies
+        run: go mod vendor
+
+      - name: Check Diff
+        run: |
+          make reviewable
+          git diff --exit-code
+
+  unit-tests:
+    runs-on: ubuntu-24.04
+    needs: detect-noop
+    if: needs.detect-noop.outputs.noop != 'true'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Cache Go Dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Vendor Dependencies
+        run: go mod vendor
+
+      - name: Run Unit Tests
+        run: |
+          make test
+
+      - name: Upload Coverage Reports
+        uses: codecov/codecov-action@v4
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          file: ./coverage.out
+          verbose: true
+
+  security-scan:
+    runs-on: ubuntu-24.04
+    needs: detect-noop
+    if: needs.detect-noop.outputs.noop != 'true'
     permissions:
-      contents: write
+      contents: read
+      security-events: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Vendor Dependencies
+        run: go mod vendor
+
+      - name: Run Go Vulnerability Check
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          govulncheck ./...
+
+      - name: Run Gosec Security Scanner
+        uses: securego/gosec@master
+        with:
+          args: '-no-fail -fmt sarif -out gosec-results.sarif ./...'
+        continue-on-error: true
+
+      - name: Fix Gosec SARIF format
+        if: always() && hashFiles('gosec-results.sarif') != ''
+        run: |
+          if [ -f gosec-results.sarif ]; then
+            jq '.runs[].results[].locations[].physicalLocation.artifactLocation.uri |= if . == null or . == "" then "." else . end' gosec-results.sarif > gosec-results-fixed.sarif
+            mv gosec-results-fixed.sarif gosec-results.sarif
+          fi
+
+      - name: Upload Gosec Results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always() && hashFiles('gosec-results.sarif') != ''
+        with:
+          sarif_file: gosec-results.sarif
+          category: gosec
+
+  build:
+    runs-on: ubuntu-24.04
+    needs: detect-noop
+    if: needs.detect-noop.outputs.noop != 'true'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Cache Go Dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Vendor Dependencies
+        run: go mod vendor
+
+      - name: Install Crossplane CLI
+        run: |
+          mkdir -p .cache/tools/linux_x86_64
+          curl -fsSLo .cache/tools/linux_x86_64/crossplane-cli-v1.20.0 --create-dirs https://releases.crossplane.io/stable/v1.20.0/bin/linux_amd64/crank?source=build
+          chmod +x .cache/tools/linux_x86_64/crossplane-cli-v1.20.0
+
+      - name: Build Binary and Package
+        run: |
+          make build
+
+      - name: Upload Package
+        uses: actions/upload-artifact@v4
+        with:
+          name: package
+          path: _output/xpkg/
+          if-no-files-found: error
+
+  publish-artifacts:
+    runs-on: ubuntu-24.04
+    needs: [lint, check-diff, unit-tests, security-scan, build]
+    permissions:
+      contents: read
       packages: write
       id-token: write
 
@@ -43,24 +260,18 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
 
-      - name: Install libvirt Development Libraries
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libvirt-dev pkg-config
-
       - name: Vendor Dependencies
         run: go mod vendor
 
-      - name: Determine Version
-        id: version
+      - name: Install Crossplane CLI
         run: |
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            VERSION="${{ github.event.inputs.version }}"
-          else
-            VERSION="${GITHUB_REF#refs/tags/}"
-          fi
-          echo "version=${VERSION}" >> $GITHUB_OUTPUT
-          echo "Detected version: $VERSION"
+          mkdir -p .cache/tools/linux_x86_64
+          curl -fsSLo .cache/tools/linux_x86_64/crossplane-cli-v1.20.0 --create-dirs https://releases.crossplane.io/stable/v1.20.0/bin/linux_amd64/crank?source=build
+          chmod +x .cache/tools/linux_x86_64/crossplane-cli-v1.20.0
+
+      - name: Build Binaries
+        run: |
+          make build
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -70,70 +281,23 @@ jobs:
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
-          password: ${{ secrets.PAT_TOKEN }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and Publish All Artifacts
+      - name: Build and Push to Primary Registry
         run: |
-          # Use the standardized build system to handle everything
-          export VERSION="${{ steps.version.outputs.version }}"
-
+          # Build and push to GitHub Container Registry (primary)
           echo "Repository: ${{ github.repository }}"
           echo "Repository owner: ${{ github.repository_owner }}"
-          echo "Version: ${VERSION}"
+          make publish REGISTRY_ORGS="ghcr.io/${{ github.repository_owner }}"
 
-          # Enable verbose output for debugging
-          set -x
-
-          # Verify libvirt libraries are available
-          pkg-config --exists libvirt || (echo "❌ libvirt not found" && exit 1)
-          echo "✅ libvirt development libraries detected"
-
-          # Build and publish using make targets that handle Docker + Crossplane packages
-          make publish REGISTRY_ORGS="ghcr.io/${{ github.repository_owner }}" XPKG_REG_ORGS="ghcr.io/${{ github.repository_owner }}" || (echo "❌ Build/publish failed" && exit 1)
-
-          echo "✅ Published to ghcr.io/${{ github.repository_owner }}"
-          echo "🏷️  Tags: ${VERSION}, latest"
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          name: Release ${{ steps.version.outputs.version }}
-          draft: false
-          prerelease: false
-          generate_release_notes: true
-
-# Key Principles for this Template:
-#
-# 1. SINGLE SOURCE OF TRUTH FOR PUBLISHING
-#    - Only this workflow publishes to registries
-#    - CI workflow only validates builds
-#    - Eliminates tag conflicts
-#
-# 2. IDENTICAL VERSION AND LATEST TAGS
-#    - Build image once with version tag
-#    - Tag the SAME image as latest (line 87-88)
-#    - Push both tags (they're identical)
-#    - No separate builds = no image differences
-#
-# 3. STANDARDIZED REGISTRY PUBLISHING
-#    - Primary: ghcr.io/rossigee/provider-{name}
-#    - Version tag: v1.2.3
-#    - Latest tag: latest
-#    - Both Crossplane packages and container images
-#
-# 4. BUILD FROM SOURCE
-#    - Always build from the tagged source
-#    - No dependency on pre-built artifacts
-#    - Ensures reproducible builds
-#
-# 5. PROPER AUTHENTICATION
-#    - Uses PAT_TOKEN for registry authentication
-#    - Proper permissions for package publishing
-#    - GitHub release creation
-#
-# To apply this template:
-# 1. Copy this structure to .github/workflows/release.yml
-# 2. Replace PROVIDER_NAME with actual provider name (e.g., provider-mailgun)
-# 3. Ensure Dockerfile path is correct
-# 4. Test with a version tag (should publish both tags identically)
-# 5. Verify latest and version tags point to same image digest
+      - name: Build and Push to Upbound Registry (Optional)
+        if: env.ENABLE_UPBOUND_PUBLISH == 'true'
+        run: |
+          # Push to Upbound Registry (only if token is available)
+          if [ -n "$UPBOUND_TOKEN" ]; then
+            make publish REGISTRY_ORGS="xpkg.upbound.io/crossplane-contrib"
+          else
+            echo "UPBOUND_TOKEN not available, skipping Upbound registry push"
+          fi
+        env:
+          UPBOUND_TOKEN: ${{ secrets.UPBOUND_TOKEN }}
