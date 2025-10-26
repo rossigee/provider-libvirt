@@ -29,7 +29,7 @@ permissions:
 env:
   GO_VERSION: '1.25.1'
   GOLANGCI_VERSION: 'latest'
-  GOLANGCILINT_VERSION: '2.4.0'
+  GOLANGCILINT_VERSION: '2.5.0'
   DOCKER_BUILDX_VERSION: 'v0.11.2'
 
 jobs:
@@ -61,18 +61,10 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
 
-      - name: Install libvirt Development Libraries
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libvirt-dev pkg-config
-
       - name: Vendor Dependencies
         run: go mod vendor
 
       - name: Lint
-        env:
-          CGO_ENABLED: 1
-          PKG_CONFIG_PATH: /usr/lib/pkgconfig:/usr/lib/x86_64-linux-gnu/pkgconfig
         run: make lint
 
   check-diff:
@@ -90,18 +82,10 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
 
-      - name: Install libvirt Development Libraries
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libvirt-dev pkg-config
-
       - name: Vendor Dependencies
         run: go mod vendor
 
       - name: Check Diff
-        env:
-          CGO_ENABLED: 1
-          PKG_CONFIG_PATH: /usr/lib/pkgconfig:/usr/lib/x86_64-linux-gnu/pkgconfig
         run: |
           make reviewable
           git diff --exit-code
@@ -122,25 +106,17 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
 
-      - name: Install libvirt Development Libraries
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libvirt-dev pkg-config
-
       - name: Vendor Dependencies
         run: go mod vendor
 
       - name: Run Unit Tests
-        env:
-          CGO_ENABLED: 1
-          PKG_CONFIG_PATH: /usr/lib/pkgconfig:/usr/lib/x86_64-linux-gnu/pkgconfig
         run: make test
 
       - name: Upload Coverage Reports
         uses: codecov/codecov-action@v4
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          file: _output/tests/linux_amd64/coverage.txt
+          file: ./coverage.out
           verbose: true
 
   security-scan:
@@ -161,18 +137,10 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
 
-      - name: Install libvirt Development Libraries
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libvirt-dev pkg-config
-
       - name: Vendor Dependencies
         run: go mod vendor
 
       - name: Run Go Vulnerability Check
-        env:
-          CGO_ENABLED: 1
-          PKG_CONFIG_PATH: /usr/lib/pkgconfig:/usr/lib/x86_64-linux-gnu/pkgconfig
         run: |
           go install golang.org/x/vuln/cmd/govulncheck@latest
           govulncheck ./...
@@ -205,8 +173,6 @@ jobs:
     if: github.ref == 'refs/heads/master'
     permissions:
       contents: read
-    env:
-      CGO_ENABLED: 1
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -219,68 +185,23 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
 
-      - name: Install libvirt Development Libraries
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libvirt-dev pkg-config gcc libc6-dev
-
       - name: Vendor Dependencies
         run: go mod vendor
 
       - name: Validate Build Process
-        env:
-          CGO_ENABLED: 1
-          PKG_CONFIG_PATH: /usr/lib/pkgconfig:/usr/lib/x86_64-linux-gnu/pkgconfig
         run: |
           # Validate that all build steps work without publishing
           echo "Repository: ${{ github.repository }}"
           echo "Repository owner: ${{ github.repository_owner }}"
-
-          # Verify libvirt libraries and CGO setup
-          pkg-config --exists libvirt || (echo "❌ libvirt not found" && exit 1)
-          echo "✅ libvirt development libraries detected"
-
-          # Debug libvirt package config and CGO environment
-          echo "🔍 libvirt pkg-config info:"
-          pkg-config --cflags --libs libvirt || echo "❌ pkg-config failed"
-
-          echo "🔍 CGO environment:"
-          echo "CGO_ENABLED=$CGO_ENABLED"
-          echo "PKG_CONFIG_PATH=$PKG_CONFIG_PATH"
-
-          # Test CGO compilation with a simple libvirt import
-          echo "🔍 Testing CGO libvirt compilation:"
-          echo 'package main; import "libvirt.org/go/libvirt"; func main() { var _ *libvirt.Connect }' > /tmp/test_libvirt.go
-          echo "📋 Test file contents:"
-          cat /tmp/test_libvirt.go
-          echo ""
-          echo "🏗️ Building with verbose output..."
-          go build -v -x /tmp/test_libvirt.go 2>&1 || (echo "❌ CGO libvirt compilation failed" && echo "🔍 Checking Go environment:" && go env && echo "🔍 Checking available packages:" && find $GOROOT -name "*.a" | grep -E "(cgo|runtime)" | head -5 && exit 1)
-          echo "✅ CGO libvirt compilation successful"
-
-          # Test importing our own libvirt client
-          echo "🔍 Testing our libvirt client compilation:"
-          go build -v -x ./internal/clients 2>&1 || (echo "❌ Internal clients compilation failed" && exit 1)
-          echo "✅ Internal clients compilation successful"
-
-          # Initialize build tools
-          make build.init
-          echo "✅ Build tools initialized"
-
-          # Build binary with verbose output and CGO environment
-          export CGO_CFLAGS="$(pkg-config --cflags libvirt)"
-          export CGO_LDFLAGS="$(pkg-config --libs libvirt)"
-          echo "🔍 CGO build flags:"
-          echo "CGO_CFLAGS=$CGO_CFLAGS"
-          echo "CGO_LDFLAGS=$CGO_LDFLAGS"
-
+          
+          # Build binary
           make build
           echo "✅ Binary build successful"
-
+          
           # Build Docker image locally (without push)
-          make do.build.images
+          make docker.build
           echo "✅ Docker image build successful"
-
+          
           # Build Crossplane package locally (without push)
           make xpkg.build
           echo "✅ Crossplane package build successful"
