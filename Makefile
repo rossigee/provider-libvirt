@@ -23,7 +23,7 @@ GO_CGO_ENABLED = 1
 # Set CGO flags for libvirt
 export CGO_ENABLED=1
 export CGO_CFLAGS := $(shell pkg-config --cflags libvirt 2>/dev/null || echo "")
-export CGO_LDFLAGS := $(shell pkg-config --libs libvirt 2>/dev/null || echo "-lvirt")
+export CGO_LDFLAGS := $(shell pkg-config --libs libvirt 2>/dev/null || echo "-lvirt -lgobject-2.0 -lglib-2.0")
 
 # Override the golang.mk CGO setting to ensure it propagates
 override GO_CGO_ENABLED = 1
