@@ -1,6 +1,6 @@
 module github.com/rossigee/provider-libvirt
 
-go 1.25.1
+go 1.25.3
 
 require (
 	github.com/alecthomas/kingpin/v2 v2.4.0
