@@ -215,7 +215,7 @@ jobs:
 
       - name: Validate Build Process
         run: |
-          # Validate that binary build works (skip Docker/xpkg for now)
+          # Validate that all build steps work without publishing
           echo "Repository: ${{ github.repository }}"
           echo "Repository owner: ${{ github.repository_owner }}"
 
@@ -223,13 +223,22 @@ jobs:
           make build
           echo "✅ Binary build successful"
 
+          # Build artifacts for current platform (includes Docker images)
+          make build.artifacts.platform
+          echo "✅ Platform artifacts build successful"
+
+          # Build Crossplane package locally (without push)
+          make xpkg.build
+          echo "✅ Crossplane package build successful"
+
           # Verify build artifacts exist
           ls -la _output/bin/linux_amd64/provider 2>/dev/null && echo "✅ Provider binary exists" || echo "❌ Provider binary missing"
+          ls -la _output/xpkg/linux_amd64/*.xpkg 2>/dev/null && echo "✅ Crossplane package exists" || echo "❌ Crossplane package missing"
 
           echo ""
-          echo "🎯 Binary build validation completed successfully"
-          echo "📦 Binary can be built successfully with Go 1.25.3 + libvirt CGO"
-          echo "🏷️  Docker/xpkg builds will be validated in release workflow"
+          echo "🎯 Build validation completed successfully"
+          echo "📦 All artifacts can be built successfully"
+          echo "🏷️  Publishing will occur only on release tag creation"
 
 # Key Principles for this Template:
 # 
