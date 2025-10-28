@@ -33,7 +33,6 @@ override GO_CGO_ENABLED = 1
 UP_VERSION = v0.28.0
 UP_CHANNEL = stable
 UPTEST_VERSION = v0.11.1
-CROSSPLANE_CLI_VERSION = v2.0.2
 -include build/makelib/k8s_tools.mk
 
 # UP is an alias for CROSSPLANE_CLI (legacy compatibility)
@@ -58,6 +57,15 @@ XPKGS = provider-libvirt
 # NOTE: we force image building to happen prior to xpkg build so that we ensure
 # image is present in daemon.
 xpkg.build.provider-libvirt: do.build.images
+
+# Ensure publish only happens on release branches
+publish.artifacts:
+	@if ! echo "$(BRANCH_NAME)" | grep -qE "$(subst $(SPACE),|,main|master|release-.*)"; then \ 
+		$(ERR) Publishing is only allowed on branches matching: main|master|release-.* (current: $(BRANCH_NAME)); \ 
+		exit 1; \ 
+	fi
+	$(foreach r,$(XPKG_REG_ORGS), $(foreach x,$(XPKGS),@$(MAKE) xpkg.release.publish.$(r).$(x)))
+	$(foreach r,$(REGISTRY_ORGS), $(foreach i,$(IMAGES),@$(MAKE) img.release.publish.$(r).$(i)))
 
 # Setup Package Metadata
 CROSSPLANE_VERSION = 2.0.2
