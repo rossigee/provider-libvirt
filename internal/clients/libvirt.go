@@ -518,7 +518,7 @@ func (c *LibvirtClient) NodeDeviceSetAutostart(name string, autostart int32) err
 
 // NodeDeviceDestroy destroys a node device
 func (c *LibvirtClient) NodeDeviceDestroy(name string) error {
-	device, err := c.Connect.LookupNodeDeviceByName(name)
+	device, err := libvirt.LookupNodeDeviceByName(c.Connect, name)
 	if err != nil {
 		return err
 	}
@@ -542,7 +542,7 @@ func (c *LibvirtClient) StoragePoolSetAutostart(pool *libvirt.StoragePool, autos
 
 // NodeDeviceGetAutostart gets node device autostart setting
 func (c *LibvirtClient) NodeDeviceGetAutostart(name string) (int32, error) {
-	device, err := c.Connect.LookupNodeDeviceByName(name)
+	device, err := libvirt.LookupNodeDeviceByName(c.Connect, name)
 	if err != nil {
 		return 0, err
 	}
