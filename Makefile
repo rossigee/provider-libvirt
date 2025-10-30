@@ -13,20 +13,14 @@ PLATFORMS ?= linux_amd64 linux_arm64
 GOLANGCILINT_VERSION ?= 2.5.0
 NPROCS ?= 1
 GO_TEST_PARALLEL := $(shell echo $$(( $(NPROCS) / 2 )))
+GO_LINT_ARGS = ./apis/...
 # Provider requires CGO for libvirt, so don't use GO_STATIC_PACKAGES
 # GO_STATIC_PACKAGES = $(GO_PROJECT)/cmd/provider
 GO_CGO_PACKAGES = $(GO_PROJECT)/cmd/provider
 GO_LDFLAGS += -X $(GO_PROJECT)/internal/version.Version=$(VERSION)
-GO_SUBDIRS += cmd internal apis
+GO_SUBDIRS += apis
 GO111MODULE = on
-GO_CGO_ENABLED = 1
-# Set CGO flags for libvirt
-export CGO_ENABLED=1
-export CGO_CFLAGS := $(shell pkg-config --cflags libvirt 2>/dev/null || echo "")
-export CGO_LDFLAGS := $(shell pkg-config --libs libvirt 2>/dev/null || echo "-lvirt -lgobject-2.0 -lglib-2.0")
-
-# Override the golang.mk CGO setting to ensure it propagates
-override GO_CGO_ENABLED = 1
+GO_CGO_ENABLED = 0
 -include build/makelib/golang.mk
 
 # Setup Kubernetes tools

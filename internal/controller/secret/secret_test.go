@@ -7,14 +7,67 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/crossplane/crossplane-runtime/v2/pkg/reconciler/managed"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/resource"
-	"github.com/crossplane/crossplane-runtime/v2/pkg/test"
 
 	"github.com/rossigee/provider-libvirt/apis/v1beta1"
 )
+
+// mockKube implements client.Client for testing
+type mockKube struct {
+	mockGet func(ctx context.Context, key client.ObjectKey, obj client.Object) error
+}
+
+func (m *mockKube) Get(ctx context.Context, key client.ObjectKey, obj client.Object) error {
+	if m.mockGet != nil {
+		return m.mockGet(ctx, key, obj)
+	}
+	return nil
+}
+
+func (m *mockKube) List(ctx context.Context, list client.ObjectList, opts ...client.ListOption) error {
+	return nil
+}
+
+func (m *mockKube) Create(ctx context.Context, obj client.Object, opts ...client.CreateOption) error {
+	return nil
+}
+
+func (m *mockKube) Delete(ctx context.Context, obj client.Object, opts ...client.DeleteOption) error {
+	return nil
+}
+
+func (m *mockKube) Update(ctx context.Context, obj client.Object, opts ...client.UpdateOption) error {
+	return nil
+}
+
+func (m *mockKube) Patch(ctx context.Context, obj client.Object, patch client.Patch, opts ...client.PatchOption) error {
+	return nil
+}
+
+func (m *mockKube) DeleteAllOf(ctx context.Context, obj client.Object, opts ...client.DeleteAllOfOption) error {
+	return nil
+}
+
+func (m *mockKube) Status() client.StatusWriter {
+	return nil
+}
+
+func (m *mockKube) Scheme() *runtime.Scheme {
+	return nil
+}
+
+func (m *mockKube) RESTMapper() meta.RESTMapper {
+	return nil
+}
+
+func (m *mockKube) Apply(ctx context.Context, obj client.Object, opts ...client.ApplyOption) error {
+	return nil
+}
 
 var (
 	errBoom = errors.New("boom")
@@ -367,8 +420,8 @@ func TestGetSecretFromK8s(t *testing.T) {
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
 			e := &external{
-				kube: &test.MockClient{
-					MockGet: func(ctx context.Context, key client.ObjectKey, obj client.Object) error {
+				kube: &mockKube{
+					mockGet: func(ctx context.Context, key client.ObjectKey, obj client.Object) error {
 						return errBoom
 					},
 				},
