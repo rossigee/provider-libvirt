@@ -10,7 +10,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	k8s.io/api v0.34.1
 	k8s.io/apimachinery v0.34.1
-	libvirt.org/go/libvirt v1.11006.0
+	libvirt.org/go/libvirt v1.11006.1-0.20251028084526-a5226bd8f9ea
 	sigs.k8s.io/controller-runtime v0.22.3
 	sigs.k8s.io/controller-tools v0.19.0
 )
