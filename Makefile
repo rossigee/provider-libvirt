@@ -10,7 +10,7 @@ PLATFORMS ?= linux_amd64 linux_arm64
 
 # Setup Go
 # Override golangci-lint version for modern Go support
-GOLANGCILINT_VERSION ?= 2.4.0
+GOLANGCILINT_VERSION ?= 2.5.0
 NPROCS ?= 1
 GO_TEST_PARALLEL := $(shell echo $$(( $(NPROCS) / 2 )))
 # Provider requires CGO for libvirt, so don't use GO_STATIC_PACKAGES
