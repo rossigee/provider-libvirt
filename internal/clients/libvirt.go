@@ -227,7 +227,7 @@ func StringToUUID(uuidStr string) ([16]byte, error) {
 
 // DomainLookupByName looks up a domain by name
 func (c *LibvirtClient) DomainLookupByName(name string) (*libvirt.Domain, error) {
-	return c.LookupDomainByName(name)
+	return c.DomainLookupByName(name)
 }
 
 // DomainGetState gets the state of a domain
@@ -279,7 +279,7 @@ func (c *LibvirtClient) DomainSetAutostart(domain *libvirt.Domain, autostart int
 
 // NetworkLookupByName looks up a network by name
 func (c *LibvirtClient) NetworkLookupByName(name string) (*libvirt.Network, error) {
-	return c.LookupNetworkByName(name)
+	return c.NetworkLookupByName(name)
 }
 
 // NetworkIsActive checks if a network is active
@@ -327,7 +327,7 @@ func (c *LibvirtClient) NetworkUndefine(network *libvirt.Network) error {
 
 // StoragePoolLookupByName looks up a storage pool by name
 func (c *LibvirtClient) StoragePoolLookupByName(name string) (*libvirt.StoragePool, error) {
-	return c.LookupStoragePoolByName(name)
+	return c.StoragePoolLookupByName(name)
 }
 
 // StoragePoolIsActive checks if a storage pool is active
@@ -412,7 +412,11 @@ func (c *LibvirtClient) StorageVolDelete(vol *libvirt.StorageVol, flags uint32) 
 
 // SecretLookupByUUID looks up a secret by UUID
 func (c *LibvirtClient) SecretLookupByUUID(uuid string) (*libvirt.Secret, error) {
-	return c.LookupSecretByUUIDString(uuid)
+	uuidBytes, err := StringToUUID(uuid)
+	if err != nil {
+		return nil, err
+	}
+	return c.Connect.SecretLookupByUUID(uuidBytes)
 }
 
 // SecretSetValue sets secret value
@@ -439,7 +443,7 @@ func (c *LibvirtClient) SecretUndefine(secret *libvirt.Secret) error {
 
 // NodeDeviceLookupByName looks up a node device by name
 func (c *LibvirtClient) NodeDeviceLookupByName(name string) (libvirt.NodeDevice, error) {
-	device, err := c.LookupDeviceByName(name)
+	device, err := c.Connect.NodeDeviceLookupByName(name)
 	if err != nil {
 		return libvirt.NodeDevice{}, err
 	}
@@ -448,7 +452,7 @@ func (c *LibvirtClient) NodeDeviceLookupByName(name string) (libvirt.NodeDevice,
 
 // NodeDeviceGetXMLDesc gets node device XML description
 func (c *LibvirtClient) NodeDeviceGetXMLDesc(name string, flags uint32) (string, error) {
-	device, err := c.LookupDeviceByName(name)
+	device, err := c.Connect.NodeDeviceLookupByName(name)
 	if err != nil {
 		return "", err
 	}
@@ -464,13 +468,13 @@ func (c *LibvirtClient) StorageVolCreateXMLFrom(pool *libvirt.StoragePool, xml s
 
 // ConnectListAllNodeDevices lists all node devices
 func (c *LibvirtClient) ConnectListAllNodeDevices(need int32, flags uint32) ([]libvirt.NodeDevice, uint32, error) {
-	devices, err := c.ListAllNodeDevices(libvirt.ConnectListAllNodeDeviceFlags(flags))
+	devices, err := c.Connect.ListAllNodeDevices(libvirt.ConnectListAllNodeDeviceFlags(flags))
 	return devices, uint32(len(devices)), err
 }
 
 // NodeDeviceCreateXML creates a node device from XML
 func (c *LibvirtClient) NodeDeviceCreateXML(xml string, flags uint32) (libvirt.NodeDevice, error) {
-	device, err := c.DeviceCreateXML(xml, libvirt.NodeDeviceCreateXMLFlags(flags))
+	device, err := c.Connect.NodeDeviceCreateXML(xml, libvirt.NodeDeviceCreateXMLFlags(flags))
 	if err != nil {
 		return libvirt.NodeDevice{}, err
 	}
@@ -479,7 +483,7 @@ func (c *LibvirtClient) NodeDeviceCreateXML(xml string, flags uint32) (libvirt.N
 
 // NodeDeviceDefineXML defines a node device from XML
 func (c *LibvirtClient) NodeDeviceDefineXML(xml string, flags uint32) (libvirt.NodeDevice, error) {
-	device, err := c.DeviceDefineXML(xml, libvirt.NodeDeviceDefineXMLFlags(flags))
+	device, err := c.Connect.NodeDeviceDefineXML(xml, libvirt.NodeDeviceDefineXMLFlags(flags))
 	if err != nil {
 		return libvirt.NodeDevice{}, err
 	}
@@ -488,7 +492,7 @@ func (c *LibvirtClient) NodeDeviceDefineXML(xml string, flags uint32) (libvirt.N
 
 // NodeDeviceUndefine undefines a node device
 func (c *LibvirtClient) NodeDeviceUndefine(name string, flags uint32) error {
-	device, err := c.LookupDeviceByName(name)
+	device, err := c.Connect.NodeDeviceLookupByName(name)
 	if err != nil {
 		return err
 	}
@@ -497,7 +501,7 @@ func (c *LibvirtClient) NodeDeviceUndefine(name string, flags uint32) error {
 
 // NodeDeviceDetachFlags detaches a node device
 func (c *LibvirtClient) NodeDeviceDetachFlags(name string, driverName string, flags uint32) error {
-	device, err := c.LookupDeviceByName(name)
+	device, err := c.Connect.NodeDeviceLookupByName(name)
 	if err != nil {
 		return err
 	}
@@ -506,7 +510,7 @@ func (c *LibvirtClient) NodeDeviceDetachFlags(name string, driverName string, fl
 
 // NodeDeviceReAttach reattaches a node device
 func (c *LibvirtClient) NodeDeviceReAttach(name string) error {
-	device, err := c.LookupDeviceByName(name)
+	device, err := c.Connect.NodeDeviceLookupByName(name)
 	if err != nil {
 		return err
 	}
@@ -515,7 +519,7 @@ func (c *LibvirtClient) NodeDeviceReAttach(name string) error {
 
 // NodeDeviceSetAutostart sets node device autostart
 func (c *LibvirtClient) NodeDeviceSetAutostart(name string, autostart int32) error {
-	device, err := c.LookupDeviceByName(name)
+	device, err := c.Connect.NodeDeviceLookupByName(name)
 	if err != nil {
 		return err
 	}
@@ -524,7 +528,7 @@ func (c *LibvirtClient) NodeDeviceSetAutostart(name string, autostart int32) err
 
 // NodeDeviceDestroy destroys a node device
 func (c *LibvirtClient) NodeDeviceDestroy(name string) error {
-	device, err := c.LookupDeviceByName(name)
+	device, err := c.Connect.NodeDeviceLookupByName(name)
 	if err != nil {
 		return err
 	}
@@ -548,7 +552,7 @@ func (c *LibvirtClient) StoragePoolSetAutostart(pool *libvirt.StoragePool, autos
 
 // NodeDeviceGetAutostart gets node device autostart setting
 func (c *LibvirtClient) NodeDeviceGetAutostart(name string) (int32, error) {
-	device, err := c.LookupDeviceByName(name)
+	device, err := c.Connect.NodeDeviceLookupByName(name)
 	if err != nil {
 		return 0, err
 	}
