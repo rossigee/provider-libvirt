@@ -444,17 +444,15 @@ func (c *LibvirtClient) SecretUndefine(secret *libvirt.Secret) error {
 // NodeDevice compatibility methods
 
 // NodeDeviceLookupByName looks up a node device by name
+// TODO: Implement when libvirt-go supports NodeDevice API
 func (c *LibvirtClient) NodeDeviceLookupByName(name string) (libvirt.NodeDevice, error) {
-	return libvirt.LookupNodeDeviceByName(c.Connect, name)
+	return libvirt.NodeDevice{}, errors.New("NodeDevice API not implemented in current libvirt-go version")
 }
 
 // NodeDeviceGetXMLDesc gets node device XML description
+// TODO: Implement when libvirt-go supports NodeDevice API
 func (c *LibvirtClient) NodeDeviceGetXMLDesc(name string, flags uint32) (string, error) {
-	device, err := libvirt.LookupNodeDeviceByName(c.Connect, name)
-	if err != nil {
-		return "", err
-	}
-	return device.GetXMLDesc(libvirt.NodeDeviceXMLFlags(flags))
+	return "", errors.New("NodeDevice API not implemented in current libvirt-go version")
 }
 
 // Additional compatibility methods for missing client functions
@@ -465,64 +463,51 @@ func (c *LibvirtClient) StorageVolCreateXMLFrom(pool *libvirt.StoragePool, xml s
 }
 
 // ConnectListAllNodeDevices lists all node devices
+// TODO: Implement when libvirt-go supports NodeDevice API
 func (c *LibvirtClient) ConnectListAllNodeDevices(need int32, flags uint32) ([]libvirt.NodeDevice, uint32, error) {
-	devices, err := c.Connect.ListAllNodeDevices(libvirt.ConnectListAllNodeDeviceFlags(flags))
-	return devices, uint32(len(devices)), err
+	return nil, 0, errors.New("NodeDevice API not implemented in current libvirt-go version")
 }
 
 // NodeDeviceCreateXML creates a node device from XML
+// TODO: Implement when libvirt-go supports NodeDevice API
 func (c *LibvirtClient) NodeDeviceCreateXML(xml string, flags uint32) (libvirt.NodeDevice, error) {
-	return libvirt.NodeDeviceCreateXML(c.Connect, xml, libvirt.NodeDeviceCreateXMLFlags(flags))
+	return libvirt.NodeDevice{}, errors.New("NodeDevice API not implemented in current libvirt-go version")
 }
 
 // NodeDeviceDefineXML defines a node device from XML
+// TODO: Implement when libvirt-go supports NodeDevice API
 func (c *LibvirtClient) NodeDeviceDefineXML(xml string, flags uint32) (libvirt.NodeDevice, error) {
-	return libvirt.NodeDeviceDefineXML(c.Connect, xml, libvirt.NodeDeviceDefineXMLFlags(flags))
+	return libvirt.NodeDevice{}, errors.New("NodeDevice API not implemented in current libvirt-go version")
 }
 
 // NodeDeviceUndefine undefines a node device
+// TODO: Implement when libvirt-go supports NodeDevice API
 func (c *LibvirtClient) NodeDeviceUndefine(name string, flags uint32) error {
-	device, err := libvirt.LookupNodeDeviceByName(c.Connect, name)
-	if err != nil {
-		return err
-	}
-	return device.Undefine(flags)
+	return errors.New("NodeDevice API not implemented in current libvirt-go version")
 }
 
 // NodeDeviceDetachFlags detaches a node device
+// TODO: Implement when libvirt-go supports NodeDevice API
 func (c *LibvirtClient) NodeDeviceDetachFlags(name string, driverName string, flags uint32) error {
-	device, err := libvirt.LookupNodeDeviceByName(c.Connect, name)
-	if err != nil {
-		return err
-	}
-	return device.DetachFlags(driverName, flags)
+	return errors.New("NodeDevice API not implemented in current libvirt-go version")
 }
 
 // NodeDeviceReAttach reattaches a node device
+// TODO: Implement when libvirt-go supports NodeDevice API
 func (c *LibvirtClient) NodeDeviceReAttach(name string) error {
-	device, err := c.Connect.LookupNodeDeviceByName(name)
-	if err != nil {
-		return err
-	}
-	return device.ReAttach()
+	return errors.New("NodeDevice API not implemented in current libvirt-go version")
 }
 
 // NodeDeviceSetAutostart sets node device autostart
+// TODO: Implement when libvirt-go supports NodeDevice API
 func (c *LibvirtClient) NodeDeviceSetAutostart(name string, autostart int32) error {
-	device, err := c.Connect.LookupNodeDeviceByName(name)
-	if err != nil {
-		return err
-	}
-	return device.SetAutostart(autostart != 0)
+	return errors.New("NodeDevice API not implemented in current libvirt-go version")
 }
 
 // NodeDeviceDestroy destroys a node device
+// TODO: Implement when libvirt-go supports NodeDevice API
 func (c *LibvirtClient) NodeDeviceDestroy(name string) error {
-	device, err := libvirt.LookupNodeDeviceByName(c.Connect, name)
-	if err != nil {
-		return err
-	}
-	return device.Destroy()
+	return errors.New("NodeDevice API not implemented in current libvirt-go version")
 }
 
 // NetworkSetAutostart sets network autostart
@@ -541,19 +526,9 @@ func (c *LibvirtClient) StoragePoolSetAutostart(pool *libvirt.StoragePool, autos
 }
 
 // NodeDeviceGetAutostart gets node device autostart setting
+// TODO: Implement when libvirt-go supports NodeDevice API
 func (c *LibvirtClient) NodeDeviceGetAutostart(name string) (int32, error) {
-	device, err := libvirt.LookupNodeDeviceByName(c.Connect, name)
-	if err != nil {
-		return 0, err
-	}
-	autostart, err := device.GetAutostart()
-	if err != nil {
-		return 0, err
-	}
-	if autostart {
-		return 1, nil
-	}
-	return 0, nil
+	return 0, errors.New("NodeDevice API not implemented in current libvirt-go version")
 }
 
 // Disconnect closes the libvirt connection
