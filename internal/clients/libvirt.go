@@ -1,120 +1,146 @@
 /*
-Copyright 2021 Upbound Inc.
+Copyright 2025 The Crossplane Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 */
 
+// Package clients provides a libvirt client for the provider.
 package clients
 
 import (
 	"context"
-	"encoding/json"
-	"io/ioutil"
-	"os"
-	"path/filepath"
+	"fmt"
+	"net"
+	"net/url"
+	"strings"
+	"time"
 
-	"github.com/crossplane/crossplane-runtime/pkg/resource"
+	"github.com/digitalocean/go-libvirt"
 	"github.com/pkg/errors"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/crossplane/upjet/pkg/terraform"
-
-	"github.com/nourspeed/provider-libvirt/apis/v1beta1"
+	v1beta1 "github.com/rossigee/provider-libvirt/apis/v1beta1"
 )
 
 const (
-	keyUri      = "uri"
-	keyCACert   = "cacert"     // CA certificate content
-	keyPKIPath  = "pkipath"    // Custom PKI directory path
-	keyNoVerify = "no_verify"  // Skip certificate verification
-	
-	// error messages
-	errNoProviderConfig     = "no providerConfigRef provided"
-	errGetProviderConfig    = "cannot get referenced ProviderConfig"
-	errTrackUsage           = "cannot track ProviderConfig usage"
-	errExtractCredentials   = "cannot extract credentials"
-	errUnmarshalCredentials = "cannot unmarshal libvirt credentials as JSON"
-	errSetupCustomCA        = "cannot setup custom CA certificate"
+	defaultDialTimeout = 10 * time.Second
 )
 
-// TerraformSetupBuilder builds Terraform a terraform.SetupFn function which
-// returns Terraform provider setup configuration
-func TerraformSetupBuilder(version, providerSource, providerVersion string) terraform.SetupFn {
-	return func(ctx context.Context, client client.Client, mg resource.Managed) (terraform.Setup, error) {
-		ps := terraform.Setup{
-			Version: version,
-			Requirement: terraform.ProviderRequirement{
-				Source:  providerSource,
-				Version: providerVersion,
-			},
-		}
+// Client wraps a go-libvirt connection.
+type Client struct {
+	lv *libvirt.Libvirt
+}
 
-		configRef := mg.GetProviderConfigReference()
-		if configRef == nil {
-			return ps, errors.New(errNoProviderConfig)
-		}
-		pc := &v1beta1.ProviderConfig{}
-		if err := client.Get(ctx, types.NamespacedName{Name: configRef.Name}, pc); err != nil {
-			return ps, errors.Wrap(err, errGetProviderConfig)
-		}
+// GetClient returns a connected libvirt.Client from a ProviderConfig.
+// The caller is responsible for calling Close() when done.
+func GetClient(ctx context.Context, kube client.Client, pc *v1beta1.ProviderConfig) (*Client, error) {
+	uri := pc.Spec.URI
+	if uri == "" {
+		return nil, errors.New("provider config URI is empty")
+	}
 
-		t := resource.NewProviderConfigUsageTracker(client, &v1beta1.ProviderConfigUsage{})
-		if err := t.Track(ctx, mg); err != nil {
-			return ps, errors.Wrap(err, errTrackUsage)
-		}
+	conn, err := dialURI(ctx, uri)
+	if err != nil {
+		return nil, errors.Wrap(err, "cannot dial libvirt URI")
+	}
 
-		data, err := resource.CommonCredentialExtractor(ctx, pc.Spec.Credentials.Source, client, pc.Spec.Credentials.CommonCredentialSelectors)
-		if err != nil {
-			return ps, errors.Wrap(err, errExtractCredentials)
-		}
-		creds := map[string]string{}
-		if err := json.Unmarshal(data, &creds); err != nil {
-			return ps, errors.Wrap(err, errUnmarshalCredentials)
-		}
+	lv := libvirt.New(conn)
+	if err := lv.Connect(); err != nil {
+		_ = conn.Close()
+		return nil, errors.Wrap(err, "cannot connect to libvirt")
+	}
 
-		// Set credentials in Terraform provider configuration.
-		ps.Configuration = map[string]any{}
-		if v, ok := creds[keyUri]; ok {
-			ps.Configuration[keyUri] = v
-		}
+	return &Client{lv: lv}, nil
+}
 
-		// Handle custom CA certificate
-		if caCert, ok := creds[keyCACert]; ok && caCert != "" {
-			pkiPath := "/tmp/libvirt-pki"
-			if err := setupCustomCA(pkiPath, caCert); err != nil {
-				return ps, errors.Wrap(err, errSetupCustomCA)
-			}
-			ps.Configuration[keyPKIPath] = pkiPath
-		}
+// GetClientFromRef builds a client by looking up the ProviderConfig referenced by name.
+func GetClientFromRef(ctx context.Context, kube client.Client, pcName string) (*Client, error) {
+	pc := &v1beta1.ProviderConfig{}
+	if err := kube.Get(ctx, types.NamespacedName{Name: pcName}, pc); err != nil {
+		return nil, errors.Wrap(err, "cannot get ProviderConfig")
+	}
+	return GetClient(ctx, kube, pc)
+}
 
-		// Handle custom PKI path (if specified and not using inline CA)
-		if pkiPath, ok := creds[keyPKIPath]; ok && pkiPath != "" {
-			// Only use if no inline CA was provided
-			if _, hasCACert := creds[keyCACert]; !hasCACert {
-				ps.Configuration[keyPKIPath] = pkiPath
-			}
-		}
-
-		// Handle certificate verification options
-		if noVerify, ok := creds[keyNoVerify]; ok {
-			ps.Configuration[keyNoVerify] = noVerify
-		}
-
-		return ps, nil
+// Close disconnects the libvirt connection.
+func (c *Client) Close() {
+	if c.lv != nil {
+		_ = c.lv.Disconnect()
 	}
 }
 
-// setupCustomCA creates a PKI directory with the provided CA certificate
-func setupCustomCA(pkiPath, caCert string) error {
-	// Create PKI directory
-	if err := os.MkdirAll(pkiPath, 0755); err != nil {
-		return errors.Wrap(err, "cannot create PKI directory")
+// Libvirt returns the underlying go-libvirt client for direct API calls.
+func (c *Client) Libvirt() *libvirt.Libvirt {
+	return c.lv
+}
+
+// dialURI establishes a net.Conn to the libvirt daemon described by uri.
+// Supported schemes: qemu (unix socket), qemu+tcp (cleartext TCP), qemu+tls (TLS TCP).
+// For TLS, the ProviderConfig credentials secret should contain PEM-encoded
+// client.crt, client.key, and optionally ca.crt keys.
+func dialURI(ctx context.Context, rawURI string) (net.Conn, error) {
+	u, err := url.Parse(rawURI)
+	if err != nil {
+		return nil, errors.Wrap(err, "invalid libvirt URI")
 	}
 
-	// Write CA certificate
-	caPath := filepath.Join(pkiPath, "cacert.pem")
-	if err := ioutil.WriteFile(caPath, []byte(caCert), 0644); err != nil {
-		return errors.Wrap(err, "cannot write CA certificate")
-	}
+	scheme := strings.ToLower(u.Scheme)
 
-	return nil
+	switch {
+	case scheme == "qemu" || scheme == "qemu+unix":
+		// Local or unix socket connection — no network needed.
+		socketPath := "/var/run/libvirt/libvirt-sock"
+		if s := u.Query().Get("socket"); s != "" {
+			socketPath = s
+		}
+		dialer := net.Dialer{Timeout: defaultDialTimeout}
+		return dialer.DialContext(ctx, "unix", socketPath)
+
+	case scheme == "qemu+tcp":
+		host := u.Hostname()
+		port := u.Port()
+		if port == "" {
+			port = "16509"
+		}
+		dialer := net.Dialer{Timeout: defaultDialTimeout}
+		return dialer.DialContext(ctx, "tcp", net.JoinHostPort(host, port))
+
+	case scheme == "qemu+tls" || scheme == "qemu+tls+tcp":
+		// TLS requires a future extension to load certs from the ProviderConfig secret.
+		// For now, return a clear error so the user knows TLS is not yet implemented.
+		return nil, errors.New("qemu+tls connections require TLS certificate support — use qemu+tcp for now or contribute TLS support")
+
+	default:
+		return nil, fmt.Errorf("unsupported libvirt URI scheme %q (supported: qemu, qemu+unix, qemu+tcp)", scheme)
+	}
+}
+
+// GetCredentialSecret fetches the credential secret referenced in the ProviderConfig.
+func GetCredentialSecret(ctx context.Context, kube client.Client, pc *v1beta1.ProviderConfig) (*corev1.Secret, error) {
+	if pc.Spec.Credentials == nil {
+		return nil, nil
+	}
+	if pc.Spec.Credentials.SecretRef == nil {
+		return nil, nil
+	}
+	secret := &corev1.Secret{}
+	if err := kube.Get(ctx, types.NamespacedName{
+		Name:      pc.Spec.Credentials.SecretRef.Name,
+		Namespace: pc.Spec.Credentials.SecretRef.Namespace,
+	}, secret); err != nil {
+		return nil, errors.Wrap(err, "cannot get credentials secret")
+	}
+	return secret, nil
 }

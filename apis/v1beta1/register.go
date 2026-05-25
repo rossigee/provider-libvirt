@@ -13,7 +13,7 @@ import (
 
 // Package type metadata.
 const (
-	Group   = "libvirt.nourspeed.io"
+	Group   = "libvirt.crossplane.io"
 	Version = "v1beta1"
 )
 
