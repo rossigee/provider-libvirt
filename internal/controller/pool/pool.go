@@ -25,13 +25,13 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	xpv1 "github.com/crossplane/crossplane/apis/v2/core/v2"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/controller"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/event"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/meta"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/ratelimiter"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/reconciler/managed"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/resource"
+	xpv1 "github.com/crossplane/crossplane/apis/v2/core/v2"
 
 	poolv1alpha1 "github.com/rossigee/provider-libvirt/apis/pool/v1alpha1"
 	v1beta1 "github.com/rossigee/provider-libvirt/apis/v1beta1"
@@ -39,12 +39,12 @@ import (
 )
 
 const (
-	errNotPool       = "managed resource is not a Pool"
-	errGetPC         = "cannot get ProviderConfig"
-	errGetClient     = "cannot get libvirt client"
-	errObserve       = "cannot observe pool"
-	errCreate        = "cannot create pool"
-	errDelete        = "cannot delete pool"
+	errNotPool   = "managed resource is not a Pool"
+	errGetPC     = "cannot get ProviderConfig"
+	errGetClient = "cannot get libvirt client"
+	errObserve   = "cannot observe pool"
+	errCreate    = "cannot create pool"
+	errDelete    = "cannot delete pool"
 )
 
 // Setup adds a controller that reconciles Pool managed resources.

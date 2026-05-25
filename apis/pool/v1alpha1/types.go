@@ -65,7 +65,7 @@ type PoolSpec struct {
 // PoolStatus defines the observed state of a Pool.
 type PoolStatus struct {
 	xpv1.ManagedResourceStatus `json:",inline"`
-	AtProvider          PoolObservation `json:"atProvider,omitempty"`
+	AtProvider                 PoolObservation `json:"atProvider,omitempty"`
 }
 
 // +kubebuilder:object:root=true

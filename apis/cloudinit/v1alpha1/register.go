@@ -31,7 +31,7 @@ const (
 
 var (
 	SchemeGroupVersion = schema.GroupVersion{Group: CRDGroup, Version: CRDVersion}
-	SchemeBuilder      = &scheme.Builder{GroupVersion: SchemeGroupVersion}
+	SchemeBuilder      = &scheme.Builder{GroupVersion: SchemeGroupVersion} //nolint:staticcheck
 )
 
 var (

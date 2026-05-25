@@ -1,0 +1,26 @@
+version: "2"
+
+linters:
+  enable:
+    - errcheck
+    - govet
+    - staticcheck
+    - unused
+    - misspell
+    - unconvert
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+
+issues:
+  exclude-rules:
+    # scheme.Builder is deprecated in controller-runtime but is the standard
+    # pattern used by all crossplane providers.
+    - path: "register\\.go"
+      linters: [staticcheck]
+      text: "SA1019"
+    # Generated files — do not lint.
+    - path: "zz_generated"
+      linters: [staticcheck, errcheck, unused]

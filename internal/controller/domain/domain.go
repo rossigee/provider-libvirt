@@ -26,13 +26,13 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	xpv1 "github.com/crossplane/crossplane/apis/v2/core/v2"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/controller"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/event"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/meta"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/ratelimiter"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/reconciler/managed"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/resource"
+	xpv1 "github.com/crossplane/crossplane/apis/v2/core/v2"
 
 	domainv1alpha1 "github.com/rossigee/provider-libvirt/apis/domain/v1alpha1"
 	v1beta1 "github.com/rossigee/provider-libvirt/apis/v1beta1"
@@ -265,32 +265,32 @@ func buildDevicesXML(p domainv1alpha1.DomainParameters) string {
 		dev := diskDevName(bus, diskIdx)
 
 		if d.VolumeID != nil {
-			sb.WriteString(fmt.Sprintf(`    <disk type="volume" device="disk">
+			fmt.Fprintf(&sb, `    <disk type="volume" device="disk">
       <driver name="qemu" type="qcow2"/>
       <source pool="%s" volume="%s"/>
       <target dev="%s" bus="%s"/>
     </disk>
-`, volumePoolName(*d.VolumeID), volumeName(*d.VolumeID), dev, bus))
+`, volumePoolName(*d.VolumeID), volumeName(*d.VolumeID), dev, bus)
 		} else if d.URL != nil {
-			sb.WriteString(fmt.Sprintf(`    <disk type="network" device="disk">
+			fmt.Fprintf(&sb, `    <disk type="network" device="disk">
       <driver name="qemu"/>
       <source protocol="%s" name="%s"/>
       <target dev="%s" bus="%s"/>
     </disk>
-`, urlProtocol(*d.URL), urlPath(*d.URL), dev, bus))
+`, urlProtocol(*d.URL), urlPath(*d.URL), dev, bus)
 		}
 		diskIdx++
 	}
 
 	// Cloud-init ISO (cdrom)
 	if p.Cloudinit != nil {
-		sb.WriteString(fmt.Sprintf(`    <disk type="volume" device="cdrom">
+		fmt.Fprintf(&sb, `    <disk type="volume" device="cdrom">
       <driver name="qemu" type="raw"/>
       <source volume="%s"/>
       <target dev="sda" bus="sata"/>
       <readonly/>
     </disk>
-`, *p.Cloudinit))
+`, *p.Cloudinit)
 	}
 
 	// Network interfaces
@@ -305,17 +305,17 @@ func buildDevicesXML(p domainv1alpha1.DomainParameters) string {
 		}
 
 		if nic.NetworkID != nil {
-			sb.WriteString(fmt.Sprintf(`    <interface type="network">
+			fmt.Fprintf(&sb, `    <interface type="network">
       <source network="%s"/>
 %s      <model type="%s"/>
     </interface>
-`, *nic.NetworkID, macAttr, model))
+`, *nic.NetworkID, macAttr, model)
 		} else if nic.Bridge != nil {
-			sb.WriteString(fmt.Sprintf(`    <interface type="bridge">
+			fmt.Fprintf(&sb, `    <interface type="bridge">
       <source bridge="%s"/>
 %s      <model type="%s"/>
     </interface>
-`, *nic.Bridge, macAttr, model))
+`, *nic.Bridge, macAttr, model)
 		}
 	}
 

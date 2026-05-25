@@ -47,7 +47,7 @@ func TestDialURIUnixSocket(t *testing.T) {
 	if err != nil {
 		t.Fatalf("cannot create unix listener: %v", err)
 	}
-	defer ln.Close()
+	defer func() { _ = ln.Close() }()
 
 	uri := "qemu+unix:///system?socket=" + ln.Addr().String()
 	conn, err := dialURI(context.Background(), uri)

@@ -26,6 +26,7 @@ import (
 	"time"
 
 	"github.com/digitalocean/go-libvirt"
+	"github.com/digitalocean/go-libvirt/socket/dialers"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -56,7 +57,7 @@ func GetClient(ctx context.Context, kube client.Client, pc *v1beta1.ProviderConf
 		return nil, errors.Wrap(err, "cannot dial libvirt URI")
 	}
 
-	lv := libvirt.New(conn)
+	lv := libvirt.NewWithDialer(dialers.NewAlreadyConnected(conn))
 	if err := lv.Connect(); err != nil {
 		_ = conn.Close()
 		return nil, errors.Wrap(err, "cannot connect to libvirt")
@@ -96,10 +97,8 @@ func dialURI(ctx context.Context, rawURI string) (net.Conn, error) {
 		return nil, errors.Wrap(err, "invalid libvirt URI")
 	}
 
-	scheme := strings.ToLower(u.Scheme)
-
-	switch {
-	case scheme == "qemu" || scheme == "qemu+unix":
+	switch strings.ToLower(u.Scheme) {
+	case "qemu", "qemu+unix":
 		// Local or unix socket connection — no network needed.
 		socketPath := "/var/run/libvirt/libvirt-sock"
 		if s := u.Query().Get("socket"); s != "" {
@@ -108,7 +107,7 @@ func dialURI(ctx context.Context, rawURI string) (net.Conn, error) {
 		dialer := net.Dialer{Timeout: defaultDialTimeout}
 		return dialer.DialContext(ctx, "unix", socketPath)
 
-	case scheme == "qemu+tcp":
+	case "qemu+tcp":
 		host := u.Hostname()
 		port := u.Port()
 		if port == "" {
@@ -117,13 +116,13 @@ func dialURI(ctx context.Context, rawURI string) (net.Conn, error) {
 		dialer := net.Dialer{Timeout: defaultDialTimeout}
 		return dialer.DialContext(ctx, "tcp", net.JoinHostPort(host, port))
 
-	case scheme == "qemu+tls" || scheme == "qemu+tls+tcp":
+	case "qemu+tls", "qemu+tls+tcp":
 		// TLS requires a future extension to load certs from the ProviderConfig secret.
 		// For now, return a clear error so the user knows TLS is not yet implemented.
 		return nil, errors.New("qemu+tls connections require TLS certificate support — use qemu+tcp for now or contribute TLS support")
 
 	default:
-		return nil, fmt.Errorf("unsupported libvirt URI scheme %q (supported: qemu, qemu+unix, qemu+tcp)", scheme)
+		return nil, fmt.Errorf("unsupported libvirt URI scheme %q (supported: qemu, qemu+unix, qemu+tcp)", strings.ToLower(u.Scheme))
 	}
 }
 
