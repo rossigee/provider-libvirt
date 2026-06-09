@@ -13,7 +13,7 @@ import (
 
 // DomainSpec defines the desired state of Domain
 type DomainSpec struct {
-	xpv1.ResourceSpec `json:",inline"`
+	xpv1.ClusterManagedResourceSpec `json:",inline"`
 	ForProvider       DomainParameters `json:"forProvider"`
 }
 
@@ -171,7 +171,7 @@ type DomainGraphics struct {
 
 // DomainStatus defines the observed state of Domain
 type DomainStatus struct {
-	xpv1.ResourceStatus `json:",inline"`
+	xpv1.ManagedResourceStatus `json:",inline"`
 	AtProvider          DomainObservation `json:"atProvider,omitempty"`
 }
 

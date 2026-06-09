@@ -13,7 +13,7 @@ import (
 
 // NetworkSpec defines the desired state of Network
 type NetworkSpec struct {
-	xpv1.ResourceSpec `json:",inline"`
+	xpv1.ClusterManagedResourceSpec `json:",inline"`
 	ForProvider       NetworkParameters `json:"forProvider"`
 }
 
@@ -170,7 +170,7 @@ type NetworkBootp struct {
 
 // NetworkStatus defines the observed state of Network
 type NetworkStatus struct {
-	xpv1.ResourceStatus `json:",inline"`
+	xpv1.ManagedResourceStatus `json:",inline"`
 	AtProvider          NetworkObservation `json:"atProvider,omitempty"`
 }
 

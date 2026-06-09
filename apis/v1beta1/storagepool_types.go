@@ -13,7 +13,7 @@ import (
 
 // StoragePoolSpec defines the desired state of StoragePool
 type StoragePoolSpec struct {
-	xpv1.ResourceSpec `json:",inline"`
+	xpv1.ClusterManagedResourceSpec `json:",inline"`
 	ForProvider       StoragePoolParameters `json:"forProvider"`
 }
 
@@ -131,7 +131,7 @@ type StoragePoolPermissions struct {
 
 // StoragePoolStatus defines the observed state of StoragePool
 type StoragePoolStatus struct {
-	xpv1.ResourceStatus `json:",inline"`
+	xpv1.ManagedResourceStatus `json:",inline"`
 	AtProvider          StoragePoolObservation `json:"atProvider,omitempty"`
 }
 

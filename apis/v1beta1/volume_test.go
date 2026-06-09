@@ -31,7 +31,7 @@ func TestVolumeSpec(t *testing.T) {
 			Namespace: "test-ns",
 		},
 		Spec: VolumeSpec{
-			ResourceSpec: xpv1.ResourceSpec{
+			ResourceSpec: xpv1.ManagedResourceSpec{
 				ProviderConfigReference: &xpv1.Reference{
 					Name: "test-provider-config",
 				},
@@ -80,7 +80,7 @@ func TestVolumeConversion(t *testing.T) {
 			Namespace: "test-ns",
 		},
 		Spec: VolumeSpec{
-			ResourceSpec: xpv1.ResourceSpec{
+			ResourceSpec: xpv1.ManagedResourceSpec{
 				ProviderConfigReference: &xpv1.Reference{
 					Name: "test-provider-config",
 				},

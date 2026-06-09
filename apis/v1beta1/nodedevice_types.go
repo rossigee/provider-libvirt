@@ -13,7 +13,7 @@ import (
 
 // NodeDeviceSpec defines the desired state of NodeDevice
 type NodeDeviceSpec struct {
-	xpv1.ResourceSpec `json:",inline"`
+	xpv1.ClusterManagedResourceSpec `json:",inline"`
 	ForProvider       NodeDeviceParameters `json:"forProvider"`
 }
 
@@ -176,7 +176,7 @@ type SCSIDevice struct {
 
 // NodeDeviceStatus defines the observed state of NodeDevice
 type NodeDeviceStatus struct {
-	xpv1.ResourceStatus `json:",inline"`
+	xpv1.ManagedResourceStatus `json:",inline"`
 	AtProvider          NodeDeviceObservation `json:"atProvider,omitempty"`
 }
 
