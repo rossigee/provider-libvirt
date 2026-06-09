@@ -66,7 +66,7 @@ func TestDomainLifecycle(t *testing.T) {
 			Name: "test-domain",
 		},
 		Spec: v1beta1.DomainSpec{
-			ResourceSpec: xpv1.ResourceSpec{
+			ResourceSpec: xpv1.ManagedResourceSpec{
 				ProviderConfigReference: &xpv1.Reference{
 					Name: "test-provider-config",
 				},
@@ -214,7 +214,7 @@ func TestDomainSpecValidation(t *testing.T) {
 					Name: "valid-domain",
 				},
 				Spec: v1beta1.DomainSpec{
-					ResourceSpec: xpv1.ResourceSpec{
+					ResourceSpec: xpv1.ManagedResourceSpec{
 						ProviderConfigReference: &xpv1.Reference{
 							Name: "test-config",
 						},
@@ -235,7 +235,7 @@ func TestDomainSpecValidation(t *testing.T) {
 					Name: "minimal-domain",
 				},
 				Spec: v1beta1.DomainSpec{
-					ResourceSpec: xpv1.ResourceSpec{
+					ResourceSpec: xpv1.ManagedResourceSpec{
 						ProviderConfigReference: &xpv1.Reference{
 							Name: "test-config",
 						},

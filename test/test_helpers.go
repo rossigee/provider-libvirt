@@ -34,7 +34,7 @@ func createTestStoragePool(name string) *v1beta1.StoragePool {
 			Name: name,
 		},
 		Spec: v1beta1.StoragePoolSpec{
-			ResourceSpec: xpv1.ResourceSpec{
+			ResourceSpec: xpv1.ManagedResourceSpec{
 				ProviderConfigReference: &xpv1.Reference{Name: "test-provider-config"},
 			},
 			ForProvider: v1beta1.StoragePoolParameters{
@@ -56,7 +56,7 @@ func createTestVolume(name, poolName string) *v1beta1.Volume {
 			Name: name,
 		},
 		Spec: v1beta1.VolumeSpec{
-			ResourceSpec: xpv1.ResourceSpec{
+			ResourceSpec: xpv1.ManagedResourceSpec{
 				ProviderConfigReference: &xpv1.Reference{Name: "test-provider-config"},
 			},
 			ForProvider: v1beta1.VolumeParameters{
@@ -76,7 +76,7 @@ func createTestNetwork(name string) *v1beta1.Network {
 			Name: name,
 		},
 		Spec: v1beta1.NetworkSpec{
-			ResourceSpec: xpv1.ResourceSpec{
+			ResourceSpec: xpv1.ManagedResourceSpec{
 				ProviderConfigReference: &xpv1.Reference{Name: "test-provider-config"},
 			},
 			ForProvider: v1beta1.NetworkParameters{

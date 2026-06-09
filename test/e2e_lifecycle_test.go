@@ -113,7 +113,7 @@ func testBasicVMLifecycle(t *testing.T, ctx context.Context, k8sClient client.Cl
 			Name: "basic-vm",
 		},
 		Spec: v1beta1.DomainSpec{
-			ResourceSpec: xpv1.ResourceSpec{
+			ResourceSpec: xpv1.ManagedResourceSpec{
 				ProviderConfigReference: &xpv1.Reference{Name: "test-provider-config"},
 				DeletionPolicy:          xpv1.DeletionDelete,
 			},
@@ -258,7 +258,7 @@ func testMultiDiskVMLifecycle(t *testing.T, ctx context.Context, k8sClient clien
 			Name: "multi-disk-vm",
 		},
 		Spec: v1beta1.DomainSpec{
-			ResourceSpec: xpv1.ResourceSpec{
+			ResourceSpec: xpv1.ManagedResourceSpec{
 				ProviderConfigReference: &xpv1.Reference{Name: "test-provider-config"},
 			},
 			ForProvider: v1beta1.DomainParameters{
@@ -361,7 +361,7 @@ func testMultiNetworkVMLifecycle(t *testing.T, ctx context.Context, k8sClient cl
 			Name: "multi-network-vm",
 		},
 		Spec: v1beta1.DomainSpec{
-			ResourceSpec: xpv1.ResourceSpec{
+			ResourceSpec: xpv1.ManagedResourceSpec{
 				ProviderConfigReference: &xpv1.Reference{Name: "test-provider-config"},
 			},
 			ForProvider: v1beta1.DomainParameters{
@@ -444,7 +444,7 @@ func testVMStateTransitions(t *testing.T, ctx context.Context, k8sClient client.
 			Name: "state-test-vm",
 		},
 		Spec: v1beta1.DomainSpec{
-			ResourceSpec: xpv1.ResourceSpec{
+			ResourceSpec: xpv1.ManagedResourceSpec{
 				ProviderConfigReference: &xpv1.Reference{Name: "test-provider-config"},
 			},
 			ForProvider: v1beta1.DomainParameters{
@@ -530,7 +530,7 @@ func testVMConfigurationUpdates(t *testing.T, ctx context.Context, k8sClient cli
 			Name: "config-test-vm",
 		},
 		Spec: v1beta1.DomainSpec{
-			ResourceSpec: xpv1.ResourceSpec{
+			ResourceSpec: xpv1.ManagedResourceSpec{
 				ProviderConfigReference: &xpv1.Reference{Name: "test-provider-config"},
 			},
 			ForProvider: v1beta1.DomainParameters{
@@ -616,7 +616,7 @@ func testVMErrorRecovery(t *testing.T, ctx context.Context, k8sClient client.Cli
 				Name: "error-missing-volume",
 			},
 			Spec: v1beta1.DomainSpec{
-				ResourceSpec: xpv1.ResourceSpec{
+				ResourceSpec: xpv1.ManagedResourceSpec{
 					ProviderConfigReference: &xpv1.Reference{Name: "test-provider-config"},
 				},
 				ForProvider: v1beta1.DomainParameters{
@@ -660,7 +660,7 @@ func testVMErrorRecovery(t *testing.T, ctx context.Context, k8sClient client.Cli
 				Name: "error-missing-network",
 			},
 			Spec: v1beta1.DomainSpec{
-				ResourceSpec: xpv1.ResourceSpec{
+				ResourceSpec: xpv1.ManagedResourceSpec{
 					ProviderConfigReference: &xpv1.Reference{Name: "test-provider-config"},
 				},
 				ForProvider: v1beta1.DomainParameters{
@@ -720,7 +720,7 @@ func testConcurrentVMOperations(t *testing.T, ctx context.Context, k8sClient cli
 				Name: fmt.Sprintf("concurrent-vm-%d", i),
 			},
 			Spec: v1beta1.DomainSpec{
-				ResourceSpec: xpv1.ResourceSpec{
+				ResourceSpec: xpv1.ManagedResourceSpec{
 					ProviderConfigReference: &xpv1.Reference{Name: "test-provider-config"},
 				},
 				ForProvider: v1beta1.DomainParameters{
