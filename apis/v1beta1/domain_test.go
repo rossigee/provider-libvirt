@@ -26,8 +26,8 @@ func TestDomainSpec(t *testing.T) {
 			Namespace: "test-ns",
 		},
 		Spec: DomainSpec{
-			ResourceSpec: xpv1.ManagedResourceSpec{
-				ProviderConfigReference: &xpv1.Reference{
+			ManagedResourceSpec: xpv1.ManagedResourceSpec{
+				ProviderConfigReference: &xpv1.ProviderConfigReference{
 					Name: "test-provider-config",
 				},
 			},
@@ -79,8 +79,8 @@ func TestDomainConversion(t *testing.T) {
 			Namespace: "test-ns",
 		},
 		Spec: DomainSpec{
-			ResourceSpec: xpv1.ManagedResourceSpec{
-				ProviderConfigReference: &xpv1.Reference{
+			ManagedResourceSpec: xpv1.ManagedResourceSpec{
+				ProviderConfigReference: &xpv1.ProviderConfigReference{
 					Name: "test-provider-config",
 				},
 			},

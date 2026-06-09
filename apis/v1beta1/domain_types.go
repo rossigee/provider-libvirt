@@ -222,6 +222,27 @@ var (
 	DomainGroupVersionKind = SchemeGroupVersion.WithKind(DomainKind)
 )
 
+
+// GetCondition of this Domain.
+func (mg *Domain) GetCondition(ct xpv1.ConditionType) xpv1.Condition {
+	return mg.Status.GetCondition(ct)
+}
+
+// SetConditions of this Domain.
+func (mg *Domain) SetConditions(c ...xpv1.Condition) {
+	mg.Status.SetConditions(c...)
+}
+
+
+// GetManagementPolicies of this Resource.
+func (mg *Domain) GetManagementPolicies() xpv1.ManagementPolicies {
+	return mg.Spec.ManagementPolicies
+}
+
+// SetManagementPolicies of this Resource.
+func (mg *Domain) SetManagementPolicies(p xpv1.ManagementPolicies) {
+	mg.Spec.ManagementPolicies = p
+}
 func init() {
 	SchemeBuilder.Register(&Domain{}, &DomainList{})
 }

@@ -268,6 +268,27 @@ var (
 	VolumeGroupVersionKind = SchemeGroupVersion.WithKind(VolumeKind)
 )
 
+
+// GetCondition of this Volume.
+func (mg *Volume) GetCondition(ct xpv1.ConditionType) xpv1.Condition {
+	return mg.Status.GetCondition(ct)
+}
+
+// SetConditions of this Volume.
+func (mg *Volume) SetConditions(c ...xpv1.Condition) {
+	mg.Status.SetConditions(c...)
+}
+
+
+// GetManagementPolicies of this Resource.
+func (mg *Volume) GetManagementPolicies() xpv1.ManagementPolicies {
+	return mg.Spec.ManagementPolicies
+}
+
+// SetManagementPolicies of this Resource.
+func (mg *Volume) SetManagementPolicies(p xpv1.ManagementPolicies) {
+	mg.Spec.ManagementPolicies = p
+}
 func init() {
 	SchemeBuilder.Register(&Volume{}, &VolumeList{})
 }

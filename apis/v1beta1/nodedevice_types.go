@@ -248,6 +248,27 @@ var (
 	NodeDeviceGroupVersionKind = SchemeGroupVersion.WithKind(NodeDeviceKind)
 )
 
+
+// GetCondition of this NodeDevice.
+func (mg *NodeDevice) GetCondition(ct xpv1.ConditionType) xpv1.Condition {
+	return mg.Status.GetCondition(ct)
+}
+
+// SetConditions of this NodeDevice.
+func (mg *NodeDevice) SetConditions(c ...xpv1.Condition) {
+	mg.Status.SetConditions(c...)
+}
+
+
+// GetManagementPolicies of this Resource.
+func (mg *NodeDevice) GetManagementPolicies() xpv1.ManagementPolicies {
+	return mg.Spec.ManagementPolicies
+}
+
+// SetManagementPolicies of this Resource.
+func (mg *NodeDevice) SetManagementPolicies(p xpv1.ManagementPolicies) {
+	mg.Spec.ManagementPolicies = p
+}
 func init() {
 	SchemeBuilder.Register(&NodeDevice{}, &NodeDeviceList{})
 }

@@ -174,6 +174,26 @@ var (
 	SecretGroupVersionKind = SchemeGroupVersion.WithKind(SecretKind)
 )
 
+// GetCondition of this Secret.
+func (mg *Secret) GetCondition(ct xpv1.ConditionType) xpv1.Condition {
+	return mg.Status.GetCondition(ct)
+}
+
+// SetConditions of this Secret.
+func (mg *Secret) SetConditions(c ...xpv1.Condition) {
+	mg.Status.SetConditions(c...)
+}
+
+// GetManagementPolicies of this Secret.
+func (mg *Secret) GetManagementPolicies() xpv1.ManagementPolicies {
+	return mg.Spec.ManagementPolicies
+}
+
+// SetManagementPolicies of this Secret.
+func (mg *Secret) SetManagementPolicies(p xpv1.ManagementPolicies) {
+	mg.Spec.ManagementPolicies = p
+}
+
 func init() {
 	SchemeBuilder.Register(&Secret{}, &SecretList{})
 }

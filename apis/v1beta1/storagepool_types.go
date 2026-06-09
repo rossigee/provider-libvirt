@@ -224,6 +224,27 @@ var (
 	StoragePoolGroupVersionKind = SchemeGroupVersion.WithKind(StoragePoolKind)
 )
 
+
+// GetCondition of this StoragePool.
+func (mg *StoragePool) GetCondition(ct xpv1.ConditionType) xpv1.Condition {
+	return mg.Status.GetCondition(ct)
+}
+
+// SetConditions of this StoragePool.
+func (mg *StoragePool) SetConditions(c ...xpv1.Condition) {
+	mg.Status.SetConditions(c...)
+}
+
+
+// GetManagementPolicies of this Resource.
+func (mg *StoragePool) GetManagementPolicies() xpv1.ManagementPolicies {
+	return mg.Spec.ManagementPolicies
+}
+
+// SetManagementPolicies of this Resource.
+func (mg *StoragePool) SetManagementPolicies(p xpv1.ManagementPolicies) {
+	mg.Spec.ManagementPolicies = p
+}
 func init() {
 	SchemeBuilder.Register(&StoragePool{}, &StoragePoolList{})
 }

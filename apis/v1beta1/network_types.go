@@ -228,6 +228,27 @@ var (
 	NetworkGroupVersionKind = SchemeGroupVersion.WithKind(NetworkKind)
 )
 
+
+// GetCondition of this Network.
+func (mg *Network) GetCondition(ct xpv1.ConditionType) xpv1.Condition {
+	return mg.Status.GetCondition(ct)
+}
+
+// SetConditions of this Network.
+func (mg *Network) SetConditions(c ...xpv1.Condition) {
+	mg.Status.SetConditions(c...)
+}
+
+
+// GetManagementPolicies of this Resource.
+func (mg *Network) GetManagementPolicies() xpv1.ManagementPolicies {
+	return mg.Spec.ManagementPolicies
+}
+
+// SetManagementPolicies of this Resource.
+func (mg *Network) SetManagementPolicies(p xpv1.ManagementPolicies) {
+	mg.Spec.ManagementPolicies = p
+}
 func init() {
 	SchemeBuilder.Register(&Network{}, &NetworkList{})
 }
