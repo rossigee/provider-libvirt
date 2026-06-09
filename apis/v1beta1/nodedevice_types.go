@@ -13,7 +13,7 @@ import (
 
 // NodeDeviceSpec defines the desired state of NodeDevice
 type NodeDeviceSpec struct {
-	xpv1.ClusterManagedResourceSpec `json:",inline"`
+	xpv1.ManagedResourceSpec `json:",inline"`
 	ForProvider       NodeDeviceParameters `json:"forProvider"`
 }
 

@@ -13,7 +13,7 @@ import (
 
 // SecretSpec defines the desired state of Secret
 type SecretSpec struct {
-	xpv1.ClusterManagedResourceSpec `json:",inline"`
+	xpv1.ManagedResourceSpec `json:",inline"`
 	ForProvider       SecretParameters `json:"forProvider"`
 }
 

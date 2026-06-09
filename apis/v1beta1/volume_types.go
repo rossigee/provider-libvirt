@@ -13,7 +13,7 @@ import (
 
 // VolumeSpec defines the desired state of Volume
 type VolumeSpec struct {
-	xpv1.ClusterManagedResourceSpec `json:",inline"`
+	xpv1.ManagedResourceSpec `json:",inline"`
 	ForProvider       VolumeParameters `json:"forProvider"`
 }
 

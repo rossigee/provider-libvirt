@@ -13,7 +13,7 @@ import (
 
 // DomainSpec defines the desired state of Domain
 type DomainSpec struct {
-	xpv1.ClusterManagedResourceSpec `json:",inline"`
+	xpv1.ManagedResourceSpec `json:",inline"`
 	ForProvider       DomainParameters `json:"forProvider"`
 }
 

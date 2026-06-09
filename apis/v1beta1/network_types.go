@@ -13,7 +13,7 @@ import (
 
 // NetworkSpec defines the desired state of Network
 type NetworkSpec struct {
-	xpv1.ClusterManagedResourceSpec `json:",inline"`
+	xpv1.ManagedResourceSpec `json:",inline"`
 	ForProvider       NetworkParameters `json:"forProvider"`
 }
 

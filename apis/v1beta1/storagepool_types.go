@@ -13,7 +13,7 @@ import (
 
 // StoragePoolSpec defines the desired state of StoragePool
 type StoragePoolSpec struct {
-	xpv1.ClusterManagedResourceSpec `json:",inline"`
+	xpv1.ManagedResourceSpec `json:",inline"`
 	ForProvider       StoragePoolParameters `json:"forProvider"`
 }
 
