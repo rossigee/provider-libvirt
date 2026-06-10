@@ -234,8 +234,12 @@ func (c *external) generateNetworkXML(cr *v1beta1.Network) string {
 
 	// Add bridge if mode is bridge
 	if mode == "bridge" && params.Bridge != nil {
-		xml += fmt.Sprintf(`  <bridge name='%s' stp='on' delay='0'/>
-`, params.Bridge.Name)
+		stpDelay := "0"
+		if params.Bridge.STPDelay != nil {
+			stpDelay = fmt.Sprintf("%d", *params.Bridge.STPDelay)
+		}
+		xml += fmt.Sprintf(`  <bridge name='%s' stp='on' delay='%s'/>
+`, params.Bridge.Name, stpDelay)
 	} else {
 		xml += fmt.Sprintf(`  <bridge name='virbr-%s' stp='on' delay='0'/>
 `, params.Name)
@@ -279,6 +283,12 @@ func (c *external) generateNetworkXML(cr *v1beta1.Network) string {
 			xml += `  </ip>
 `
 		}
+	}
+
+	// Add domain configuration if provided
+	if params.Domain != "" {
+		xml += fmt.Sprintf(`  <domain name='%s'/>
+`, params.Domain)
 	}
 
 	// Add DNS configuration if provided

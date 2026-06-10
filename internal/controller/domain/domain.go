@@ -316,12 +316,18 @@ func (c *external) generateDomainXML(cr *v1beta1.Domain) string {
 				bootOrder = fmt.Sprintf(` boot='%d'`, *disk.BootOrder)
 			}
 
+			wwn := ""
+			if disk.WWN != "" {
+				wwn = fmt.Sprintf(`
+      <wwn>%s</wwn>`, disk.WWN)
+			}
+
 			xml += fmt.Sprintf(`
     <disk type='file' device='disk'%s>
       <driver name='qemu' type='%s'/>
       <source file='%s'/>
-      <target dev='%s' bus='%s'/>
-    </disk>`, bootOrder, diskType, source, device, bus)
+      <target dev='%s' bus='%s'/>%s
+    </disk>`, bootOrder, diskType, source, device, bus, wwn)
 		}
 	}
 
@@ -356,10 +362,14 @@ func (c *external) generateDomainXML(cr *v1beta1.Domain) string {
 			if c.Type != "" {
 				cType = c.Type
 			}
+			target := `<target type='virtio'/>`
+			if c.Target != "" {
+				target = fmt.Sprintf(`<target type='%s'/>`, c.Target)
+			}
 			xml += fmt.Sprintf(`
     <console type='%s'>
-      <target type='virtio'/>
-    </console>`, cType)
+      %s
+    </console>`, cType, target)
 		}
 	} else {
 		xml += `
