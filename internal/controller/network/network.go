@@ -6,6 +6,7 @@ package network
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/pkg/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -15,11 +16,11 @@ import (
 	"github.com/crossplane/crossplane-runtime/v2/pkg/logging"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/reconciler/managed"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/resource"
+	xpv1 "github.com/crossplane/crossplane/apis/v2/core/v2"
 
 	"github.com/rossigee/provider-libvirt/apis/v1beta1"
 	"github.com/rossigee/provider-libvirt/internal/clients"
 )
-
 
 // Setup adds a controller that reconciles Network managed resources.
 func Setup(mgr ctrl.Manager, l logging.Logger) error {
@@ -30,7 +31,7 @@ func Setup(mgr ctrl.Manager, l logging.Logger) error {
 		managed.WithExternalConnecter(&connector{
 			kube:         mgr.GetClient(),
 			usage:        resource.TrackerFn(func(ctx context.Context, mg resource.Managed) error { return nil }),
-			newServiceFn: func(ctx context.Context, pc *v1beta1.ProviderConfig) (*clients.LibvirtClient, error) { return clients.GetLibvirtClient(ctx, nil, nil) },
+			newServiceFn: clients.GetLibvirtClient,
 		}),
 		managed.WithLogger(l.WithValues("controller", name)),
 		managed.WithPollInterval(clients.DefaultPollInterval),
@@ -45,17 +46,15 @@ func Setup(mgr ctrl.Manager, l logging.Logger) error {
 type connector struct {
 	kube         client.Client
 	usage        resource.Tracker
-	newServiceFn func(ctx context.Context, pc *v1beta1.ProviderConfig) (*clients.LibvirtClient, error)
+	newServiceFn func(ctx context.Context, kube client.Client, mg resource.Managed) (*clients.LibvirtClient, error)
 }
 
 func (c *connector) Connect(ctx context.Context, mg resource.Managed) (managed.ExternalClient, error) {
-
 	if err := c.usage.Track(ctx, mg); err != nil {
 		return nil, errors.Wrap(err, "cannot track provider config usage")
 	}
 
-	pc := &v1beta1.ProviderConfig{}
-	libvirtClient, err := c.newServiceFn(ctx, pc)
+	libvirtClient, err := c.newServiceFn(ctx, c.kube, mg)
 	if err != nil {
 		return nil, errors.Wrap(err, "cannot create libvirt client")
 	}
@@ -68,21 +67,186 @@ type external struct {
 }
 
 func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.ExternalObservation, error) {
-	return managed.ExternalObservation{ResourceExists: false}, nil
+	cr, ok := mg.(*v1beta1.Network)
+	if !ok {
+		return managed.ExternalObservation{}, errors.New("managed resource is not a Network custom resource")
+	}
+
+	// Lookup network by name
+	network, err := c.client.NetworkLookupByName(cr.Spec.ForProvider.Name)
+	if err != nil {
+		if clients.IsNotFound(err) {
+			return managed.ExternalObservation{ResourceExists: false}, nil
+		}
+		return managed.ExternalObservation{}, err
+	}
+
+	// Get network state
+	active, err := c.client.NetworkIsActive(network)
+	if err != nil {
+		return managed.ExternalObservation{}, err
+	}
+
+	cr.Status.AtProvider.Active = active
+
+	// Get persistence status
+	persistent, err := c.client.NetworkIsPersistent(network)
+	if err != nil {
+		return managed.ExternalObservation{}, err
+	}
+	cr.Status.AtProvider.Persistent = persistent
+
+	// Get autostart status
+	autostart, err := c.client.NetworkGetAutostart(network)
+	if err != nil {
+		return managed.ExternalObservation{}, err
+	}
+	cr.Status.AtProvider.Autostart = autostart
+
+	cr.Status.SetConditions(xpv1.Available())
+
+	return managed.ExternalObservation{
+		ResourceExists:   true,
+		ResourceUpToDate: true,
+	}, nil
 }
 
 func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.ExternalCreation, error) {
+	cr, ok := mg.(*v1beta1.Network)
+	if !ok {
+		return managed.ExternalCreation{}, errors.New("managed resource is not a Network custom resource")
+	}
+
+	cr.Status.SetConditions(xpv1.Creating())
+
+	xml := c.generateNetworkXML(cr)
+
+	network, err := c.client.NetworkDefineXML(xml)
+	if err != nil {
+		return managed.ExternalCreation{}, errors.Wrap(err, "cannot define network")
+	}
+
+	// Start network (default)
+	if err := c.client.NetworkCreate(network); err != nil {
+		return managed.ExternalCreation{}, errors.Wrap(err, "cannot start network")
+	}
+
+	// Set autostart if specified
+	if cr.Spec.ForProvider.Autostart != nil && *cr.Spec.ForProvider.Autostart {
+		if err := c.client.NetworkSetAutostart(network, true); err != nil {
+			return managed.ExternalCreation{}, errors.Wrap(err, "cannot set autostart")
+		}
+	}
+
+	cr.Status.AtProvider.Active = true
+
 	return managed.ExternalCreation{}, nil
 }
 
 func (c *external) Update(ctx context.Context, mg resource.Managed) (managed.ExternalUpdate, error) {
+	cr, ok := mg.(*v1beta1.Network)
+	if !ok {
+		return managed.ExternalUpdate{}, errors.New("managed resource is not a Network custom resource")
+	}
+
+	// Lookup existing network
+	network, err := c.client.NetworkLookupByName(cr.Spec.ForProvider.Name)
+	if err != nil {
+		return managed.ExternalUpdate{}, errors.Wrap(err, "cannot find network")
+	}
+
+	// Update autostart
+	autostart := cr.Spec.ForProvider.Autostart != nil && *cr.Spec.ForProvider.Autostart
+	if err := c.client.NetworkSetAutostart(network, autostart); err != nil {
+		return managed.ExternalUpdate{}, errors.Wrap(err, "cannot set autostart")
+	}
+
 	return managed.ExternalUpdate{}, nil
 }
 
 func (c *external) Delete(ctx context.Context, mg resource.Managed) (managed.ExternalDelete, error) {
+	cr, ok := mg.(*v1beta1.Network)
+	if !ok {
+		return managed.ExternalDelete{}, errors.New("managed resource is not a Network custom resource")
+	}
+
+	cr.Status.SetConditions(xpv1.Deleting())
+
+	network, err := c.client.NetworkLookupByName(cr.Spec.ForProvider.Name)
+	if err != nil {
+		if clients.IsNotFound(err) {
+			return managed.ExternalDelete{}, nil
+		}
+		return managed.ExternalDelete{}, errors.Wrap(err, "cannot find network")
+	}
+
+	// Stop network if active
+	active, err := c.client.NetworkIsActive(network)
+	if err != nil {
+		return managed.ExternalDelete{}, err
+	}
+
+	if active {
+		if err := c.client.NetworkDestroy(network); err != nil {
+			return managed.ExternalDelete{}, errors.Wrap(err, "cannot destroy network")
+		}
+	}
+
+	// Undefine network
+	if err := c.client.NetworkUndefine(network); err != nil {
+		return managed.ExternalDelete{}, errors.Wrap(err, "cannot undefine network")
+	}
+
 	return managed.ExternalDelete{}, nil
 }
 
 func (c *external) Disconnect(_ context.Context) error {
 	return nil
+}
+
+// generateNetworkXML creates libvirt network XML definition
+func (c *external) generateNetworkXML(cr *v1beta1.Network) string {
+	params := cr.Spec.ForProvider
+
+	mode := "nat"
+	if params.Mode != "" {
+		mode = params.Mode
+	}
+
+	xml := fmt.Sprintf(`<network>
+  <name>%s</name>
+  <forward mode='%s'/>
+`, params.Name, mode)
+
+	// Add bridge if mode is bridge
+	if mode == "bridge" && params.Bridge != nil {
+		xml += fmt.Sprintf(`  <bridge name='%s' stp='on' delay='0'/>
+`, params.Bridge.Name)
+	} else {
+		xml += fmt.Sprintf(`  <bridge name='virbr-%s' stp='on' delay='0'/>
+`, params.Name)
+	}
+
+	// Add IP configuration
+	if len(params.IP) > 0 {
+		for _, ipConfig := range params.IP {
+			xml += fmt.Sprintf(`  <ip address='%s' netmask='%s'>
+`, ipConfig.Address, ipConfig.Netmask)
+
+			// Add DHCP
+			if params.DHCP != nil && (params.DHCP.Enabled == nil || *params.DHCP.Enabled) {
+				xml += fmt.Sprintf(`    <dhcp>
+      <range start='%s' end='%s'/>
+    </dhcp>
+`, params.DHCP.Start, params.DHCP.End)
+			}
+
+			xml += `  </ip>
+`
+		}
+	}
+
+	xml += `</network>`
+
+	return xml
 }

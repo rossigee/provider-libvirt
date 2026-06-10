@@ -6,8 +6,10 @@ package domain
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/pkg/errors"
+	"libvirt.org/go/libvirt"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -15,11 +17,11 @@ import (
 	"github.com/crossplane/crossplane-runtime/v2/pkg/logging"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/reconciler/managed"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/resource"
+	xpv1 "github.com/crossplane/crossplane/apis/v2/core/v2"
 
 	"github.com/rossigee/provider-libvirt/apis/v1beta1"
 	"github.com/rossigee/provider-libvirt/internal/clients"
 )
-
 
 // Setup adds a controller that reconciles Domain managed resources.
 func Setup(mgr ctrl.Manager, l logging.Logger) error {
@@ -30,7 +32,7 @@ func Setup(mgr ctrl.Manager, l logging.Logger) error {
 		managed.WithExternalConnecter(&connector{
 			kube:         mgr.GetClient(),
 			usage:        resource.TrackerFn(func(ctx context.Context, mg resource.Managed) error { return nil }),
-			newServiceFn: func(ctx context.Context, pc *v1beta1.ProviderConfig) (*clients.LibvirtClient, error) { return clients.GetLibvirtClient(ctx, nil, nil) },
+			newServiceFn: clients.GetLibvirtClient,
 		}),
 		managed.WithLogger(l.WithValues("controller", name)),
 		managed.WithPollInterval(clients.DefaultPollInterval),
@@ -45,17 +47,15 @@ func Setup(mgr ctrl.Manager, l logging.Logger) error {
 type connector struct {
 	kube         client.Client
 	usage        resource.Tracker
-	newServiceFn func(ctx context.Context, pc *v1beta1.ProviderConfig) (*clients.LibvirtClient, error)
+	newServiceFn func(ctx context.Context, kube client.Client, mg resource.Managed) (*clients.LibvirtClient, error)
 }
 
 func (c *connector) Connect(ctx context.Context, mg resource.Managed) (managed.ExternalClient, error) {
-
 	if err := c.usage.Track(ctx, mg); err != nil {
 		return nil, errors.Wrap(err, "cannot track provider config usage")
 	}
 
-	pc := &v1beta1.ProviderConfig{}
-	libvirtClient, err := c.newServiceFn(ctx, pc)
+	libvirtClient, err := c.newServiceFn(ctx, c.kube, mg)
 	if err != nil {
 		return nil, errors.Wrap(err, "cannot create libvirt client")
 	}
@@ -68,21 +68,343 @@ type external struct {
 }
 
 func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.ExternalObservation, error) {
-	return managed.ExternalObservation{ResourceExists: false}, nil
+	cr, ok := mg.(*v1beta1.Domain)
+	if !ok {
+		return managed.ExternalObservation{}, errors.New("managed resource is not a Domain custom resource")
+	}
+
+	// Try to lookup domain by name
+	domain, err := c.client.DomainLookupByName(cr.Spec.ForProvider.Name)
+	if err != nil {
+		if clients.IsNotFound(err) {
+			return managed.ExternalObservation{ResourceExists: false}, nil
+		}
+		return managed.ExternalObservation{}, err
+	}
+
+	// Get domain state
+	state, _, err := domain.GetState()
+	if err != nil {
+		return managed.ExternalObservation{}, err
+	}
+
+	// Update status
+	cr.Status.AtProvider.State = formatDomainState(libvirt.DomainState(state))
+	uuid, err := domain.GetUUIDString()
+	if err != nil {
+		return managed.ExternalObservation{}, err
+	}
+	cr.Status.AtProvider.UUID = uuid
+
+	cr.Status.SetConditions(xpv1.Available())
+
+	return managed.ExternalObservation{
+		ResourceExists:   true,
+		ResourceUpToDate: true,
+	}, nil
 }
 
 func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.ExternalCreation, error) {
+	cr, ok := mg.(*v1beta1.Domain)
+	if !ok {
+		return managed.ExternalCreation{}, errors.New("managed resource is not a Domain custom resource")
+	}
+
+	cr.Status.SetConditions(xpv1.Creating())
+
+	xml := c.generateDomainXML(cr)
+
+	domain, err := c.client.DomainDefineXML(xml)
+	if err != nil {
+		return managed.ExternalCreation{}, errors.Wrap(err, "cannot define domain")
+	}
+
+	// Start domain if running is true (default)
+	running := cr.Spec.ForProvider.Running == nil || *cr.Spec.ForProvider.Running
+	if running {
+		if err := c.client.DomainCreate(domain); err != nil {
+			return managed.ExternalCreation{}, errors.Wrap(err, "cannot start domain")
+		}
+	}
+
+	// Set autostart if specified
+	if cr.Spec.ForProvider.Autostart != nil && *cr.Spec.ForProvider.Autostart {
+		if err := c.client.DomainSetAutostart(domain, 1); err != nil {
+			return managed.ExternalCreation{}, errors.Wrap(err, "cannot set autostart")
+		}
+	}
+
+	uuid, err := domain.GetUUIDString()
+	if err != nil {
+		return managed.ExternalCreation{}, err
+	}
+	cr.Status.AtProvider.UUID = uuid
+
 	return managed.ExternalCreation{}, nil
 }
 
 func (c *external) Update(ctx context.Context, mg resource.Managed) (managed.ExternalUpdate, error) {
+	cr, ok := mg.(*v1beta1.Domain)
+	if !ok {
+		return managed.ExternalUpdate{}, errors.New("managed resource is not a Domain custom resource")
+	}
+
+	// Lookup existing domain
+	domain, err := c.client.DomainLookupByName(cr.Spec.ForProvider.Name)
+	if err != nil {
+		return managed.ExternalUpdate{}, errors.Wrap(err, "cannot find domain")
+	}
+
+	// Get current state
+	state, _, err := domain.GetState()
+	if err != nil {
+		return managed.ExternalUpdate{}, err
+	}
+
+	// Handle running state
+	running := cr.Spec.ForProvider.Running == nil || *cr.Spec.ForProvider.Running
+	isRunning := libvirt.DomainState(state) == libvirt.DOMAIN_RUNNING
+
+	if running && !isRunning {
+		if err := c.client.DomainCreate(domain); err != nil {
+			return managed.ExternalUpdate{}, errors.Wrap(err, "cannot start domain")
+		}
+	} else if !running && isRunning {
+		if err := c.client.DomainShutdown(domain); err != nil {
+			return managed.ExternalUpdate{}, errors.Wrap(err, "cannot shutdown domain")
+		}
+	}
+
+	// Update autostart
+	autostart := cr.Spec.ForProvider.Autostart != nil && *cr.Spec.ForProvider.Autostart
+	if err := c.client.DomainSetAutostart(domain, boolToInt(autostart)); err != nil {
+		return managed.ExternalUpdate{}, errors.Wrap(err, "cannot set autostart")
+	}
+
 	return managed.ExternalUpdate{}, nil
 }
 
 func (c *external) Delete(ctx context.Context, mg resource.Managed) (managed.ExternalDelete, error) {
+	cr, ok := mg.(*v1beta1.Domain)
+	if !ok {
+		return managed.ExternalDelete{}, errors.New("managed resource is not a Domain custom resource")
+	}
+
+	cr.Status.SetConditions(xpv1.Deleting())
+
+	domain, err := c.client.DomainLookupByName(cr.Spec.ForProvider.Name)
+	if err != nil {
+		if clients.IsNotFound(err) {
+			return managed.ExternalDelete{}, nil
+		}
+		return managed.ExternalDelete{}, errors.Wrap(err, "cannot find domain")
+	}
+
+	// Get domain state
+	state, _, err := domain.GetState()
+	if err != nil {
+		return managed.ExternalDelete{}, err
+	}
+
+	// Stop domain if running
+	if libvirt.DomainState(state) == libvirt.DOMAIN_RUNNING {
+		if err := c.client.DomainDestroy(domain); err != nil {
+			return managed.ExternalDelete{}, errors.Wrap(err, "cannot destroy domain")
+		}
+	}
+
+	// Undefine domain
+	if err := c.client.DomainUndefine(domain); err != nil {
+		return managed.ExternalDelete{}, errors.Wrap(err, "cannot undefine domain")
+	}
+
 	return managed.ExternalDelete{}, nil
 }
 
 func (c *external) Disconnect(_ context.Context) error {
 	return nil
+}
+
+// generateDomainXML creates libvirt domain XML definition
+func (c *external) generateDomainXML(cr *v1beta1.Domain) string {
+	params := cr.Spec.ForProvider
+
+	domainType := "kvm"
+	if params.Type != "" {
+		domainType = params.Type
+	}
+
+	arch := "x86_64"
+	if params.Arch != "" {
+		arch = params.Arch
+	}
+
+	xml := fmt.Sprintf(`<domain type='%s'>
+  <name>%s</name>
+  <memory unit='bytes'>%d</memory>
+  <currentMemory unit='bytes'>%d</currentMemory>
+  <vcpu placement='static'>%d</vcpu>
+  <os>
+    <type arch='%s'>hvm</type>
+  </os>
+  <devices>`,
+		domainType,
+		params.Name,
+		params.Memory,
+		params.Memory,
+		params.Vcpu,
+		arch)
+
+	// Add emulator
+	xml += "\n    <emulator>/usr/bin/qemu-system-" + arch + "</emulator>"
+
+	// Add disks
+	for i, disk := range params.Disk {
+		device := "vda"
+		if disk.Device != "" {
+			device = disk.Device
+		} else if i > 0 {
+			device = fmt.Sprintf("vd%c", 'a'+rune(i))
+		}
+
+		diskType := "virtio"
+		if disk.Type != "" {
+			diskType = disk.Type
+		}
+
+		bus := "virtio"
+		if disk.Bus != "" {
+			bus = disk.Bus
+		}
+
+		source := ""
+		if disk.File != "" {
+			source = disk.File
+		}
+
+		if source != "" {
+			bootOrder := ""
+			if disk.BootOrder != nil {
+				bootOrder = fmt.Sprintf(` boot='%d'`, *disk.BootOrder)
+			}
+
+			xml += fmt.Sprintf(`
+    <disk type='file' device='disk'%s>
+      <driver name='qemu' type='%s'/>
+      <source file='%s'/>
+      <target dev='%s' bus='%s'/>
+    </disk>`, bootOrder, diskType, source, device, bus)
+		}
+	}
+
+	// Add network interfaces
+	for _, ni := range params.NetworkInterface {
+		network := ni.NetworkName
+		mac := ""
+		model := "virtio"
+
+		if ni.Model != "" {
+			model = ni.Model
+		}
+
+		if ni.Mac != "" {
+			mac = fmt.Sprintf(`<mac address='%s'/>`, ni.Mac)
+		}
+
+		if network != "" {
+			xml += fmt.Sprintf(`
+    <interface type='network'>
+      %s
+      <source network='%s'/>
+      <model type='%s'/>
+    </interface>`, mac, network, model)
+		}
+	}
+
+	// Add console
+	if len(params.Console) > 0 {
+		for _, c := range params.Console {
+			cType := "pty"
+			if c.Type != "" {
+				cType = c.Type
+			}
+			xml += fmt.Sprintf(`
+    <console type='%s'>
+      <target type='virtio'/>
+    </console>`, cType)
+		}
+	} else {
+		xml += `
+    <console type='pty'>
+      <target type='virtio'/>
+    </console>`
+	}
+
+	// Add graphics
+	if len(params.Graphics) > 0 {
+		for _, g := range params.Graphics {
+			gType := "vnc"
+			if g.Type != "" {
+				gType = g.Type
+			}
+
+			port := ""
+			if g.Port != nil {
+				port = fmt.Sprintf(` port='%d'`, *g.Port)
+			} else if g.Autoport {
+				port = ` port='-1' autoport='yes'`
+			}
+
+			listen := ""
+			if g.Listen != "" {
+				listen = fmt.Sprintf(` listen='%s'`, g.Listen)
+			} else if g.ListenAddress != "" {
+				listen = fmt.Sprintf(` listen='%s'`, g.ListenAddress)
+			}
+
+			xml += fmt.Sprintf(`
+    <graphics type='%s'%s%s/>`, gType, port, listen)
+		}
+	} else {
+		xml += `
+    <graphics type='vnc' port='-1' autoport='yes'/>`
+	}
+
+	xml += `
+  </devices>
+</domain>`
+
+	return xml
+}
+
+// formatDomainState returns human-readable domain state
+func formatDomainState(state libvirt.DomainState) string {
+	switch state {
+	case libvirt.DOMAIN_NOSTATE:
+		return "nostate"
+	case libvirt.DOMAIN_RUNNING:
+		return "running"
+	case libvirt.DOMAIN_BLOCKED:
+		return "blocked"
+	case libvirt.DOMAIN_PAUSED:
+		return "paused"
+	case libvirt.DOMAIN_SHUTDOWN:
+		return "shutdown"
+	case libvirt.DOMAIN_SHUTOFF:
+		return "shutoff"
+	case libvirt.DOMAIN_CRASHED:
+		return "crashed"
+	case libvirt.DOMAIN_PMSUSPENDED:
+		return "pmsuspended"
+	default:
+		return "unknown"
+	}
+}
+
+// boolToInt converts boolean to libvirt int (0 or 1)
+func boolToInt(b bool) int {
+	if b {
+		return 1
+	}
+	return 0
 }
