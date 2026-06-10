@@ -247,17 +247,58 @@ func (c *external) generateNetworkXML(cr *v1beta1.Network) string {
 			xml += fmt.Sprintf(`  <ip address='%s' netmask='%s'>
 `, ipConfig.Address, ipConfig.Netmask)
 
-			// Add DHCP
+			// Add DHCP configuration
 			if params.DHCP != nil && (params.DHCP.Enabled == nil || *params.DHCP.Enabled) {
-				xml += fmt.Sprintf(`    <dhcp>
-      <range start='%s' end='%s'/>
-    </dhcp>
+				xml += `    <dhcp>
+`
+
+				// Add DHCP ranges (multiple ranges if configured)
+				if len(params.DHCP.Ranges) > 0 {
+					for _, dhcpRange := range params.DHCP.Ranges {
+						xml += fmt.Sprintf(`      <range start='%s' end='%s'/>
+`, dhcpRange.Start, dhcpRange.End)
+
+						// Add static host assignments within range
+						if len(dhcpRange.Hosts) > 0 {
+							for _, host := range dhcpRange.Hosts {
+								xml += fmt.Sprintf(`      <host mac='%s' name='%s' ip='%s'/>
+`, host.MAC, host.Name, host.IP)
+							}
+						}
+					}
+				} else if params.DHCP.Start != "" && params.DHCP.End != "" {
+					// Fallback to simple range if no ranges specified
+					xml += fmt.Sprintf(`      <range start='%s' end='%s'/>
 `, params.DHCP.Start, params.DHCP.End)
+				}
+
+				xml += `    </dhcp>
+`
 			}
 
 			xml += `  </ip>
 `
 		}
+	}
+
+	// Add DNS configuration if provided
+	if params.DNS != nil {
+		xml += `  <dns`
+		if params.DNS.Enabled != nil && !*params.DNS.Enabled {
+			xml += ` enable='no'`
+		}
+		xml += `>`
+
+		if len(params.DNS.Forwarders) > 0 {
+			for _, forwarder := range params.DNS.Forwarders {
+				xml += fmt.Sprintf(`
+    <forwarder addr='%s'/>`, forwarder)
+			}
+		}
+
+		xml += `
+  </dns>
+`
 	}
 
 	xml += `</network>`

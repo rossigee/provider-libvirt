@@ -256,15 +256,32 @@ func (c *external) generateDomainXML(cr *v1beta1.Domain) string {
   <currentMemory unit='bytes'>%d</currentMemory>
   <vcpu placement='static'>%d</vcpu>
   <os>
-    <type arch='%s'>hvm</type>
-  </os>
-  <devices>`,
+    <type arch='%s'`,
 		domainType,
 		params.Name,
 		params.Memory,
 		params.Memory,
 		params.Vcpu,
 		arch)
+
+	// Add machine type if specified
+	if params.Machine != "" {
+		xml += fmt.Sprintf(` machine='%s'`, params.Machine)
+	}
+
+	xml += `>hvm</type>`
+
+	// Add boot devices if specified
+	if len(params.Boot) > 0 {
+		for _, bootDev := range params.Boot {
+			xml += fmt.Sprintf(`
+    <boot dev='%s'/>`, bootDev)
+		}
+	}
+
+	xml += `
+  </os>
+  <devices>`
 
 	// Add emulator
 	xml += "\n    <emulator>/usr/bin/qemu-system-" + arch + "</emulator>"
