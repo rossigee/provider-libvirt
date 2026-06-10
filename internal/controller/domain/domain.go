@@ -63,8 +63,19 @@ func (c *connector) Connect(ctx context.Context, mg resource.Managed) (managed.E
 	return &external{client: libvirtClient}, nil
 }
 
+// DomainClient defines libvirt operations needed for domains
+type DomainClient interface {
+	DomainLookupByName(name string) (*libvirt.Domain, error)
+	DomainDefineXML(xml string) (*libvirt.Domain, error)
+	DomainCreate(d *libvirt.Domain) error
+	DomainSetAutostart(d *libvirt.Domain, autostart int) error
+	DomainShutdown(d *libvirt.Domain) error
+	DomainDestroy(d *libvirt.Domain) error
+	DomainUndefine(d *libvirt.Domain) error
+}
+
 type external struct {
-	client *clients.LibvirtClient
+	client DomainClient
 }
 
 func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.ExternalObservation, error) {

@@ -47,6 +47,31 @@ const (
 // LibvirtCredentials represents libvirt connection credentials
 type LibvirtCredentials map[string]string
 
+// LibvirtOperations defines the interface for libvirt operations
+type LibvirtOperations interface {
+	DomainLookupByName(name string) (*libvirt.Domain, error)
+	DomainDefineXML(xml string) (*libvirt.Domain, error)
+	DomainCreate(d *libvirt.Domain) error
+	DomainSetAutostart(d *libvirt.Domain, autostart int) error
+	DomainShutdown(d *libvirt.Domain) error
+	DomainDestroy(d *libvirt.Domain) error
+	DomainUndefine(d *libvirt.Domain) error
+	NetworkLookupByName(name string) (*libvirt.Network, error)
+	NetworkDefineXML(xml string) (*libvirt.Network, error)
+	NetworkCreate(n *libvirt.Network) error
+	NetworkDestroy(n *libvirt.Network) error
+	NetworkUndefine(n *libvirt.Network) error
+	StoragePoolLookupByName(name string) (*libvirt.StoragePool, error)
+	StoragePoolDefineXML(xml string, flags uint32) (*libvirt.StoragePool, error)
+	StoragePoolCreate(sp *libvirt.StoragePool, flags uint32) error
+	StoragePoolDestroy(sp *libvirt.StoragePool) error
+	StoragePoolUndefine(sp *libvirt.StoragePool) error
+	StorageVolLookupByPath(path string) (*libvirt.StorageVol, error)
+	StorageVolCreateXML(pool *libvirt.StoragePool, xml string, flags uint32) (*libvirt.StorageVol, error)
+	StorageVolDelete(vol *libvirt.StorageVol, flags uint32) error
+	Close() error
+}
+
 // LibvirtClient wraps libvirt CGO connection with additional metadata
 type LibvirtClient struct {
 	*libvirt.Connect
