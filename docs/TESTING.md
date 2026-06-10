@@ -4,135 +4,140 @@
 
 Provider-libvirt uses a three-tier testing approach:
 
-1. **Unit Tests** - Mock libvirt bindings, test controller logic in isolation
-2. **Integration Tests** - Mock HTTP service, test reconciliation
-3. **E2E Tests** - Real/containerized libvirtd, test full stack
+1. **Unit Tests** - Test controller business logic (XML generation, state formatting, parameter validation)
+2. **E2E Tests** - Test full reconciliation loop against containerized mock service
+3. **Integration Tests** - Planned for real libvirtd daemon testing
 
 ## Unit Tests (Current Implementation)
 
-Unit tests use **mock libvirt bindings** that implement the `libvirt.Domain`, `libvirt.Network`, `libvirt.StoragePool`, and `libvirt.StorageVol` interfaces.
+### Test Coverage by Controller
+
+Current coverage with 125+ test cases:
+- **Domain**: 42.2% (XML generation, state formatting, parameters, console/graphics)
+- **Network**: 17.4% (modes, XML generation, DHCP, IP ranges)
+- **StoragePool**: 9.2% (pool types, path handling, target configuration)
+- **Volume**: 2.0% (format validation, capacity handling, pool parameters)
 
 ### Running Unit Tests
 
 ```bash
-# Run all unit tests
+# Run all controller unit tests
 go test ./internal/controller/... -v
 
 # Run specific controller tests
+go test ./internal/controller/domain -v
+
+# With coverage report
+go test ./internal/controller/domain -cover -v
+
+# Run with detailed output
 go test ./internal/controller/domain -v -run TestGenerateDomainXML
-
-# With coverage
-go test ./internal/controller/... -cover -v
 ```
 
-### Using Mock Bindings
+### What Unit Tests Cover
 
-Create a mock client in your tests:
+**Domain Controller** (26 tests):
+- XML generation: type/arch defaults, memory/vCPU configs, console/graphics
+- State formatting: all 9 libvirt states (running, shutoff, paused, etc.)
+- Bool conversion: true→1, false→0
+- Parameter validation: name, memory, vCPU, type, arch
 
-```go
-import "github.com/rossigee/provider-libvirt/internal/controller/mocks"
+**Network Controller** (18 tests):
+- All network modes: NAT, bridge, routed, isolated
+- XML generation with IP ranges
+- DHCP enable/disable
+- Multiple IP configurations
+- Domain parameter handling
 
-func TestMyController(t *testing.T) {
-	mockClient := mocks.NewMockLibvirtClient()
-	
-	// Configure mock behavior
-	mockClient.DomainLookupByNameFn = func(name string) (*mocks.MockDomain, error) {
-		return &mocks.MockDomain{
-			Name:  name,
-			State: libvirt.DOMAIN_RUNNING,
-			UUID:  "test-uuid",
-		}, nil
-	}
-	
-	// Use in tests
-	ext := &external{client: mockClient}
-	obs, err := ext.Observe(context.Background(), domain)
-	// assertions...
-}
-```
+**StoragePool Controller** (18 tests):
+- All pool types: dir, fs, netfs, iscsi, logical, rbd, gluster, zfs
+- XML generation with custom paths
+- Pool naming and configuration
+- Target path handling
 
-### Test Coverage
+**Volume Controller** (15 tests):
+- Format validation: qcow2, raw, vmdk
+- Capacity handling: 1GB, 10GB, 100GB
+- Size/capacity priority
+- Pool parameter preservation
 
-Current coverage by controller:
-- **Domain**: 29.5% (XML generation, state formatting, parameters)
-- **Volume**: 2.0% (high-level helpers, format validation)
-- **Network**: 16.3% (mode validation, XML generation)
-- **StoragePool**: 9.2% (type validation, path handling)
+### Unit Test Limitations
 
-## Integration Tests (Planned)
+- Cannot test full Observe/Create/Update/Delete lifecycle (requires libvirt client mock)
+- Cannot test error paths from actual libvirt daemon
+- XML generation tested, but not libvirt processing of the XML
 
-Integration tests would use mock-libvirtd HTTP service:
+## E2E Tests
 
-```bash
-# Not yet implemented
-go test ./internal/integration/... -v
-```
-
-## E2E Tests (Framework Ready)
-
-E2E tests use containerized services and test the full reconciliation loop.
+E2E tests use containerized mock-libvirtd service and test the full HTTP API contract.
 
 ### Running E2E Tests
 
 ```bash
-# Run all E2E tests (requires Docker)
+# Requires Docker and 2-5 minutes per test suite
 go test ./internal/e2e/... -v -tags e2e
 
-# Run specific test
+# Run specific lifecycle test
 go test ./internal/e2e/... -v -tags e2e -run TestDomainLifecycle
+
+# Run with longer timeout
+go test ./internal/e2e/... -v -tags e2e -timeout 10m
 ```
+
+### E2E Test Coverage
+
+E2E tests verify the HTTP API contract with mock-libvirtd:
+
+**Domain Operations**:
+- List domains (GET /api/domains)
+- Create domain (POST /api/domains)
+- Get domain (GET /api/domains/{name})
+- Update domain (PUT /api/domains/{name})
+- Delete domain (DELETE /api/domains/{name})
+
+**Network Operations**:
+- Create network (POST /api/networks)
+- List networks (GET /api/networks)
+- Get network (GET /api/networks/{name})
+- Delete network (DELETE /api/networks/{name})
+
+**StoragePool Operations**:
+- Create pool (POST /api/storage)
+- List pools (GET /api/storage)
+- Get pool (GET /api/storage/{name})
+- Delete pool (DELETE /api/storage/{name})
 
 ### E2E Infrastructure
 
-The test framework (`internal/e2e/e2e_test.go`) provides:
+The test framework provides:
 
-1. **TestEnvironment** - Manages container lifecycle
-   - Pulls docker image
-   - Starts mock-libvirtd container
-   - Waits for health readiness
-   - Cleans up on test completion
+1. **TestEnvironment** - Container lifecycle management
+   - Auto-pulls ghcr.io/rossigee/mock-libvirtd:latest
+   - Starts container on localhost:8080
+   - Health checks until ready
+   - Automatic cleanup
 
-2. **Helper Functions**
-   - `SetupTestEnvironment(t *testing.T) *TestEnvironment`
-   - `(e *TestEnvironment) Cleanup()`
-   - `(e *TestEnvironment) LibvirtURI() string`
-
-### E2E Test Structure
-
-```go
-func TestDomainLifecycle(t *testing.T) {
-	// Setup container
-	env := SetupTestEnvironment(t)
-	defer env.Cleanup()
-
-	// Get libvirt URI for connection
-	uri := env.libvirtURI // "qemu+tcp://localhost:16509/system"
-
-	// Test domain operations
-	t.Run("CreateDomain", func(t *testing.T) {
-		// Connect to libvirt
-		// Create domain via controller
-		// Verify state
-	})
-}
-```
+2. **HTTPRequest Helper** - Makes REST API calls
+   - JSON marshaling/unmarshaling
+   - Status code validation
+   - Request/response logging
 
 ## Mock-libvirtd vs Real libvirtd
 
-### mock-libvirtd (via mock-servers)
+### mock-libvirtd (via github.com/rossigee/mock-libvirtd)
 
 **Pros:**
 - Fast container startup (~2s)
 - In-memory state, no I/O
-- Realistic state machine with boot delays
-- HTTP/REST interface (separate from RPC)
+- HTTP/REST interface for testing
+- Good for testing controller HTTP API contract
 
 **Cons:**
-- Speaks HTTP, not native libvirt RPC
-- Requires adapter/bridge to test native RPC protocol
-- No actual VM capability
+- Uses HTTP, not native libvirt RPC protocol
+- Cannot test RPC-specific behavior
+- No actual VM/domain capability
 
-**Use case:** Testing controller business logic, state transitions, error handling
+**Use case:** HTTP API validation, state transitions, error handling
 
 ### Real libvirtd
 
@@ -142,92 +147,102 @@ func TestDomainLifecycle(t *testing.T) {
 - Full feature compatibility
 
 **Cons:**
-- Slow container startup
-- Requires KVM/QEMU host support
-- Heavy resource usage
+- Slow container startup (~10s)
+- Requires KVM/QEMU (heavy)
+- Complex setup
 
-**Use case:** Full E2E validation, CI/CD verification
+**Use case:** Production validation, system integration
 
-## Current Limitations
+## Testing Pyramid
 
-### Unit Tests
-- Mock pointers are typed as `(*libvirt.Domain)(nil)` which is a limitation of the libvirt CGO bindings
-- Full lifecycle testing would require actual libvirt connection
-
-### E2E Tests
-- Framework is ready but tests are stubbed (marked `.Skip()`)
-- Need libvirt RPC client implementation to connect from tests
-- Tests currently commented with "Requires libvirt RPC client"
-
-## Future Enhancements
-
-### Short-term
-
-1. **Improve Mock Bindings**
-   - Add volume operations to MockStoragePool
-   - Implement proper mock domain state machine
-   - Add mock metric tracking (CPU, memory usage)
-
-2. **Complete E2E Test Implementation**
-   - Implement libvirt URI connections in E2E tests
-   - Add domain lifecycle assertions
-   - Add error case coverage
-
-### Medium-term
-
-1. **Container-based Testing**
-   - Option to use real libvirtd in Docker
-   - Parallel test execution with isolated containers
-   - Performance benchmarks
-
-2. **CI/CD Integration**
-   - E2E tests in GitHub Actions
-   - Test matrix for different pool types
-   - Performance regression detection
-
-## Running Tests in CI/CD
-
-### Local CI-like Setup
-
-```bash
-# Run all tests as CI would
-make test
-make lint
-make coverage
-
-# Run E2E tests (requires Docker)
-make test-e2e
+```
+    ╔════════════════════════╗
+    ║   E2E Tests (5%)       ║  Full stack, mock-libvirtd
+    ║   ~/5 test suites      ║
+    ╠════════════════════════╣
+    ║  Integration Tests (0%)║  Would use real libvirtd
+    ║  ~/0 test suites       ║  (not yet implemented)
+    ╠════════════════════════╣
+    ║  Unit Tests (95%)      ║  XML generation, validation
+    ║  ~125 test cases       ║
+    ╚════════════════════════╝
 ```
 
-### GitHub Actions
+## Current Gaps & Future Work
 
-See `.github/workflows/test.yml` for full CI configuration.
+### Implemented ✅
+- 125+ unit tests across 4 controllers
+- 42.2% coverage on Domain controller
+- E2E framework with real HTTP API validation
+- Mock bindings for testing
+
+### Not Yet Implemented
+- Full Observe/Create/Update/Delete lifecycle tests (requires libvirt client interface mock)
+- Real libvirtd integration tests
+- Error path testing (would need libvirt error simulation)
+- Volume/StoragePool lifecycle coverage (9-2%)
+- Cross-resource reference tests (VolumeRef, NetworkRef)
+
+### Future Enhancements
+
+**Short-term (would improve coverage to >70% on all controllers)**:
+1. Create interface mock for clients.LibvirtClient
+2. Add Observe/Create/Update/Delete tests with mocks
+3. Test error scenarios (pool not found, invalid params)
+4. Fix Secret controller test compilation
+
+**Medium-term**:
+1. Real libvirtd container for true RPC testing
+2. Parallel E2E test execution
+3. Performance benchmarks
+4. CI/CD GitHub Actions integration
+
+## Practical Test Execution
+
+### Quick test (15 seconds)
+```bash
+go test ./internal/controller/... -v
+```
+
+### Full test with coverage (2 minutes)
+```bash
+go test ./internal/controller/... ./internal/e2e/... -v -tags e2e -timeout 5m
+```
+
+### Test specific controller
+```bash
+go test ./internal/controller/domain -v -cover
+```
+
+### Test with output file
+```bash
+go test ./internal/controller/... -v > test-results.txt 2>&1
+```
 
 ## Troubleshooting
 
-### Mock Issues
+### Unit Test Issues
 
-**"panic: runtime error: invalid memory address or nil pointer dereference"**
-- Ensure mock client is properly initialized
-- Check that function pointers are assigned before use
+**Test fails with "client is nil"**
+- This is expected for Observe/Create/Update/Delete tests
+- Helper methods (generateDomainXML, etc.) don't need client
 
-**"Cannot use (*libvirt.Domain)(nil)"**
-- This is expected due to CGO pointer limitations
-- Mock functions accept type-casted nil pointers
+**Coverage is lower than expected**
+- Controller lifecycle methods (Observe, Create, etc.) need integration tests
+- Mock client interface not yet implemented
 
-### Container Issues
+### E2E Test Issues
 
 **"docker: command not found"**
 - Install Docker: https://docs.docker.com/install/
+- Ensure Docker daemon is running: `systemctl start docker`
 
-**"E2E container fails to start"**
-- Check Docker daemon is running: `docker ps`
-- Check image exists: `docker images | grep mock-libvirtd`
+**"Container fails to start"**
+- Check image: `docker images | grep mock-libvirtd`
+- Pull manually: `docker pull ghcr.io/rossigee/mock-libvirtd:latest`
 - View logs: `docker logs <container-id>`
 
-### Connection Issues
-
-**"qemu+tcp://localhost:16509 refused"**
-- Verify container is running: `docker ps`
-- Check port mapping: `docker port <container-id>`
-- Test health: `curl http://localhost:16509/health`
+**"Connection refused" on localhost:8080**
+- Wait for container startup (~2 seconds)
+- Check if port is bound: `netstat -tlnp | grep 8080`
+- Verify mock-libvirtd started: `docker exec <id> curl http://localhost:8080/health`

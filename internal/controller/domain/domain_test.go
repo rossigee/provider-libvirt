@@ -441,3 +441,43 @@ func TestBoolToIntBothValues(t *testing.T) {
 		})
 	}
 }
+
+func TestGenerateDomainXMLMinimalConfig(t *testing.T) {
+	ext := &external{client: nil}
+	domain := testDomain(func(d *v1beta1.Domain) {
+		d.Spec.ForProvider.Disk = nil
+		d.Spec.ForProvider.NetworkInterface = nil
+		d.Spec.ForProvider.Console = nil
+		d.Spec.ForProvider.Graphics = nil
+	})
+
+	xml := ext.generateDomainXML(domain)
+	if !contains(xml, "test-vm") || !contains(xml, "kvm") {
+		t.Errorf("Expected minimal domain XML, got:\n%s", xml)
+	}
+}
+
+func TestGenerateDomainXMLComplexConfig(t *testing.T) {
+	ext := &external{client: nil}
+	port := int32(5900)
+	domain := testDomain(func(d *v1beta1.Domain) {
+		d.Spec.ForProvider.Disk = []v1beta1.DomainDisk{
+			{File: "/var/lib/libvirt/images/root.qcow2", Device: "vda", Type: "virtio", Bus: "virtio"},
+			{File: "/var/lib/libvirt/images/data.qcow2", Device: "vdb", Type: "virtio", Bus: "virtio"},
+		}
+		d.Spec.ForProvider.NetworkInterface = []v1beta1.DomainNetworkInterface{
+			{NetworkName: "default", Model: "virtio"},
+			{NetworkName: "bridge0", Model: "e1000"},
+		}
+		d.Spec.ForProvider.Console = []v1beta1.DomainConsole{{Type: "pty"}}
+		d.Spec.ForProvider.Graphics = []v1beta1.DomainGraphics{{Type: "vnc", Port: &port}}
+	})
+
+	xml := ext.generateDomainXML(domain)
+	if !contains(xml, "root.qcow2") || !contains(xml, "data.qcow2") {
+		t.Errorf("Expected all disks in XML")
+	}
+	if !contains(xml, "default") || !contains(xml, "bridge0") {
+		t.Errorf("Expected all networks in XML")
+	}
+}
