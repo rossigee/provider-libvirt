@@ -108,10 +108,17 @@ linters-settings:
       - G101  # Hardcoded credentials false positives
       - G104  # Errors not checked (we have errcheck for this)
 
+output:
+  formats:
+    - format: colored-line-number
+  print-issued-lines: true
+  print-linter-name: true
+
 issues:
   # Maximum number of issues per linter
   max-same-issues: 3
   max-per-linter: 0
+  uniq-by-line: false
 
   # Exclude patterns
   exclude-rules:
@@ -138,18 +145,5 @@ issues:
     - path: "_test\\.go"
       text: "dot imports are not allowed"
 
-output:
-  format: colored-line-number
-  print-issued-lines: true
-  print-linter-name: true
-  uniq-by-line: false
-
 severity:
   default-severity: error
-  rules:
-    - linter: cyclop
-      severity: warning
-    - linter: dupl
-      severity: warning
-    - linter: gocritic
-      severity: warning
