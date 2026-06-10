@@ -256,6 +256,21 @@ func (p *MockStoragePool) ListAllStorageVolumes(flags uint32) ([]libvirt.Storage
 }
 
 func (p *MockStoragePool) StorageVolCreateXML(xml string, flags libvirt.StorageVolCreateFlags) (*libvirt.StorageVol, error) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	// Create volume from XML
+	mockVol := &MockStorageVol{
+		XML:      xml,
+		Path:     p.Path + "/volume.img",
+		Capacity: 1073741824, // 1GB default
+	}
+
+	// Store volume
+	if mockVol.Path != "" {
+		p.Volumes[mockVol.Path] = mockVol
+	}
+
 	return (*libvirt.StorageVol)(nil), nil
 }
 

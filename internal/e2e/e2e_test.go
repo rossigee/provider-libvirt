@@ -4,16 +4,13 @@ package e2e
 
 import (
 	"bytes"
-	"context"
+	"encoding/json"
 	"fmt"
-	"os"
+	"io"
+	"net/http"
 	"os/exec"
 	"testing"
 	"time"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	"github.com/rossigee/provider-libvirt/apis/v1beta1"
 )
 
 // TestEnvironment manages Docker containers for E2E testing
@@ -22,7 +19,8 @@ type TestEnvironment struct {
 	containerID    string
 	containerImage string
 	hostPort       string
-	libvirtURI     string
+	baseURL        string
+	client         *http.Client
 }
 
 // SetupTestEnvironment starts a mock-libvirtd container
@@ -30,8 +28,11 @@ func SetupTestEnvironment(t *testing.T) *TestEnvironment {
 	env := &TestEnvironment{
 		t:              t,
 		containerImage: "ghcr.io/rossigee/mock-libvirtd:latest",
-		hostPort:       "16509",
-		libvirtURI:     "qemu+tcp://localhost:16509/system",
+		hostPort:       "8080",
+		baseURL:        "http://localhost:8080",
+		client: &http.Client{
+			Timeout: 10 * time.Second,
+		},
 	}
 
 	// Pull image
@@ -53,7 +54,7 @@ func SetupTestEnvironment(t *testing.T) *TestEnvironment {
 		t.Fatalf("Container failed to become ready: %v", err)
 	}
 
-	t.Log("Test environment ready")
+	t.Log("Test environment ready at " + env.baseURL)
 	return env
 }
 
@@ -71,11 +72,12 @@ func (e *TestEnvironment) pullImage() error {
 
 // startContainer starts the Docker container
 func (e *TestEnvironment) startContainer() error {
+	containerName := fmt.Sprintf("mock-libvirtd-e2e-%d", time.Now().UnixNano())
 	cmd := exec.Command(
 		"docker", "run",
 		"-d",
 		"-p", fmt.Sprintf("%s:8080", e.hostPort),
-		"--name", fmt.Sprintf("mock-libvirtd-e2e-%d", time.Now().UnixNano()),
+		"--name", containerName,
 		e.containerImage,
 	)
 	var stdout, stderr bytes.Buffer
@@ -86,7 +88,7 @@ func (e *TestEnvironment) startContainer() error {
 		return fmt.Errorf("docker run failed: %w: %s", err, stderr.String())
 	}
 
-	e.containerID = bytes.TrimSpace(stdout.Bytes()).String()
+	e.containerID = string(bytes.TrimSpace(stdout.Bytes()))
 	return nil
 }
 
@@ -94,9 +96,13 @@ func (e *TestEnvironment) startContainer() error {
 func (e *TestEnvironment) waitReady() error {
 	maxAttempts := 30
 	for i := 0; i < maxAttempts; i++ {
-		cmd := exec.Command("curl", "-f", fmt.Sprintf("http://localhost:%s/health", e.hostPort))
-		if err := cmd.Run(); err == nil {
+		resp, err := e.client.Get(fmt.Sprintf("%s/health", e.baseURL))
+		if err == nil && resp.StatusCode == 200 {
+			resp.Body.Close()
 			return nil // Ready
+		}
+		if resp != nil {
+			resp.Body.Close()
 		}
 		time.Sleep(1 * time.Second)
 	}
@@ -115,146 +121,235 @@ func (e *TestEnvironment) Cleanup() {
 	}
 }
 
-// TestDomainLifecycle tests domain create/read/update/delete
+// HTTPRequest makes an HTTP request and returns the response
+func (e *TestEnvironment) HTTPRequest(method, path string, body interface{}) (int, interface{}, error) {
+	url := fmt.Sprintf("%s%s", e.baseURL, path)
+
+	var reqBody io.Reader
+	if body != nil {
+		jsonBody, err := json.Marshal(body)
+		if err != nil {
+			return 0, nil, err
+		}
+		reqBody = bytes.NewReader(jsonBody)
+	}
+
+	req, err := http.NewRequest(method, url, reqBody)
+	if err != nil {
+		return 0, nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := e.client.Do(req)
+	if err != nil {
+		return 0, nil, err
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return resp.StatusCode, nil, err
+	}
+
+	var result interface{}
+	if err := json.Unmarshal(respBody, &result); err != nil {
+		return resp.StatusCode, respBody, nil
+	}
+
+	return resp.StatusCode, result, nil
+}
+
+// TestDomainLifecycle tests domain create/read/update/delete via HTTP API
 func TestDomainLifecycle(t *testing.T) {
 	env := SetupTestEnvironment(t)
 	defer env.Cleanup()
 
-	ctx := context.Background()
+	domainName := "test-vm"
 
-	// Create domain
-	domain := &v1beta1.Domain{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-domain",
-			Namespace: "default",
-		},
-		Spec: v1beta1.DomainSpec{
-			ForProvider: v1beta1.DomainParameters{
-				Name:   "test-vm",
-				Memory: 1073741824, // 1GB
-				Vcpu:   2,
-				Type:   "kvm",
-			},
-		},
-	}
-
-	t.Run("CreateDomain", func(t *testing.T) {
-		// TODO: Connect to libvirt and create domain
-		// This would require actual libvirt RPC implementation
-		t.Skip("Requires libvirt RPC client")
+	t.Run("ListDomains", func(t *testing.T) {
+		status, result, err := env.HTTPRequest("GET", "/api/domains", nil)
+		if err != nil {
+			t.Fatalf("Failed to list domains: %v", err)
+		}
+		if status != 200 {
+			t.Fatalf("Expected 200, got %d: %v", status, result)
+		}
+		t.Logf("Domains list: %v", result)
 	})
 
-	t.Run("ReadDomain", func(t *testing.T) {
-		t.Skip("Requires libvirt RPC client")
+	t.Run("CreateDomain", func(t *testing.T) {
+		body := map[string]interface{}{
+			"name":   domainName,
+			"memory": 1073741824,
+			"cpus":   2,
+		}
+		status, result, err := env.HTTPRequest("POST", "/api/domains", body)
+		if err != nil {
+			t.Fatalf("Failed to create domain: %v", err)
+		}
+		if status != 200 && status != 201 {
+			t.Fatalf("Expected 200/201, got %d: %v", status, result)
+		}
+		t.Logf("Domain created: %v", result)
+	})
+
+	t.Run("GetDomain", func(t *testing.T) {
+		status, result, err := env.HTTPRequest("GET", "/api/domains/"+domainName, nil)
+		if err != nil {
+			t.Fatalf("Failed to get domain: %v", err)
+		}
+		if status != 200 {
+			t.Fatalf("Expected 200, got %d: %v", status, result)
+		}
+		t.Logf("Domain details: %v", result)
 	})
 
 	t.Run("UpdateDomain", func(t *testing.T) {
-		t.Skip("Requires libvirt RPC client")
+		body := map[string]interface{}{
+			"state": "running",
+		}
+		status, result, err := env.HTTPRequest("PUT", "/api/domains/"+domainName, body)
+		if err != nil {
+			t.Fatalf("Failed to update domain: %v", err)
+		}
+		if status != 200 {
+			t.Fatalf("Expected 200, got %d: %v", status, result)
+		}
+		t.Logf("Domain updated: %v", result)
+
+		// Wait for state transition
+		time.Sleep(2 * time.Second)
+
+		// Verify state changed
+		status, result, err = env.HTTPRequest("GET", "/api/domains/"+domainName, nil)
+		if err != nil {
+			t.Fatalf("Failed to verify domain state: %v", err)
+		}
+		t.Logf("Domain state after update: %v", result)
 	})
 
 	t.Run("DeleteDomain", func(t *testing.T) {
-		t.Skip("Requires libvirt RPC client")
+		status, result, err := env.HTTPRequest("DELETE", "/api/domains/"+domainName, nil)
+		if err != nil {
+			t.Fatalf("Failed to delete domain: %v", err)
+		}
+		if status != 200 && status != 204 {
+			t.Fatalf("Expected 200/204, got %d: %v", status, result)
+		}
+		t.Logf("Domain deleted")
 	})
 }
 
-// TestNetworkLifecycle tests network create/read/update/delete
+// TestNetworkLifecycle tests network create/read/delete via HTTP API
 func TestNetworkLifecycle(t *testing.T) {
 	env := SetupTestEnvironment(t)
 	defer env.Cleanup()
 
-	network := &v1beta1.Network{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-network",
-			Namespace: "default",
-		},
-		Spec: v1beta1.NetworkSpec{
-			ForProvider: v1beta1.NetworkParameters{
-				Name: "test-net",
-				Mode: "nat",
-			},
-		},
-	}
+	networkName := "test-net"
 
 	t.Run("CreateNetwork", func(t *testing.T) {
-		t.Skip("Requires libvirt RPC client")
+		body := map[string]interface{}{
+			"name":   networkName,
+			"bridge": "virbr1",
+		}
+		status, result, err := env.HTTPRequest("POST", "/api/networks", body)
+		if err != nil {
+			t.Fatalf("Failed to create network: %v", err)
+		}
+		if status != 200 && status != 201 {
+			t.Fatalf("Expected 200/201, got %d: %v", status, result)
+		}
+		t.Logf("Network created: %v", result)
 	})
 
-	t.Run("ReadNetwork", func(t *testing.T) {
-		t.Skip("Requires libvirt RPC client")
+	t.Run("ListNetworks", func(t *testing.T) {
+		status, result, err := env.HTTPRequest("GET", "/api/networks", nil)
+		if err != nil {
+			t.Fatalf("Failed to list networks: %v", err)
+		}
+		if status != 200 {
+			t.Fatalf("Expected 200, got %d: %v", status, result)
+		}
+		t.Logf("Networks list: %v", result)
+	})
+
+	t.Run("GetNetwork", func(t *testing.T) {
+		status, result, err := env.HTTPRequest("GET", "/api/networks/"+networkName, nil)
+		if err != nil {
+			t.Fatalf("Failed to get network: %v", err)
+		}
+		if status != 200 {
+			t.Fatalf("Expected 200, got %d: %v", status, result)
+		}
+		t.Logf("Network details: %v", result)
 	})
 
 	t.Run("DeleteNetwork", func(t *testing.T) {
-		t.Skip("Requires libvirt RPC client")
+		status, result, err := env.HTTPRequest("DELETE", "/api/networks/"+networkName, nil)
+		if err != nil {
+			t.Fatalf("Failed to delete network: %v", err)
+		}
+		if status != 200 && status != 204 {
+			t.Fatalf("Expected 200/204, got %d: %v", status, result)
+		}
+		t.Logf("Network deleted")
 	})
 }
 
-// TestStoragePoolLifecycle tests storage pool create/read/update/delete
+// TestStoragePoolLifecycle tests storage pool create/read/delete via HTTP API
 func TestStoragePoolLifecycle(t *testing.T) {
 	env := SetupTestEnvironment(t)
 	defer env.Cleanup()
 
-	pool := &v1beta1.StoragePool{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-pool",
-			Namespace: "default",
-		},
-		Spec: v1beta1.StoragePoolSpec{
-			ForProvider: v1beta1.StoragePoolParameters{
-				Name: "test-storage",
-				Type: "dir",
-				Target: &v1beta1.StoragePoolTarget{
-					Path: "/tmp/libvirt-storage",
-				},
-			},
-		},
-	}
+	poolName := "test-storage"
 
 	t.Run("CreateStoragePool", func(t *testing.T) {
-		t.Skip("Requires libvirt RPC client")
+		body := map[string]interface{}{
+			"name":     poolName,
+			"type":     "dir",
+			"path":     "/tmp/libvirt-storage",
+			"capacity": 107374182400, // 100GB
+		}
+		status, result, err := env.HTTPRequest("POST", "/api/storage", body)
+		if err != nil {
+			t.Fatalf("Failed to create storage pool: %v", err)
+		}
+		if status != 200 && status != 201 {
+			t.Fatalf("Expected 200/201, got %d: %v", status, result)
+		}
+		t.Logf("Storage pool created: %v", result)
 	})
 
-	t.Run("ReadStoragePool", func(t *testing.T) {
-		t.Skip("Requires libvirt RPC client")
+	t.Run("ListStoragePools", func(t *testing.T) {
+		status, result, err := env.HTTPRequest("GET", "/api/storage", nil)
+		if err != nil {
+			t.Fatalf("Failed to list storage pools: %v", err)
+		}
+		if status != 200 {
+			t.Fatalf("Expected 200, got %d: %v", status, result)
+		}
+		t.Logf("Storage pools list: %v", result)
+	})
+
+	t.Run("GetStoragePool", func(t *testing.T) {
+		status, result, err := env.HTTPRequest("GET", "/api/storage/"+poolName, nil)
+		if err != nil {
+			t.Fatalf("Failed to get storage pool: %v", err)
+		}
+		if status != 200 {
+			t.Fatalf("Expected 200, got %d: %v", status, result)
+		}
+		t.Logf("Storage pool details: %v", result)
 	})
 
 	t.Run("DeleteStoragePool", func(t *testing.T) {
-		t.Skip("Requires libvirt RPC client")
+		status, result, err := env.HTTPRequest("DELETE", "/api/storage/"+poolName, nil)
+		if err != nil {
+			t.Fatalf("Failed to delete storage pool: %v", err)
+		}
+		if status != 200 && status != 204 {
+			t.Fatalf("Expected 200/204, got %d: %v", status, result)
+		}
+		t.Logf("Storage pool deleted")
 	})
-}
-
-// TestVolumeLifecycle tests volume create/read/update/delete
-func TestVolumeLifecycle(t *testing.T) {
-	env := SetupTestEnvironment(t)
-	defer env.Cleanup()
-
-	volume := &v1beta1.Volume{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-volume",
-			Namespace: "default",
-		},
-		Spec: v1beta1.VolumeSpec{
-			ForProvider: v1beta1.VolumeParameters{
-				Name:   "test-disk",
-				Pool:   "default",
-				Format: "qcow2",
-				Size:   int64Ptr(1073741824), // 1GB
-			},
-		},
-	}
-
-	t.Run("CreateVolume", func(t *testing.T) {
-		t.Skip("Requires libvirt RPC client")
-	})
-
-	t.Run("ReadVolume", func(t *testing.T) {
-		t.Skip("Requires libvirt RPC client")
-	})
-
-	t.Run("DeleteVolume", func(t *testing.T) {
-		t.Skip("Requires libvirt RPC client")
-	})
-}
-
-func int64Ptr(i int64) *int64 {
-	return &i
 }
