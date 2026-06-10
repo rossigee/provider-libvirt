@@ -9,19 +9,19 @@ import (
 	"encoding/base64"
 	"fmt"
 
-	"libvirt.org/go/libvirt"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"libvirt.org/go/libvirt"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 
-	xpv1 "github.com/crossplane/crossplane/apis/v2/core/v2"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/event"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/logging"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/reconciler/managed"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/resource"
+	xpv1 "github.com/crossplane/crossplane/apis/v2/core/v2"
 
 	"github.com/rossigee/provider-libvirt/apis/v1beta1"
 	"github.com/rossigee/provider-libvirt/internal/clients"
@@ -263,7 +263,7 @@ func (c *external) isUpToDate(cr *v1beta1.Secret, secret libvirt.Secret) bool {
 	// Secret values are not readable from libvirt for security reasons
 	expectedUsageType := getUsageType(cr.Spec.ForProvider.Type, cr.Spec.ForProvider.Usage)
 	expectedUsageID := generateUsageID(cr)
-	
+
 	// Get actual usage type and ID from secret
 	usageType, err := secret.GetUsageType()
 	if err != nil {
@@ -411,7 +411,7 @@ func getUsageType(secretType, usage string) string {
 	case "volume":
 		return "volume"
 	case "ceph":
-		return "ceph" 
+		return "ceph"
 	case "iscsi":
 		return "iscsi"
 	case "tls":

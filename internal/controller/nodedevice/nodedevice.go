@@ -20,7 +20,6 @@ import (
 	"github.com/rossigee/provider-libvirt/internal/clients"
 )
 
-
 // Setup adds a controller that reconciles NodeDevice managed resources.
 func Setup(mgr ctrl.Manager, l logging.Logger) error {
 	name := managed.ControllerName(v1beta1.NodeDeviceGroupKind.String())
@@ -28,9 +27,11 @@ func Setup(mgr ctrl.Manager, l logging.Logger) error {
 	r := managed.NewReconciler(mgr,
 		resource.ManagedKind(v1beta1.NodeDeviceGroupVersionKind),
 		managed.WithExternalConnecter(&connector{
-			kube:         mgr.GetClient(),
-			usage:        resource.TrackerFn(func(ctx context.Context, mg resource.Managed) error { return nil }),
-			newServiceFn: func(ctx context.Context, pc *v1beta1.ProviderConfig) (*clients.LibvirtClient, error) { return clients.GetLibvirtClient(ctx, nil, nil) },
+			kube:  mgr.GetClient(),
+			usage: resource.TrackerFn(func(ctx context.Context, mg resource.Managed) error { return nil }),
+			newServiceFn: func(ctx context.Context, pc *v1beta1.ProviderConfig) (*clients.LibvirtClient, error) {
+				return clients.GetLibvirtClient(ctx, nil, nil)
+			},
 		}),
 		managed.WithLogger(l.WithValues("controller", name)),
 		managed.WithPollInterval(clients.DefaultPollInterval),

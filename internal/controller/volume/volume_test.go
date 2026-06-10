@@ -1,6 +1,7 @@
 package volume
 
 import (
+	"fmt"
 	"testing"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -193,4 +194,90 @@ func contains(s, substr string) bool {
 		}
 	}
 	return false
+}
+
+func TestGenerateVolumeXMLQcow2Format(t *testing.T) {
+	ext := &external{client: nil}
+	volume := testVolume(func(v *v1beta1.Volume) {
+		v.Spec.ForProvider.Format = "qcow2"
+	})
+
+	xml := ext.generateVolumeXML(volume, 1073741824, "qcow2")
+	if !contains(xml, "qcow2") {
+		t.Errorf("Expected qcow2 format in XML, got:\n%s", xml)
+	}
+	if !contains(xml, "test-disk") {
+		t.Errorf("Expected volume name in XML, got:\n%s", xml)
+	}
+}
+
+func TestGenerateVolumeXMLRawFormat(t *testing.T) {
+	ext := &external{client: nil}
+	volume := testVolume(func(v *v1beta1.Volume) {
+		v.Spec.ForProvider.Format = "raw"
+	})
+
+	xml := ext.generateVolumeXML(volume, 2147483648, "raw")
+	if !contains(xml, "raw") {
+		t.Errorf("Expected raw format in XML, got:\n%s", xml)
+	}
+	if !contains(xml, "test-disk") {
+		t.Errorf("Expected volume name in XML, got:\n%s", xml)
+	}
+}
+
+func TestGenerateVolumeXMLVmdkFormat(t *testing.T) {
+	ext := &external{client: nil}
+	volume := testVolume(func(v *v1beta1.Volume) {
+		v.Spec.ForProvider.Format = "vmdk"
+	})
+
+	xml := ext.generateVolumeXML(volume, 5368709120, "vmdk")
+	if !contains(xml, "vmdk") {
+		t.Errorf("Expected vmdk format in XML, got:\n%s", xml)
+	}
+}
+
+func TestGenerateVolumeXMLCapacity(t *testing.T) {
+	ext := &external{client: nil}
+	volume := testVolume()
+
+	cases := map[string]int64{
+		"1GB":   1073741824,
+		"10GB":  10737418240,
+		"100GB": 107374182400,
+	}
+
+	for name, capacity := range cases {
+		t.Run(name, func(t *testing.T) {
+			xml := ext.generateVolumeXML(volume, capacity, "qcow2")
+			capacityStr := capStr(capacity)
+			if !contains(xml, capacityStr) {
+				t.Errorf("Expected capacity %d in XML, got:\n%s", capacity, xml)
+			}
+		})
+	}
+}
+
+func capStr(c int64) string {
+	return fmt.Sprintf("%d", c)
+}
+
+func TestVolumePoolParameter(t *testing.T) {
+	ext := &external{client: nil}
+	volume := testVolume(func(v *v1beta1.Volume) {
+		v.Spec.ForProvider.Pool = "storage-pool"
+	})
+
+	// Pool parameter is separate from XML generation
+	// Verify it's preserved in the object
+	if volume.Spec.ForProvider.Pool != "storage-pool" {
+		t.Errorf("Expected pool parameter to be set")
+	}
+
+	// XML should still have the volume name
+	xml := ext.generateVolumeXML(volume, 1073741824, "qcow2")
+	if !contains(xml, "test-disk") {
+		t.Errorf("Expected volume name in XML, got:\n%s", xml)
+	}
 }

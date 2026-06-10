@@ -203,3 +203,128 @@ func contains(s, substr string) bool {
 	}
 	return false
 }
+
+func TestGeneratePoolXMLDirType(t *testing.T) {
+	ext := &external{client: nil}
+	pool := testStoragePool(func(sp *v1beta1.StoragePool) {
+		sp.Spec.ForProvider.Type = "dir"
+	})
+
+	xml := ext.generatePoolXML(pool)
+	if !contains(xml, "dir") {
+		t.Errorf("Expected dir type in XML, got:\n%s", xml)
+	}
+	if !contains(xml, "/var/lib/libvirt/images") {
+		t.Errorf("Expected path in XML, got:\n%s", xml)
+	}
+}
+
+func TestGeneratePoolXMLFSType(t *testing.T) {
+	ext := &external{client: nil}
+	pool := testStoragePool(func(sp *v1beta1.StoragePool) {
+		sp.Spec.ForProvider.Type = "fs"
+	})
+
+	xml := ext.generatePoolXML(pool)
+	if !contains(xml, "fs") {
+		t.Errorf("Expected fs type in XML, got:\n%s", xml)
+	}
+}
+
+func TestGeneratePoolXMLNetFSType(t *testing.T) {
+	ext := &external{client: nil}
+	pool := testStoragePool(func(sp *v1beta1.StoragePool) {
+		sp.Spec.ForProvider.Type = "netfs"
+	})
+
+	xml := ext.generatePoolXML(pool)
+	if !contains(xml, "netfs") {
+		t.Errorf("Expected netfs type in XML, got:\n%s", xml)
+	}
+}
+
+func TestGeneratePoolXMLiSCSIType(t *testing.T) {
+	ext := &external{client: nil}
+	pool := testStoragePool(func(sp *v1beta1.StoragePool) {
+		sp.Spec.ForProvider.Type = "iscsi"
+	})
+
+	xml := ext.generatePoolXML(pool)
+	if !contains(xml, "iscsi") {
+		t.Errorf("Expected iscsi type in XML, got:\n%s", xml)
+	}
+}
+
+func TestGeneratePoolXMLLVMType(t *testing.T) {
+	ext := &external{client: nil}
+	pool := testStoragePool(func(sp *v1beta1.StoragePool) {
+		sp.Spec.ForProvider.Type = "logical"
+	})
+
+	xml := ext.generatePoolXML(pool)
+	if !contains(xml, "logical") {
+		t.Errorf("Expected logical type in XML, got:\n%s", xml)
+	}
+}
+
+func TestGeneratePoolXMLRBDType(t *testing.T) {
+	ext := &external{client: nil}
+	pool := testStoragePool(func(sp *v1beta1.StoragePool) {
+		sp.Spec.ForProvider.Type = "rbd"
+	})
+
+	xml := ext.generatePoolXML(pool)
+	if !contains(xml, "rbd") {
+		t.Errorf("Expected rbd type in XML, got:\n%s", xml)
+	}
+}
+
+func TestGeneratePoolXMLGlusterType(t *testing.T) {
+	ext := &external{client: nil}
+	pool := testStoragePool(func(sp *v1beta1.StoragePool) {
+		sp.Spec.ForProvider.Type = "gluster"
+	})
+
+	xml := ext.generatePoolXML(pool)
+	if !contains(xml, "gluster") {
+		t.Errorf("Expected gluster type in XML, got:\n%s", xml)
+	}
+}
+
+func TestGeneratePoolXMLZFSType(t *testing.T) {
+	ext := &external{client: nil}
+	pool := testStoragePool(func(sp *v1beta1.StoragePool) {
+		sp.Spec.ForProvider.Type = "zfs"
+	})
+
+	xml := ext.generatePoolXML(pool)
+	if !contains(xml, "zfs") {
+		t.Errorf("Expected zfs type in XML, got:\n%s", xml)
+	}
+}
+
+func TestGeneratePoolXMLCustomPath(t *testing.T) {
+	ext := &external{client: nil}
+	pool := testStoragePool(func(sp *v1beta1.StoragePool) {
+		sp.Spec.ForProvider.Target = &v1beta1.StoragePoolTarget{
+			Path: "/mnt/storage/custom",
+		}
+	})
+
+	xml := ext.generatePoolXML(pool)
+	if !contains(xml, "/mnt/storage/custom") {
+		t.Errorf("Expected custom path in XML, got:\n%s", xml)
+	}
+}
+
+func TestGeneratePoolXMLPoolName(t *testing.T) {
+	ext := &external{client: nil}
+	pool := testStoragePool(func(sp *v1beta1.StoragePool) {
+		sp.Spec.ForProvider.Name = "my-storage-pool"
+	})
+
+	xml := ext.generatePoolXML(pool)
+	if !contains(xml, "my-storage-pool") {
+		t.Errorf("Expected pool name in XML, got:\n%s", xml)
+	}
+}
