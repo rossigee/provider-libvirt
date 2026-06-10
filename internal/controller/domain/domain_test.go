@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"libvirt.org/go/libvirt"
 
@@ -12,6 +13,72 @@ import (
 )
 
 type domainModifier func(*v1beta1.Domain)
+
+// mockDomainClient implements DomainClient for testing
+type mockDomainClient struct {
+	lookupByNameFn   func(name string) error
+	defineXMLFn      func(xml string) error
+	createFn         func(d interface{}) error
+	setAutostartFn   func(d interface{}, as int) error
+	shutdownFn       func(d interface{}) error
+	destroyFn        func(d interface{}) error
+	undefineFn       func(d interface{}) error
+}
+
+func (m *mockDomainClient) DomainLookupByName(name string) (*libvirt.Domain, error) {
+	if m.lookupByNameFn != nil {
+		err := m.lookupByNameFn(name)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return &libvirt.Domain{}, nil
+}
+
+func (m *mockDomainClient) DomainDefineXML(xml string) (*libvirt.Domain, error) {
+	if m.defineXMLFn != nil {
+		err := m.defineXMLFn(xml)
+		if err != nil {
+			return nil, errors.Wrap(err, "cannot define domain")
+		}
+	}
+	return &libvirt.Domain{}, nil
+}
+
+func (m *mockDomainClient) DomainCreate(d *libvirt.Domain) error {
+	if m.createFn != nil {
+		return errors.Wrap(m.createFn(d), "cannot start domain")
+	}
+	return nil
+}
+
+func (m *mockDomainClient) DomainSetAutostart(d *libvirt.Domain, as int) error {
+	if m.setAutostartFn != nil {
+		return errors.Wrap(m.setAutostartFn(d, as), "cannot set autostart")
+	}
+	return nil
+}
+
+func (m *mockDomainClient) DomainShutdown(d *libvirt.Domain) error {
+	if m.shutdownFn != nil {
+		return errors.Wrap(m.shutdownFn(d), "cannot shutdown domain")
+	}
+	return nil
+}
+
+func (m *mockDomainClient) DomainDestroy(d *libvirt.Domain) error {
+	if m.destroyFn != nil {
+		return errors.Wrap(m.destroyFn(d), "cannot destroy domain")
+	}
+	return nil
+}
+
+func (m *mockDomainClient) DomainUndefine(d *libvirt.Domain) error {
+	if m.undefineFn != nil {
+		return errors.Wrap(m.undefineFn(d), "cannot undefine domain")
+	}
+	return nil
+}
 
 func testDomain(m ...domainModifier) *v1beta1.Domain {
 	d := &v1beta1.Domain{
