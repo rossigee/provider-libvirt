@@ -60,7 +60,7 @@ func (c *connector) Connect(ctx context.Context, mg resource.Managed) (managed.E
 		return nil, errors.Wrap(err, "cannot create libvirt client")
 	}
 
-	return &external{client: libvirtClient}, nil
+	return &external{client: libvirtClient, kube: c.kube}, nil
 }
 
 // DomainClient defines libvirt operations needed for domains
@@ -76,6 +76,7 @@ type DomainClient interface {
 
 type external struct {
 	client DomainClient
+	kube   client.Client // Kubernetes client for resolving references
 }
 
 func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.ExternalObservation, error) {
