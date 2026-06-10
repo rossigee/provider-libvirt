@@ -169,6 +169,19 @@ func TestCreateStartError(t *testing.T) {
 	}
 }
 
+func TestCreateDefineError(t *testing.T) {
+	mock := &mockDomainClient{
+		defineXMLFn: func(xml string) error {
+			return errors.New("define failed")
+		},
+	}
+	ext := &external{client: mock}
+	_, err := ext.Create(context.Background(), testDomain())
+	if err == nil {
+		t.Error("Create should fail on define error")
+	}
+}
+
 func TestCreateAutostartError(t *testing.T) {
 	mock := &mockDomainClient{
 		defineXMLFn: func(xml string) error {
