@@ -155,3 +155,161 @@ func TestUpdateWrongResourceType(t *testing.T) {
 		t.Error("Update should fail for wrong resource type")
 	}
 }
+
+func TestObserveGetInfoError(t *testing.T) {
+	mock := &mockVolumeClient{
+		poolLookupByNameFn: func(name string) (*libvirt.StoragePool, error) {
+			return &libvirt.StoragePool{}, nil
+		},
+		lookupByNameFn: func(pool *libvirt.StoragePool, name string) (*libvirt.StorageVol, error) {
+			return &libvirt.StorageVol{}, nil
+		},
+		getInfoFn: func(vol *libvirt.StorageVol) (*libvirt.StorageVolInfo, error) {
+			return nil, errors.New("getinfo failed")
+		},
+	}
+	ext := &external{client: mock}
+	_, err := ext.Observe(context.Background(), testVolume())
+	if err == nil {
+		t.Error("Observe should fail when getinfo fails")
+	}
+}
+
+func TestCreatePoolNotFoundError(t *testing.T) {
+	mock := &mockVolumeClient{
+		poolLookupByNameFn: func(name string) (*libvirt.StoragePool, error) {
+			return nil, errors.New("pool not found")
+		},
+	}
+	ext := &external{client: mock}
+	_, err := ext.Create(context.Background(), testVolume())
+	if err == nil {
+		t.Error("Create should fail when pool not found")
+	}
+}
+
+func TestCreateVolCreateError(t *testing.T) {
+	mock := &mockVolumeClient{
+		poolLookupByNameFn: func(name string) (*libvirt.StoragePool, error) {
+			return &libvirt.StoragePool{}, nil
+		},
+		createXMLFn: func(pool *libvirt.StoragePool, xml string, flags uint32) (*libvirt.StorageVol, error) {
+			return nil, errors.New("create failed")
+		},
+	}
+	ext := &external{client: mock}
+	_, err := ext.Create(context.Background(), testVolume())
+	if err == nil {
+		t.Error("Create should fail when StorageVolCreateXML fails")
+	}
+}
+
+func TestUpdatePoolNotFoundError(t *testing.T) {
+	mock := &mockVolumeClient{
+		poolLookupByNameFn: func(name string) (*libvirt.StoragePool, error) {
+			return nil, errors.New("pool not found")
+		},
+	}
+	ext := &external{client: mock}
+	_, err := ext.Update(context.Background(), testVolume())
+	if err == nil {
+		t.Error("Update should fail when pool not found")
+	}
+}
+
+func TestUpdateVolNotFoundError(t *testing.T) {
+	mock := &mockVolumeClient{
+		poolLookupByNameFn: func(name string) (*libvirt.StoragePool, error) {
+			return &libvirt.StoragePool{}, nil
+		},
+		lookupByNameFn: func(pool *libvirt.StoragePool, name string) (*libvirt.StorageVol, error) {
+			return nil, errors.New("volume not found")
+		},
+	}
+	ext := &external{client: mock}
+	_, err := ext.Update(context.Background(), testVolume())
+	if err == nil {
+		t.Error("Update should fail when volume not found")
+	}
+}
+
+func TestUpdateGetInfoError(t *testing.T) {
+	mock := &mockVolumeClient{
+		poolLookupByNameFn: func(name string) (*libvirt.StoragePool, error) {
+			return &libvirt.StoragePool{}, nil
+		},
+		lookupByNameFn: func(pool *libvirt.StoragePool, name string) (*libvirt.StorageVol, error) {
+			return &libvirt.StorageVol{}, nil
+		},
+		getInfoFn: func(vol *libvirt.StorageVol) (*libvirt.StorageVolInfo, error) {
+			return nil, errors.New("getinfo failed")
+		},
+	}
+	ext := &external{client: mock}
+	_, err := ext.Update(context.Background(), testVolume())
+	if err == nil {
+		t.Error("Update should fail when getinfo fails")
+	}
+}
+
+func TestUpdateResizeError(t *testing.T) {
+	newSize := int64(2147483648) // 2GB
+	cr := testVolume(func(v *v1beta1.Volume) {
+		v.Spec.ForProvider.Size = &newSize
+	})
+
+	mock := &mockVolumeClient{
+		poolLookupByNameFn: func(name string) (*libvirt.StoragePool, error) {
+			return &libvirt.StoragePool{}, nil
+		},
+		lookupByNameFn: func(pool *libvirt.StoragePool, name string) (*libvirt.StorageVol, error) {
+			return &libvirt.StorageVol{}, nil
+		},
+		getInfoFn: func(vol *libvirt.StorageVol) (*libvirt.StorageVolInfo, error) {
+			return &libvirt.StorageVolInfo{
+				Capacity:   1073741824,
+				Allocation: 536870912,
+			}, nil
+		},
+		resizeFn: func(volume *libvirt.StorageVol, capacity uint64, flags libvirt.StorageVolResizeFlags) error {
+			return errors.New("resize failed")
+		},
+	}
+	ext := &external{client: mock}
+	_, err := ext.Update(context.Background(), cr)
+	if err == nil {
+		t.Error("Update should fail when resize fails")
+	}
+}
+
+func TestDeletePoolNotFoundError(t *testing.T) {
+	mock := &mockVolumeClient{
+		poolLookupByNameFn: func(name string) (*libvirt.StoragePool, error) {
+			return nil, errors.New("pool not found")
+		},
+	}
+	ext := &external{client: mock}
+	_, err := ext.Delete(context.Background(), testVolume())
+	if err != nil {
+		t.Errorf("Delete should succeed (idempotent) for not-found pool: %v", err)
+	}
+}
+
+func TestDeleteVolDeleteError(t *testing.T) {
+	mock := &mockVolumeClient{
+		poolLookupByNameFn: func(name string) (*libvirt.StoragePool, error) {
+			return &libvirt.StoragePool{}, nil
+		},
+		lookupByNameFn: func(pool *libvirt.StoragePool, name string) (*libvirt.StorageVol, error) {
+			return &libvirt.StorageVol{}, nil
+		},
+		deleteFn: func(vol *libvirt.StorageVol, flags uint32) error {
+			return errors.New("delete failed")
+		},
+	}
+	ext := &external{client: mock}
+	_, err := ext.Delete(context.Background(), testVolume())
+	if err == nil {
+		t.Error("Delete should fail when StorageVolDelete fails")
+	}
+}

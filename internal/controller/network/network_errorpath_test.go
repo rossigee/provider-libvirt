@@ -180,3 +180,201 @@ func TestDeleteNotFound(t *testing.T) {
 		t.Errorf("Delete should succeed (idempotent) for not-found network: %v", err)
 	}
 }
+
+func TestUpdateNetworkNotFound(t *testing.T) {
+	mock := &mockNetworkClient{
+		lookupByNameFn: func(name string) (*libvirt.Network, error) {
+			return nil, errors.New("Network not found")
+		},
+	}
+	ext := &external{client: mock}
+	_, err := ext.Update(context.Background(), testNetwork())
+	if err == nil {
+		t.Error("Update should fail when network not found")
+	}
+}
+
+func TestObserveActive(t *testing.T) {
+	mock := &mockNetworkClient{
+		lookupByNameFn: func(name string) (*libvirt.Network, error) {
+			return &libvirt.Network{}, nil
+		},
+		isActiveFn: func(n *libvirt.Network) (bool, error) {
+			return true, nil
+		},
+		isPersistentFn: func(n *libvirt.Network) (bool, error) {
+			return true, nil
+		},
+		getAutostartFn: func(n *libvirt.Network) (bool, error) {
+			return true, nil
+		},
+	}
+	ext := &external{client: mock}
+	obs, err := ext.Observe(context.Background(), testNetwork())
+	if err != nil {
+		t.Errorf("Observe failed: %v", err)
+	}
+	if !obs.ResourceExists {
+		t.Error("ResourceExists should be true for found network")
+	}
+}
+
+func TestObserveInactive(t *testing.T) {
+	mock := &mockNetworkClient{
+		lookupByNameFn: func(name string) (*libvirt.Network, error) {
+			return &libvirt.Network{}, nil
+		},
+		isActiveFn: func(n *libvirt.Network) (bool, error) {
+			return false, nil
+		},
+		isPersistentFn: func(n *libvirt.Network) (bool, error) {
+			return false, nil
+		},
+		getAutostartFn: func(n *libvirt.Network) (bool, error) {
+			return false, nil
+		},
+	}
+	ext := &external{client: mock}
+	obs, err := ext.Observe(context.Background(), testNetwork())
+	if err != nil {
+		t.Errorf("Observe failed: %v", err)
+	}
+	if !obs.ResourceExists {
+		t.Error("ResourceExists should be true")
+	}
+}
+
+func TestObserveIsActiveError(t *testing.T) {
+	mock := &mockNetworkClient{
+		lookupByNameFn: func(name string) (*libvirt.Network, error) {
+			return &libvirt.Network{}, nil
+		},
+		isActiveFn: func(n *libvirt.Network) (bool, error) {
+			return false, errors.New("isactive failed")
+		},
+	}
+	ext := &external{client: mock}
+	_, err := ext.Observe(context.Background(), testNetwork())
+	if err == nil {
+		t.Error("Observe should fail when isactive fails")
+	}
+}
+
+func TestObserveIsPersistentError(t *testing.T) {
+	mock := &mockNetworkClient{
+		lookupByNameFn: func(name string) (*libvirt.Network, error) {
+			return &libvirt.Network{}, nil
+		},
+		isActiveFn: func(n *libvirt.Network) (bool, error) {
+			return true, nil
+		},
+		isPersistentFn: func(n *libvirt.Network) (bool, error) {
+			return false, errors.New("ispersistent failed")
+		},
+	}
+	ext := &external{client: mock}
+	_, err := ext.Observe(context.Background(), testNetwork())
+	if err == nil {
+		t.Error("Observe should fail when ispersistent fails")
+	}
+}
+
+func TestObserveGetAutostartError(t *testing.T) {
+	mock := &mockNetworkClient{
+		lookupByNameFn: func(name string) (*libvirt.Network, error) {
+			return &libvirt.Network{}, nil
+		},
+		isActiveFn: func(n *libvirt.Network) (bool, error) {
+			return true, nil
+		},
+		isPersistentFn: func(n *libvirt.Network) (bool, error) {
+			return true, nil
+		},
+		getAutostartFn: func(n *libvirt.Network) (bool, error) {
+			return false, errors.New("getautostart failed")
+		},
+	}
+	ext := &external{client: mock}
+	_, err := ext.Observe(context.Background(), testNetwork())
+	if err == nil {
+		t.Error("Observe should fail when getautostart fails")
+	}
+}
+
+func TestCreateSetAutostartError(t *testing.T) {
+	autostart := true
+	cr := testNetwork(func(n *v1beta1.Network) {
+		n.Spec.ForProvider.Autostart = &autostart
+	})
+
+	mock := &mockNetworkClient{
+		defineXMLFn: func(xml string) (*libvirt.Network, error) {
+			return &libvirt.Network{}, nil
+		},
+		createFn: func(n *libvirt.Network) error {
+			return nil
+		},
+		setAutostartFn: func(n *libvirt.Network, autostart bool) error {
+			return errors.New("setautostart failed")
+		},
+	}
+	ext := &external{client: mock}
+	_, err := ext.Create(context.Background(), cr)
+	if err == nil {
+		t.Error("Create should fail when setautostart fails")
+	}
+}
+
+func TestUpdateSetAutostartError(t *testing.T) {
+	mock := &mockNetworkClient{
+		lookupByNameFn: func(name string) (*libvirt.Network, error) {
+			return &libvirt.Network{}, nil
+		},
+		setAutostartFn: func(n *libvirt.Network, autostart bool) error {
+			return errors.New("setautostart failed")
+		},
+	}
+	ext := &external{client: mock}
+	_, err := ext.Update(context.Background(), testNetwork())
+	if err == nil {
+		t.Error("Update should fail when setautostart fails")
+	}
+}
+
+func TestDeleteDestroyError(t *testing.T) {
+	mock := &mockNetworkClient{
+		lookupByNameFn: func(name string) (*libvirt.Network, error) {
+			return &libvirt.Network{}, nil
+		},
+		isActiveFn: func(n *libvirt.Network) (bool, error) {
+			return true, nil
+		},
+		destroyFn: func(n *libvirt.Network) error {
+			return errors.New("destroy failed")
+		},
+	}
+	ext := &external{client: mock}
+	_, err := ext.Delete(context.Background(), testNetwork())
+	if err == nil {
+		t.Error("Delete should fail when destroy fails")
+	}
+}
+
+func TestDeleteUndefineError(t *testing.T) {
+	mock := &mockNetworkClient{
+		lookupByNameFn: func(name string) (*libvirt.Network, error) {
+			return &libvirt.Network{}, nil
+		},
+		isActiveFn: func(n *libvirt.Network) (bool, error) {
+			return false, nil
+		},
+		undefineFn: func(n *libvirt.Network) error {
+			return errors.New("undefine failed")
+		},
+	}
+	ext := &external{client: mock}
+	_, err := ext.Delete(context.Background(), testNetwork())
+	if err == nil {
+		t.Error("Delete should fail when undefine fails")
+	}
+}
