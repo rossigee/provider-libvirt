@@ -1,0 +1,155 @@
+# golangci-lint configuration for provider-libvirt
+# Version: 2.12.2
+# Last updated: 2026-06-10
+
+run:
+  timeout: 10m
+  tests: true
+  go: '1.21'
+  concurrency: 4
+
+linters:
+  # Enable all linters except those we explicitly disable
+  enable-all: true
+
+  disable:
+    # Deprecated linters we don't need
+    - deadcode
+    - structcheck
+    - varcheck
+    - maligned
+    - ifshort
+    - nosnakecase
+
+    # Too strict for this codebase
+    - wsl            # Whitespace linting too strict
+    - gochecknoglobals  # We use globals in controller setup
+    - gochecknoinits    # init() functions are necessary
+
+    # Occasionally too noisy
+    - gocyclo        # Cyclomatic complexity - already covered by other linters
+    - gocognit       # Cognitive complexity - already covered
+    - revive         # Too many false positives
+    - cyclop         # Redundant with mnd
+
+    # Library-specific (we don't need these)
+    - godot          # Godoc comments not critical for internal code
+
+linters-settings:
+  # Errors
+  errcheck:
+    check-type-assertions: true
+    check-blank: true
+    exclude-functions:
+      - fmt.Println
+      - fmt.Printf
+      - fmt.Fprintln
+      - fmt.Fprintf
+
+  # Naming
+  varnamelen:
+    min-name-length: 2
+    max-distance: 5
+
+  # Magic numbers
+  mnd:
+    checks:
+      - argument
+      - case
+      - condition
+      - operation
+      - return
+      - assign
+    ignored-functions:
+      - time.Duration
+      - strconv.ParseInt
+      - strconv.ParseFloat
+      - json.Unmarshal
+
+  # Go vet
+  govet:
+    check-shadowing: true
+    check-unreachable: true
+    check-named-results: true
+
+  # Ineffassign
+  ineffassign:
+    check-shadowing: true
+
+  # Style
+  stylecheck:
+    checks:
+      - all
+      - -ST1000  # Comment should be of the form "Package ..."
+      - -ST1020  # Comment should begin with function name
+
+  # Complexity
+  gocritic:
+    enabled-tags:
+      - diagnostic
+      - style
+      - opinionated
+      - experimental
+
+  # Formatting
+  gofmt:
+    simplify: true
+
+  goimports:
+    local-prefixes: github.com/rossigee
+
+  # Unused
+  unused:
+    check-exported: false
+
+  # Go-sec security
+  gosec:
+    excludes:
+      - G101  # Hardcoded credentials false positives
+      - G104  # Errors not checked (we have errcheck for this)
+
+issues:
+  # Maximum number of issues per linter
+  max-same-issues: 3
+  max-per-linter: 0
+
+  # Exclude patterns
+  exclude-rules:
+    # Test files are allowed to have longer lines, more complexity
+    - path: "_test\\.go"
+      linters:
+        - gocyclo
+        - errcheck
+        - funlen
+        - cyclop
+
+    # Generated files
+    - path: "apis/.*/(.*\\.)?generated.*\\.go"
+      linters:
+        - all
+
+    # CGO code is allowed to be complex
+    - path: "internal/clients/.*\\.go"
+      linters:
+        - gocyclo
+        - cyclop
+
+    # Allow dot imports in tests
+    - path: "_test\\.go"
+      text: "dot imports are not allowed"
+
+output:
+  format: colored-line-number
+  print-issued-lines: true
+  print-linter-name: true
+  uniq-by-line: false
+
+severity:
+  default-severity: error
+  rules:
+    - linter: cyclop
+      severity: warning
+    - linter: dupl
+      severity: warning
+    - linter: gocritic
+      severity: warning
