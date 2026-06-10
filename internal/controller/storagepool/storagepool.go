@@ -9,6 +9,7 @@ import (
 	"fmt"
 
 	"github.com/pkg/errors"
+	"libvirt.org/go/libvirt"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -21,6 +22,21 @@ import (
 	"github.com/rossigee/provider-libvirt/apis/v1beta1"
 	"github.com/rossigee/provider-libvirt/internal/clients"
 )
+
+// StoragePoolClient defines libvirt operations needed for storage pools
+type StoragePoolClient interface {
+	StoragePoolLookupByName(name string) (*libvirt.StoragePool, error)
+	StoragePoolDefineXML(xml string, flags uint32) (*libvirt.StoragePool, error)
+	StoragePoolCreate(sp *libvirt.StoragePool, flags uint32) error
+	StoragePoolDestroy(sp *libvirt.StoragePool) error
+	StoragePoolUndefine(sp *libvirt.StoragePool) error
+	StoragePoolIsActive(sp *libvirt.StoragePool) (bool, error)
+	StoragePoolIsPersistent(sp *libvirt.StoragePool) (bool, error)
+	StoragePoolGetAutostart(sp *libvirt.StoragePool) (bool, error)
+	StoragePoolSetAutostart(sp *libvirt.StoragePool, autostart bool) error
+	StoragePoolGetInfo(sp *libvirt.StoragePool) (*libvirt.StoragePoolInfo, error)
+	StoragePoolBuild(sp *libvirt.StoragePool, flags uint32) error
+}
 
 // Setup adds a controller that reconciles StoragePool managed resources.
 func Setup(mgr ctrl.Manager, l logging.Logger) error {
@@ -63,7 +79,7 @@ func (c *connector) Connect(ctx context.Context, mg resource.Managed) (managed.E
 }
 
 type external struct {
-	client *clients.LibvirtClient
+	client StoragePoolClient
 }
 
 func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.ExternalObservation, error) {

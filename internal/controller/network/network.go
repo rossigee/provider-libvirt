@@ -9,6 +9,7 @@ import (
 	"fmt"
 
 	"github.com/pkg/errors"
+	"libvirt.org/go/libvirt"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -21,6 +22,19 @@ import (
 	"github.com/rossigee/provider-libvirt/apis/v1beta1"
 	"github.com/rossigee/provider-libvirt/internal/clients"
 )
+
+// NetworkClient defines libvirt operations needed for networks
+type NetworkClient interface {
+	NetworkLookupByName(name string) (*libvirt.Network, error)
+	NetworkDefineXML(xml string) (*libvirt.Network, error)
+	NetworkCreate(n *libvirt.Network) error
+	NetworkDestroy(n *libvirt.Network) error
+	NetworkUndefine(n *libvirt.Network) error
+	NetworkIsActive(n *libvirt.Network) (bool, error)
+	NetworkIsPersistent(n *libvirt.Network) (bool, error)
+	NetworkGetAutostart(n *libvirt.Network) (bool, error)
+	NetworkSetAutostart(n *libvirt.Network, autostart bool) error
+}
 
 // Setup adds a controller that reconciles Network managed resources.
 func Setup(mgr ctrl.Manager, l logging.Logger) error {
@@ -63,7 +77,7 @@ func (c *connector) Connect(ctx context.Context, mg resource.Managed) (managed.E
 }
 
 type external struct {
-	client *clients.LibvirtClient
+	client NetworkClient
 }
 
 func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.ExternalObservation, error) {

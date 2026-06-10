@@ -9,6 +9,7 @@ import (
 	"fmt"
 
 	"github.com/pkg/errors"
+	"libvirt.org/go/libvirt"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -21,6 +22,16 @@ import (
 	"github.com/rossigee/provider-libvirt/apis/v1beta1"
 	"github.com/rossigee/provider-libvirt/internal/clients"
 )
+
+// VolumeClient defines libvirt operations needed for volumes
+type VolumeClient interface {
+	StorageVolLookupByName(pool *libvirt.StoragePool, name string) (*libvirt.StorageVol, error)
+	StorageVolCreateXML(pool *libvirt.StoragePool, xml string, flags uint32) (*libvirt.StorageVol, error)
+	StorageVolDelete(vol *libvirt.StorageVol, flags uint32) error
+	StorageVolGetInfo(vol *libvirt.StorageVol) (*libvirt.StorageVolInfo, error)
+	StorageVolResize(volume *libvirt.StorageVol, capacity uint64, flags libvirt.StorageVolResizeFlags) error
+	StoragePoolLookupByName(name string) (*libvirt.StoragePool, error)
+}
 
 // Setup adds a controller that reconciles Volume managed resources.
 func Setup(mgr ctrl.Manager, l logging.Logger) error {
@@ -63,7 +74,7 @@ func (c *connector) Connect(ctx context.Context, mg resource.Managed) (managed.E
 }
 
 type external struct {
-	client *clients.LibvirtClient
+	client VolumeClient
 }
 
 func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.ExternalObservation, error) {
