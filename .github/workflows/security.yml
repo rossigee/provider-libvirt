@@ -95,7 +95,7 @@ jobs:
       - name: Autobuild for CodeQL
         if: github.event.inputs.scan_type == 'comprehensive' || github.event.inputs.scan_type == ''
         env:
-          CGO_ENABLED: 0
+          CGO_ENABLED: 1
         uses: github/codeql-action/autobuild@v4
 
       - name: Perform CodeQL Analysis
