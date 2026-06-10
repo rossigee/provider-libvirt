@@ -9,6 +9,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/crossplane/crossplane-runtime/v2/pkg/reconciler/managed"
@@ -22,7 +24,7 @@ type mockKube struct {
 	mockGet func(ctx context.Context, key client.ObjectKey, obj client.Object) error
 }
 
-func (m *mockKube) Get(ctx context.Context, key client.ObjectKey, obj client.Object) error {
+func (m *mockKube) Get(ctx context.Context, key types.NamespacedName, obj client.Object, opts ...client.GetOption) error {
 	if m.mockGet != nil {
 		return m.mockGet(ctx, key, obj)
 	}
@@ -65,13 +67,36 @@ func (m *mockKube) RESTMapper() meta.RESTMapper {
 	return nil
 }
 
-func (m *mockKube) Apply(ctx context.Context, obj client.Object, opts ...client.ApplyOption) error {
+func (m *mockKube) Apply(ctx context.Context, obj runtime.ApplyConfiguration, opts ...client.ApplyOption) error {
+	return nil
+}
+
+func (m *mockKube) GroupVersionKindFor(obj runtime.Object) (schema.GroupVersionKind, error) {
+	return schema.GroupVersionKind{}, nil
+}
+
+func (m *mockKube) IsObjectNamespaced(obj runtime.Object) (bool, error) {
+	return true, nil
+}
+
+func (m *mockKube) SubResource(subResource string) client.SubResourceClient {
 	return nil
 }
 
 var (
 	errBoom = errors.New("boom")
 )
+
+// errorMessageComparer compares errors by message only, ignoring stack traces
+var errorMessageComparer = cmp.Comparer(func(x, y error) bool {
+	if x == nil && y == nil {
+		return true
+	}
+	if x == nil || y == nil {
+		return false
+	}
+	return x.Error() == y.Error()
+})
 
 type secretModifier func(*v1beta1.Secret)
 
@@ -259,7 +284,7 @@ func TestExternalObserve(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			e, mg := tc.args()
 			got, err := e.Observe(context.Background(), mg)
-			if diff := cmp.Diff(tc.want.err, err, test.EquateErrors()); diff != "" {
+			if diff := cmp.Diff(tc.want.err, err, errorMessageComparer); diff != "" {
 				t.Errorf("Observe(...): -wantErr, +gotErr:\n%s", diff)
 			}
 			if diff := cmp.Diff(tc.want.o, got); diff != "" {
@@ -293,7 +318,7 @@ func TestExternalCreate(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			e, mg := tc.args()
 			got, err := e.Create(context.Background(), mg)
-			if diff := cmp.Diff(tc.want.err, err, test.EquateErrors()); diff != "" {
+			if diff := cmp.Diff(tc.want.err, err, errorMessageComparer); diff != "" {
 				t.Errorf("Create(...): -wantErr, +gotErr:\n%s", diff)
 			}
 			if diff := cmp.Diff(tc.want.c, got); diff != "" {
@@ -327,7 +352,7 @@ func TestExternalUpdate(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			e, mg := tc.args()
 			got, err := e.Update(context.Background(), mg)
-			if diff := cmp.Diff(tc.want.err, err, test.EquateErrors()); diff != "" {
+			if diff := cmp.Diff(tc.want.err, err, errorMessageComparer); diff != "" {
 				t.Errorf("Update(...): -wantErr, +gotErr:\n%s", diff)
 			}
 			if diff := cmp.Diff(tc.want.u, got); diff != "" {
@@ -369,7 +394,7 @@ func TestExternalDelete(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			e, mg := tc.args()
 			got, err := e.Delete(context.Background(), mg)
-			if diff := cmp.Diff(tc.want.err, err, test.EquateErrors()); diff != "" {
+			if diff := cmp.Diff(tc.want.err, err, errorMessageComparer); diff != "" {
 				t.Errorf("Delete(...): -wantErr, +gotErr:\n%s", diff)
 			}
 			if diff := cmp.Diff(tc.want.d, got); diff != "" {
@@ -426,7 +451,7 @@ func TestGetSecretFromK8s(t *testing.T) {
 				},
 			}
 			got, err := e.getSecretFromK8s(context.Background(), tc.args.ref)
-			if diff := cmp.Diff(tc.want.err, err, test.EquateErrors()); diff != "" {
+			if diff := cmp.Diff(tc.want.err, err, errorMessageComparer); diff != "" {
 				t.Errorf("getSecretFromK8s(...): -wantErr, +gotErr:\n%s", diff)
 			}
 			if diff := cmp.Diff(tc.want.data, got); diff != "" {
@@ -465,7 +490,7 @@ func TestConnect(t *testing.T) {
 			}
 			ctx, mg := tc.args()
 			_, err := c.Connect(ctx, mg)
-			if diff := cmp.Diff(tc.want.err, err, test.EquateErrors()); diff != "" {
+			if diff := cmp.Diff(tc.want.err, err, errorMessageComparer); diff != "" {
 				t.Errorf("Connect(...): -wantErr, +gotErr:\n%s", diff)
 			}
 		})

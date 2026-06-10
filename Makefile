@@ -63,7 +63,7 @@ publish.artifacts:
 	$(foreach r,$(REGISTRY_ORGS), $(foreach i,$(IMAGES),@$(MAKE) img.release.publish.$(r).$(i)))
 
 # Setup Package Metadata
-CROSSPLANE_VERSION = 2.0.2
+CROSSPLANE_VERSION = 2.3.2
 -include build/makelib/local.xpkg.mk
 -include build/makelib/controlplane.mk
 
