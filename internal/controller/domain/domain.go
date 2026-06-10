@@ -346,12 +346,17 @@ func (c *external) generateDomainXML(cr *v1beta1.Domain) string {
 		}
 
 		if network != "" {
+			waitLease := ""
+			if ni.WaitForLease {
+				waitLease = ` waitForLease='yes'`
+			}
+
 			xml += fmt.Sprintf(`
     <interface type='network'>
       %s
-      <source network='%s'/>
+      <source network='%s'%s/>
       <model type='%s'/>
-    </interface>`, mac, network, model)
+    </interface>`, mac, network, waitLease, model)
 		}
 	}
 
