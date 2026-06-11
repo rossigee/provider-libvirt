@@ -10,6 +10,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"strings"
 	"time"
 
@@ -97,12 +98,29 @@ func GetLibvirtClient(ctx context.Context, kube client.Client, mg resource.Manag
 	// Get provider config reference from the managed resource's ResourceSpec
 	var configRef *xpv1.Reference
 
-	// Type assert to extract the ProviderConfigReference from the managed resource
-	switch mr := mg.(type) {
-	case interface{ GetProviderConfigReference() *xpv1.Reference }:
-		configRef = mr.GetProviderConfigReference()
-	default:
-		return nil, errors.New(errGetProviderConfig)
+	// Use reflection to extract ProviderConfigReference from Spec field
+	mgVal := reflect.ValueOf(mg)
+	if mgVal.Kind() == reflect.Ptr {
+		mgVal = mgVal.Elem()
+	}
+
+	specField := mgVal.FieldByName("Spec")
+	if specField.IsValid() {
+		pcrField := specField.FieldByName("ProviderConfigReference")
+		if pcrField.IsValid() && !pcrField.IsNil() {
+			// dereference the pointer to get the ProviderConfigReference
+			pcrVal := pcrField.Interface().(*xpv1.ProviderConfigReference)
+			if pcrVal != nil {
+				configRef = &xpv1.Reference{Name: pcrVal.Name}
+			}
+		}
+	}
+
+	// Fallback: try interface-based approach
+	if configRef == nil {
+		if getter, ok := mg.(interface{ GetProviderConfigReference() *xpv1.Reference }); ok {
+			configRef = getter.GetProviderConfigReference()
+		}
 	}
 
 	if configRef == nil {
