@@ -66,7 +66,7 @@ jobs:
         run: |
           mkdir -p _output/bin/linux_amd64
           CGO_ENABLED=1 GOFLAGS="-mod=vendor" VERSION="${{ steps.version.outputs.version }}" \
-          go build -v -o _output/bin/linux_amd64/provider \
+          go build -mod=vendor -v -o _output/bin/linux_amd64/provider \
             -ldflags "-X github.com/rossigee/provider-libvirt/internal/version.Version=${{ steps.version.outputs.version }}" \
             ./cmd/provider
 
