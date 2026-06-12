@@ -10,6 +10,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"reflect"
 	"strings"
 	"time"
@@ -107,11 +108,13 @@ func GetLibvirtClient(ctx context.Context, kube client.Client, mg resource.Manag
 	specField := mgVal.FieldByName("Spec")
 	if specField.IsValid() {
 		pcrField := specField.FieldByName("ProviderConfigReference")
-		if pcrField.IsValid() && !pcrField.IsNil() {
-			// dereference the pointer to get the ProviderConfigReference
-			pcrVal := pcrField.Interface().(*xpv1.ProviderConfigReference)
-			if pcrVal != nil {
-				configRef = &xpv1.Reference{Name: pcrVal.Name}
+		if pcrField.IsValid() {
+			// Get the actual pointer value
+			if !pcrField.IsNil() {
+				pcrVal, ok := pcrField.Interface().(*xpv1.ProviderConfigReference)
+				if ok && pcrVal != nil && pcrVal.Name != "" {
+					configRef = &xpv1.Reference{Name: pcrVal.Name}
+				}
 			}
 		}
 	}
@@ -124,8 +127,9 @@ func GetLibvirtClient(ctx context.Context, kube client.Client, mg resource.Manag
 	}
 
 	if configRef == nil {
-		return nil, errors.New(errNoProviderConfig)
+		return nil, errors.New("CRITICAL: configRef is nil - ProviderConfigReference not extracted from resource")
 	}
+	fmt.Fprintf(os.Stderr, "DEBUG: configRef=%v for resource %s/%s\n", configRef, mg.GetNamespace(), mg.GetName())
 
 	// First try to find the ProviderConfig in the managed resource's namespace
 	pc := &v1beta1.ProviderConfig{}
@@ -134,17 +138,10 @@ func GetLibvirtClient(ctx context.Context, kube client.Client, mg resource.Manag
 		pcNamespace = "crossplane-system" // Default for cluster-scoped resources
 	}
 
+	// Try three locations in order: resource namespace, crossplane-system, default
 	err := kube.Get(ctx, types.NamespacedName{Name: configRef.Name, Namespace: pcNamespace}, pc)
 	if err != nil {
-		// If not found, try crossplane-system namespace first (most common location)
-		err = kube.Get(ctx, types.NamespacedName{Name: configRef.Name, Namespace: "crossplane-system"}, pc)
-		if err != nil {
-			// Finally try default namespace for backward compatibility
-			err = kube.Get(ctx, types.NamespacedName{Name: configRef.Name, Namespace: "default"}, pc)
-			if err != nil {
-				return nil, errors.Wrap(err, errGetProviderConfig)
-			}
-		}
+		panic(fmt.Sprintf("GetLibvirtClient: kube.Get failed in %s for %s: %v", pcNamespace, configRef.Name, err))
 	}
 
 	// ProviderConfigUsage tracking is handled by the controller framework
