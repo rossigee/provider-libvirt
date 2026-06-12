@@ -44,7 +44,9 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Vendor Dependencies
-        run: go mod vendor
+        run: |
+          go mod tidy
+          go mod vendor
 
       - name: Run code generation
         run: make generate
