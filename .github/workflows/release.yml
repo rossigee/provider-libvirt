@@ -43,6 +43,11 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Install libvirt development libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libvirt-dev
+
       - name: Vendor Dependencies
         run: |
           go mod tidy
