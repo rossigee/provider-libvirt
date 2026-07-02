@@ -289,6 +289,17 @@ func (mg *Volume) GetManagementPolicies() xpv1.ManagementPolicies {
 func (mg *Volume) SetManagementPolicies(p xpv1.ManagementPolicies) {
 	mg.Spec.ManagementPolicies = p
 }
+
+// GetWriteConnectionSecretToReference of this Volume.
+func (mg *Volume) GetWriteConnectionSecretToReference() *xpv1.LocalSecretReference {
+	return mg.Spec.WriteConnectionSecretToReference
+}
+
+// SetWriteConnectionSecretToReference of this Volume.
+func (mg *Volume) SetWriteConnectionSecretToReference(r *xpv1.LocalSecretReference) {
+	mg.Spec.WriteConnectionSecretToReference = r
+}
+
 func init() {
 	SchemeBuilder.Register(&Volume{}, &VolumeList{})
 }

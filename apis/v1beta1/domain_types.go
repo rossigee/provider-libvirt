@@ -243,6 +243,17 @@ func (mg *Domain) GetManagementPolicies() xpv1.ManagementPolicies {
 func (mg *Domain) SetManagementPolicies(p xpv1.ManagementPolicies) {
 	mg.Spec.ManagementPolicies = p
 }
+
+// GetWriteConnectionSecretToReference of this Domain.
+func (mg *Domain) GetWriteConnectionSecretToReference() *xpv1.LocalSecretReference {
+	return mg.Spec.WriteConnectionSecretToReference
+}
+
+// SetWriteConnectionSecretToReference of this Domain.
+func (mg *Domain) SetWriteConnectionSecretToReference(r *xpv1.LocalSecretReference) {
+	mg.Spec.WriteConnectionSecretToReference = r
+}
+
 func init() {
 	SchemeBuilder.Register(&Domain{}, &DomainList{})
 }
