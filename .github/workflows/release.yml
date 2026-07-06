@@ -52,7 +52,7 @@ jobs:
         run: |
           curl -sfL https://cli.crossplane.io/install.sh | sh
           sudo mv crossplane /usr/local/bin
-          crossplane --version
+          crossplane --help
 
       - name: Vendor Dependencies
         run: |
