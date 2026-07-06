@@ -236,6 +236,17 @@ spec:
                           required:
                           - name
                           type: object
+                        vlan:
+                          description: Vlan VLAN configuration for 802.1q VLAN tagging
+                          properties:
+                            id:
+                              format: int32
+                              type: integer
+                            nativeMode:
+                              type: string
+                          required:
+                          - id
+                          type: object
                         waitForLease:
                           description: WaitForLease waits for IP lease from DHCP
                           type: boolean

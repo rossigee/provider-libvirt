@@ -131,6 +131,15 @@ type DomainNetworkInterface struct {
 	// WaitForLease waits for IP lease from DHCP
 	// +kubebuilder:validation:Optional
 	WaitForLease bool `json:"waitForLease,omitempty"`
+
+	// Vlan VLAN configuration for 802.1q VLAN tagging
+	// +kubebuilder:validation:Optional
+	Vlan *DomainInterfaceVlan `json:"vlan,omitempty"`
+}
+
+type DomainInterfaceVlan struct {
+	ID int32 `json:"id"`
+	NativeMode string `json:"nativeMode,omitempty"`
 }
 
 // DomainConsole represents console configuration

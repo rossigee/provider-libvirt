@@ -352,12 +352,24 @@ func (c *external) generateDomainXML(cr *v1beta1.Domain) string {
 				waitLease = ` waitForLease='yes'`
 			}
 
+			vlan := ""
+			if ni.Vlan != nil {
+				nativeMode := ""
+				if ni.Vlan.NativeMode != "" {
+					nativeMode = fmt.Sprintf(` nativeMode='%s'`, ni.Vlan.NativeMode)
+				}
+				vlan = fmt.Sprintf(`
+      <vlan>
+        <tag id='%d'%s/>
+      </vlan>`, ni.Vlan.ID, nativeMode)
+			}
+
 			xml += fmt.Sprintf(`
     <interface type='network'>
       %s
       <source network='%s'%s/>
-      <model type='%s'/>
-    </interface>`, mac, network, waitLease, model)
+      <model type='%s'/>%s
+    </interface>`, mac, network, waitLease, model, vlan)
 		}
 	}
 

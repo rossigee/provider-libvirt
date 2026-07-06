@@ -144,6 +144,35 @@ func TestGenerateDomainXML(t *testing.T) {
 			}),
 			want: "test-vm",
 		},
+		"DomainWithNetworkAndVlan": {
+			domain: testDomain(func(d *v1beta1.Domain) {
+				d.Spec.ForProvider.NetworkInterface = []v1beta1.DomainNetworkInterface{
+					{
+						NetworkName: "default",
+						Model:       "virtio",
+						Vlan: &v1beta1.DomainInterfaceVlan{
+							ID: 100,
+						},
+					},
+				}
+			}),
+			want: "<tag id='100'/>",
+		},
+		"DomainWithNetworkAndVlanNativeMode": {
+			domain: testDomain(func(d *v1beta1.Domain) {
+				d.Spec.ForProvider.NetworkInterface = []v1beta1.DomainNetworkInterface{
+					{
+						NetworkName: "default",
+						Model:       "virtio",
+						Vlan: &v1beta1.DomainInterfaceVlan{
+							ID:        200,
+							NativeMode: "untagged",
+						},
+					},
+				}
+			}),
+			want: "<tag id='200' nativeMode='untagged'/>",
+		},
 	}
 
 	for name, tc := range cases {
