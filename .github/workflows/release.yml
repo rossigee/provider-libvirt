@@ -50,8 +50,8 @@ jobs:
 
       - name: Install Crossplane CLI
         run: |
-          curl -sL https://raw.githubusercontent.com/crossplane/crossplane/master/hack/install-crossplane-cli.sh | bash
-          export PATH="$HOME/.crossplane/bin:$PATH"
+          curl -sfL https://cli.crossplane.io/install.sh | sh
+          sudo mv crossplane /usr/local/bin
           crossplane --version
 
       - name: Vendor Dependencies
