@@ -128,11 +128,8 @@ jobs:
           make xpkg.build.provider-libvirt XPKG_VERSION=${VERSION}
           
           # Push the xpkg to registry
-          docker push ${{ env.REGISTRY_ORGS }}/provider-libvirt:${VERSION} --all-platforms || true
-          
-          # For multi-platform xpkg, use crossplane CLI
           crossplane xpkg push ${{ env.REGISTRY_ORGS }}/provider-libvirt:${VERSION} \
-            -f _output/xpkg/linux_amd64/provider-libvirt-${VERSION}.xpkg || true
+            -f _output/xpkg/linux_amd64/provider-libvirt-${VERSION}.xpkg
 
       - name: Verify published artifacts
         run: |
