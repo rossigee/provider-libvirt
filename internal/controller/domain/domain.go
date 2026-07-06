@@ -34,6 +34,7 @@ func Setup(mgr ctrl.Manager, l logging.Logger) error {
 			kube:         mgr.GetClient(),
 			usage:        resource.TrackerFn(func(ctx context.Context, mg resource.Managed) error { return nil }),
 			newServiceFn: clients.GetLibvirtClient,
+			logger:       l.WithValues("controller", name),
 		}),
 		managed.WithLogger(l.WithValues("controller", name)),
 		managed.WithPollInterval(clients.DefaultPollInterval),
@@ -49,6 +50,7 @@ type connector struct {
 	kube         client.Client
 	usage        resource.Tracker
 	newServiceFn func(ctx context.Context, kube client.Client, mg resource.Managed) (*clients.LibvirtClient, error)
+	logger       logging.Logger
 }
 
 func (c *connector) Connect(ctx context.Context, mg resource.Managed) (managed.ExternalClient, error) {
@@ -61,7 +63,7 @@ func (c *connector) Connect(ctx context.Context, mg resource.Managed) (managed.E
 		return nil, errors.Wrap(err, "cannot create libvirt client")
 	}
 
-	return &external{client: libvirtClient, kube: c.kube}, nil
+	return &external{client: libvirtClient, kube: c.kube, logger: c.logger}, nil
 }
 
 // DomainClient defines libvirt operations needed for domains
@@ -78,6 +80,7 @@ type DomainClient interface {
 type external struct {
 	client DomainClient
 	kube   client.Client // Kubernetes client for resolving references
+	logger logging.Logger
 }
 
 func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.ExternalObservation, error) {
@@ -120,6 +123,9 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 	normalizedCurrent := normalizeXML(currentXML)
 	normalizedGenerated := normalizeXML(generatedXML)
 	needsUpdate := normalizedCurrent != normalizedGenerated
+
+	c.logger.Info("Observe check", "domain", cr.Name, "needsUpdate", needsUpdate,
+		"currentLen", len(normalizedCurrent), "generatedLen", len(normalizedGenerated))
 
 	return managed.ExternalObservation{
 		ResourceExists:   true,
