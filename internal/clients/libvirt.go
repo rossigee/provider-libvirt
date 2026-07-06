@@ -36,6 +36,11 @@ const (
 	DefaultPollInterval             = 60 * time.Second
 	DefaultMaxConcurrentReconciles  = 10
 
+	// Connection backoff settings
+	ConnBackoffInitial   = 5 * time.Second
+	ConnBackoffMax       = 5 * time.Minute
+	ConnBackoffMultiplier = 2.0
+
 	// error messages
 	errNoProviderConfig     = "no providerConfigRef provided"
 	errGetProviderConfig    = "cannot get referenced ProviderConfig"
@@ -44,10 +49,30 @@ const (
 	errUnmarshalCredentials = "cannot unmarshal libvirt credentials as JSON"
 	errParseURI             = "cannot parse libvirt URI"
 	errConnectLibvirt       = "cannot connect to libvirt"
+
+	// Annotations for connection tracking
+	AnnotationLastConnFailure = "provider-libvirt.crossplane.io/last-connection-failure"
+	AnnotationLastConnFailureTime = "provider-libvirt.crossplane.io/last-connection-failure-time"
+	AnnotationConnFailureCount = "provider-libvirt.crossplane.io/connection-failure-count"
 )
 
 // LibvirtCredentials represents libvirt connection credentials
 type LibvirtCredentials map[string]string
+
+// RetriableError wraps an error to indicate it's transient and should be retried with backoff
+type RetriableError struct {
+	Err      error
+	Backoff  time.Duration
+	Retriable bool
+}
+
+func (e *RetriableError) Error() string {
+	return e.Err.Error()
+}
+
+func (e *RetriableError) Unwrap() error {
+	return e.Err
+}
 
 // LibvirtOperations defines the interface for libvirt operations
 type LibvirtOperations interface {
@@ -144,6 +169,17 @@ func GetLibvirtClient(ctx context.Context, kube client.Client, mg resource.Manag
 		panic(fmt.Sprintf("GetLibvirtClient: kube.Get failed in %s for %s: %v", pcNamespace, configRef.Name, err))
 	}
 
+	// Check if ProviderConfig has recent connection failures - if so, back off
+	if shouldBackoffConnection(pc) {
+		failureCount := getConnectionFailureCount(pc)
+		backoff := GetBackoffDuration(failureCount)
+		return nil, &RetriableError{
+			Err:      fmt.Errorf("backing off after %d connection failures to %s; retry after %v", failureCount, pc.Name, backoff),
+			Backoff:  backoff,
+			Retriable: true,
+		}
+	}
+
 	// ProviderConfigUsage tracking is handled by the controller framework
 	// via c.usage.Track(ctx, mg) call in the controller's Connect method
 
@@ -167,13 +203,97 @@ func GetLibvirtClient(ctx context.Context, kube client.Client, mg resource.Manag
 	// This uses the same connection logic as virsh and handles TLS automatically
 	conn, err := libvirt.NewConnect(uri)
 	if err != nil {
+		// Record this failure in ProviderConfig and return retriable error
+		recordConnectionFailure(ctx, kube, pc, err)
+
+		if IsTransientError(err) {
+			failureCount := getConnectionFailureCount(pc) + 1
+			backoff := GetBackoffDuration(failureCount)
+			return nil, &RetriableError{
+				Err:      errors.Wrap(err, "transient connection error to libvirt"),
+				Backoff:  backoff,
+				Retriable: true,
+			}
+		}
 		return nil, errors.Wrap(err, "cannot connect to libvirt")
 	}
+
+	// Connection successful - clear failure count
+	clearConnectionFailures(ctx, kube, pc)
 
 	return &LibvirtClient{
 		Connect: conn,
 		uri:     uri,
 	}, nil
+}
+
+// shouldBackoffConnection checks if we should back off from attempting connection
+func shouldBackoffConnection(pc *v1beta1.ProviderConfig) bool {
+	if pc.Annotations == nil {
+		return false
+	}
+
+	// Check if we have a recent failure
+	lastFailureTimeStr, ok := pc.Annotations[AnnotationLastConnFailureTime]
+	if !ok {
+		return false
+	}
+
+	lastFailureTime, err := time.Parse(time.RFC3339, lastFailureTimeStr)
+	if err != nil {
+		return false
+	}
+
+	failureCount := getConnectionFailureCount(pc)
+	backoffNeeded := GetBackoffDuration(failureCount)
+	nextRetryTime := lastFailureTime.Add(backoffNeeded)
+
+	return time.Now().Before(nextRetryTime)
+}
+
+// getConnectionFailureCount gets the current failure count from annotations
+func getConnectionFailureCount(pc *v1beta1.ProviderConfig) int {
+	if pc.Annotations == nil {
+		return 0
+	}
+
+	countStr, ok := pc.Annotations[AnnotationConnFailureCount]
+	if !ok {
+		return 0
+	}
+
+	count := 0
+	fmt.Sscanf(countStr, "%d", &count)
+	return count
+}
+
+// recordConnectionFailure updates the ProviderConfig annotations to track failures
+func recordConnectionFailure(ctx context.Context, kube client.Client, pc *v1beta1.ProviderConfig, err error) {
+	if pc.Annotations == nil {
+		pc.Annotations = make(map[string]string)
+	}
+
+	failureCount := getConnectionFailureCount(pc) + 1
+	pc.Annotations[AnnotationLastConnFailure] = err.Error()
+	pc.Annotations[AnnotationLastConnFailureTime] = time.Now().Format(time.RFC3339)
+	pc.Annotations[AnnotationConnFailureCount] = fmt.Sprintf("%d", failureCount)
+
+	// Update annotations without error handling - failures here shouldn't block
+	_ = kube.Update(ctx, pc)
+}
+
+// clearConnectionFailures resets the connection failure tracking
+func clearConnectionFailures(ctx context.Context, kube client.Client, pc *v1beta1.ProviderConfig) {
+	if pc.Annotations == nil {
+		return
+	}
+
+	delete(pc.Annotations, AnnotationLastConnFailure)
+	delete(pc.Annotations, AnnotationLastConnFailureTime)
+	delete(pc.Annotations, AnnotationConnFailureCount)
+
+	// Update annotations without error handling
+	_ = kube.Update(ctx, pc)
 }
 
 // NewLibvirtClient creates a new libvirt client from credentials
@@ -209,6 +329,42 @@ func GetCredentials(ctx context.Context, kube client.Client, source xpv1.Credent
 	}
 
 	return creds, nil
+}
+
+// IsTransientError checks if an error is transient (connectivity, TLS, auth) vs permanent
+func IsTransientError(err error) bool {
+	if err == nil {
+		return false
+	}
+	errStr := err.Error()
+	// Check for transient error patterns: connectivity, TLS, auth, DNS
+	return strings.Contains(errStr, "connection refused") ||
+		strings.Contains(errStr, "connection reset") ||
+		strings.Contains(errStr, "timeout") ||
+		strings.Contains(errStr, "i/o timeout") ||
+		strings.Contains(errStr, "CA certificate") ||
+		strings.Contains(errStr, "certificate") ||
+		strings.Contains(errStr, "TLS") ||
+		strings.Contains(errStr, "tls") ||
+		strings.Contains(errStr, "authentication") ||
+		strings.Contains(errStr, "permission denied") ||
+		strings.Contains(errStr, "no such file") ||
+		strings.Contains(errStr, "does not exist") ||
+		strings.Contains(errStr, "name or service not known") ||
+		strings.Contains(errStr, "temporary failure")
+}
+
+// GetBackoffDuration calculates exponential backoff duration based on failure count
+func GetBackoffDuration(failureCount int) time.Duration {
+	backoff := ConnBackoffInitial
+	for i := 0; i < failureCount && i < 10; i++ {
+		backoff = time.Duration(float64(backoff) * ConnBackoffMultiplier)
+		if backoff > ConnBackoffMax {
+			backoff = ConnBackoffMax
+			break
+		}
+	}
+	return backoff
 }
 
 // IsNotFound checks if an error indicates a resource was not found
@@ -574,4 +730,17 @@ func (c *LibvirtClient) NodeDeviceGetAutostart(name string) (int32, error) {
 // Disconnect closes the libvirt connection
 func (c *LibvirtClient) Disconnect() error {
 	return c.Close()
+}
+
+// ExtractRetriableBackoff extracts backoff duration from RetriableError if present
+func ExtractRetriableBackoff(err error) (time.Duration, bool) {
+	if err == nil {
+		return 0, false
+	}
+
+	if retriable, ok := err.(*RetriableError); ok && retriable.Retriable {
+		return retriable.Backoff, true
+	}
+
+	return 0, false
 }

@@ -91,7 +91,9 @@ func (c *connector) Connect(ctx context.Context, mg resource.Managed) (managed.E
 
 	svc, err := c.newServiceFn(ctx, c.kube, mg)
 	if err != nil {
-		return nil, errors.Wrap(err, errNewClient)
+		// Connection errors are handled by GetLibvirtClient with backoff logic
+		// Return as-is so managed reconciler can handle requeue
+		return nil, err
 	}
 
 	return &external{
