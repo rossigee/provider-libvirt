@@ -19,7 +19,7 @@ img.build:
 
 img.build.shared:
 	@cp Dockerfile $(IMAGE_TEMP_DIR)
-	@cp -r $(OUTPUT_DIR)/bin/ $(IMAGE_TEMP_DIR)/
+	@cp -r $(OUTPUT_DIR) $(IMAGE_TEMP_DIR)/_output
 	@docker build $(BUILD_ARGS) --build-arg TARGETOS=$(TARGETOS) --build-arg TARGETARCH=$(TARGETARCH) -t $(IMAGE) $(IMAGE_TEMP_DIR)
 
 # ====================================================================================
