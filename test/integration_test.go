@@ -32,7 +32,7 @@ func TestDomainLifecycle(t *testing.T) {
 
 	// This test would require a real libvirt connection
 	// For now, it demonstrates the test structure
-	
+
 	scheme := runtime.NewScheme()
 	_ = v1beta1.SchemeBuilder.AddToScheme(scheme)
 	_ = corev1.AddToScheme(scheme)
@@ -66,11 +66,10 @@ func TestDomainLifecycle(t *testing.T) {
 			Name: "test-domain",
 		},
 		Spec: v1beta1.DomainSpec{
-			ResourceSpec: xpv1.ManagedResourceSpec{
-				ProviderConfigReference: &xpv1.Reference{
+			ManagedResourceSpec: xpv1.ManagedResourceSpec{
+				ProviderConfigReference: &xpv1.ProviderConfigReference{
 					Name: "test-provider-config",
 				},
-				DeletionPolicy: xpv1.DeletionDelete,
 			},
 			ForProvider: v1beta1.DomainParameters{
 				Name:    "test-integration-vm",
@@ -115,7 +114,7 @@ func TestDomainLifecycle(t *testing.T) {
 	// 3. Test state transitions (start/stop)
 	// 4. Test updates
 	// 5. Test deletion
-	
+
 	// Simulate waiting for reconciliation
 	time.Sleep(100 * time.Millisecond)
 
@@ -186,13 +185,13 @@ func TestProviderConfigValidation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
-			
+
 			err := fakeClient.Create(context.Background(), tt.config)
-			
+
 			if tt.wantErr && err == nil {
 				t.Error("Expected error but got none")
 			}
-			
+
 			if !tt.wantErr && err != nil {
 				t.Errorf("Unexpected error: %v", err)
 			}
@@ -214,8 +213,8 @@ func TestDomainSpecValidation(t *testing.T) {
 					Name: "valid-domain",
 				},
 				Spec: v1beta1.DomainSpec{
-					ResourceSpec: xpv1.ManagedResourceSpec{
-						ProviderConfigReference: &xpv1.Reference{
+					ManagedResourceSpec: xpv1.ManagedResourceSpec{
+						ProviderConfigReference: &xpv1.ProviderConfigReference{
 							Name: "test-config",
 						},
 					},
@@ -235,8 +234,8 @@ func TestDomainSpecValidation(t *testing.T) {
 					Name: "minimal-domain",
 				},
 				Spec: v1beta1.DomainSpec{
-					ResourceSpec: xpv1.ManagedResourceSpec{
-						ProviderConfigReference: &xpv1.Reference{
+					ManagedResourceSpec: xpv1.ManagedResourceSpec{
+						ProviderConfigReference: &xpv1.ProviderConfigReference{
 							Name: "test-config",
 						},
 					},
@@ -257,13 +256,13 @@ func TestDomainSpecValidation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
-			
+
 			err := fakeClient.Create(context.Background(), tt.domain)
-			
+
 			if tt.wantErr && err == nil {
 				t.Error("Expected error but got none")
 			}
-			
+
 			if !tt.wantErr && err != nil {
 				t.Errorf("Unexpected error: %v", err)
 			}

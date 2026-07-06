@@ -14,7 +14,7 @@ import (
 // SecretSpec defines the desired state of Secret
 type SecretSpec struct {
 	xpv1.ManagedResourceSpec `json:",inline"`
-	ForProvider       SecretParameters `json:"forProvider"`
+	ForProvider              SecretParameters `json:"forProvider"`
 }
 
 // SecretParameters are the configurable fields of a Secret.
@@ -121,7 +121,7 @@ type SecretReference struct {
 // SecretStatus defines the observed state of Secret
 type SecretStatus struct {
 	xpv1.ManagedResourceStatus `json:",inline"`
-	AtProvider          SecretObservation `json:"atProvider,omitempty"`
+	AtProvider                 SecretObservation `json:"atProvider,omitempty"`
 }
 
 // SecretObservation are the observable fields of a Secret.

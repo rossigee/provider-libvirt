@@ -86,17 +86,17 @@ func testVolumeReadinessValidation(t *testing.T, ctx context.Context, k8sClient 
 	// Step 1: Create Volume but don't make it Ready
 	volume := createTestVolume("readiness-test-volume", "default")
 	createResource(t, ctx, k8sClient, volume)
-	
+
 	// Volume is created but not Ready (no status conditions set)
-	
+
 	// Step 2: Create Domain that references the not-ready Volume
 	domain := &v1beta1.Domain{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "readiness-test-domain",
 		},
 		Spec: v1beta1.DomainSpec{
-			ResourceSpec: xpv1.ManagedResourceSpec{
-				ProviderConfigReference: &xpv1.Reference{Name: "test-provider-config"},
+			ManagedResourceSpec: xpv1.ManagedResourceSpec{
+				ProviderConfigReference: &xpv1.ProviderConfigReference{Name: "test-provider-config"},
 			},
 			ForProvider: v1beta1.DomainParameters{
 				Name:    "readiness-test-vm",
@@ -117,7 +117,7 @@ func testVolumeReadinessValidation(t *testing.T, ctx context.Context, k8sClient 
 
 	// Step 3: Simulate domain controller trying to resolve Volume reference
 	// This should fail because Volume is not Ready
-	
+
 	t.Run("VolumeNotReady", func(t *testing.T) {
 		// Verify Domain was created with the reference
 		var retrievedDomain v1beta1.Domain
@@ -140,7 +140,7 @@ func testVolumeReadinessValidation(t *testing.T, ctx context.Context, k8sClient 
 		// 2. Find the Volume exists but is not Ready
 		// 3. Set Domain condition to indicate dependency not ready
 		// 4. Requeue for later reconciliation
-		
+
 		// For this test, we simulate this by not setting Domain as Ready
 		if len(retrievedDomain.Status.Conditions) > 0 {
 			ready := retrievedDomain.Status.GetCondition(xpv1.TypeReady)
@@ -190,14 +190,14 @@ func testNetworkReadinessValidation(t *testing.T, ctx context.Context, k8sClient
 	// Similar to Volume test but for Network dependencies
 	network := createTestNetwork("readiness-test-network")
 	createResource(t, ctx, k8sClient, network)
-	
+
 	domain := &v1beta1.Domain{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "network-readiness-test-domain",
 		},
 		Spec: v1beta1.DomainSpec{
-			ResourceSpec: xpv1.ManagedResourceSpec{
-				ProviderConfigReference: &xpv1.Reference{Name: "test-provider-config"},
+			ManagedResourceSpec: xpv1.ManagedResourceSpec{
+				ProviderConfigReference: &xpv1.ProviderConfigReference{Name: "test-provider-config"},
 			},
 			ForProvider: v1beta1.DomainParameters{
 				Name:    "network-readiness-test-vm",
@@ -253,15 +253,15 @@ func testNetworkReadinessValidation(t *testing.T, ctx context.Context, k8sClient
 
 func testStoragePoolDependencyValidation(t *testing.T, ctx context.Context, k8sClient client.Client) {
 	// Test Volume dependency on StoragePool
-	
+
 	// Step 1: Create Volume that references non-existent StoragePool
 	volume := &v1beta1.Volume{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "pool-dependency-volume",
 		},
 		Spec: v1beta1.VolumeSpec{
-			ResourceSpec: xpv1.ManagedResourceSpec{
-				ProviderConfigReference: &xpv1.Reference{Name: "test-provider-config"},
+			ManagedResourceSpec: xpv1.ManagedResourceSpec{
+				ProviderConfigReference: &xpv1.ProviderConfigReference{Name: "test-provider-config"},
 			},
 			ForProvider: v1beta1.VolumeParameters{
 				Name:   "pool-dependency-volume.qcow2",
@@ -291,8 +291,8 @@ func testStoragePoolDependencyValidation(t *testing.T, ctx context.Context, k8sC
 			Name: "dependency-test-pool",
 		},
 		Spec: v1beta1.StoragePoolSpec{
-			ResourceSpec: xpv1.ManagedResourceSpec{
-				ProviderConfigReference: &xpv1.Reference{Name: "test-provider-config"},
+			ManagedResourceSpec: xpv1.ManagedResourceSpec{
+				ProviderConfigReference: &xpv1.ProviderConfigReference{Name: "test-provider-config"},
 			},
 			ForProvider: v1beta1.StoragePoolParameters{
 				Name: "non-existent-pool", // This matches the Volume's Pool
@@ -327,11 +327,11 @@ func testStoragePoolDependencyValidation(t *testing.T, ctx context.Context, k8sC
 
 func testCrossReferenceResolution(t *testing.T, ctx context.Context, k8sClient client.Client) {
 	// Test the actual cross-reference resolution logic from domain controller
-	
+
 	// Create all dependencies first
 	volume := createTestVolume("xref-test-volume", "default")
 	network := createTestNetwork("xref-test-network")
-	
+
 	createResource(t, ctx, k8sClient, volume)
 	makeResourceReady(t, ctx, k8sClient, volume)
 	createResource(t, ctx, k8sClient, network)
@@ -343,8 +343,8 @@ func testCrossReferenceResolution(t *testing.T, ctx context.Context, k8sClient c
 			Name: "xref-test-domain",
 		},
 		Spec: v1beta1.DomainSpec{
-			ResourceSpec: xpv1.ManagedResourceSpec{
-				ProviderConfigReference: &xpv1.Reference{Name: "test-provider-config"},
+			ManagedResourceSpec: xpv1.ManagedResourceSpec{
+				ProviderConfigReference: &xpv1.ProviderConfigReference{Name: "test-provider-config"},
 			},
 			ForProvider: v1beta1.DomainParameters{
 				Name:    "xref-test-vm",
@@ -409,10 +409,10 @@ func testCrossReferenceResolution(t *testing.T, ctx context.Context, k8sClient c
 
 func testMixedReferenceTypes(t *testing.T, ctx context.Context, k8sClient client.Client) {
 	// Test Domain with mixed reference types (some VolumeRef, some direct file paths)
-	
+
 	volume := createTestVolume("mixed-ref-volume", "default")
 	network := createTestNetwork("mixed-ref-network")
-	
+
 	createResource(t, ctx, k8sClient, volume)
 	makeResourceReady(t, ctx, k8sClient, volume)
 	createResource(t, ctx, k8sClient, network)
@@ -423,8 +423,8 @@ func testMixedReferenceTypes(t *testing.T, ctx context.Context, k8sClient client
 			Name: "mixed-ref-domain",
 		},
 		Spec: v1beta1.DomainSpec{
-			ResourceSpec: xpv1.ManagedResourceSpec{
-				ProviderConfigReference: &xpv1.Reference{Name: "test-provider-config"},
+			ManagedResourceSpec: xpv1.ManagedResourceSpec{
+				ProviderConfigReference: &xpv1.ProviderConfigReference{Name: "test-provider-config"},
 			},
 			ForProvider: v1beta1.DomainParameters{
 				Name:    "mixed-ref-vm",
@@ -447,9 +447,9 @@ func testMixedReferenceTypes(t *testing.T, ctx context.Context, k8sClient client
 					},
 					{
 						// Using File path instead of deprecated VolumeID
-						File: "/var/lib/libvirt/images/mixed-ref-volume.qcow2",
-						Type:     "virtio",
-						Device:   "vdc",
+						File:   "/var/lib/libvirt/images/mixed-ref-volume.qcow2",
+						Type:   "virtio",
+						Device: "vdc",
 					},
 				},
 				NetworkInterface: []v1beta1.DomainNetworkInterface{
@@ -466,7 +466,7 @@ func testMixedReferenceTypes(t *testing.T, ctx context.Context, k8sClient client
 					{
 						// Using bridge (legacy method)
 						NetworkName: "br0",
-						Model:  "virtio",
+						Model:       "virtio",
 					},
 				},
 			},
@@ -488,17 +488,17 @@ func testMixedReferenceTypes(t *testing.T, ctx context.Context, k8sClient client
 	}
 
 	disks := retrievedDomain.Spec.ForProvider.Disk
-	
+
 	// First disk - VolumeRef
 	if disks[0].VolumeRef == nil || disks[0].VolumeRef.Name != "mixed-ref-volume" {
 		t.Error("Expected first disk to use VolumeRef")
 	}
-	
+
 	// Second disk - direct file
 	if disks[1].File != "/tmp/legacy-disk.qcow2" {
 		t.Error("Expected second disk to use direct file path")
 	}
-	
+
 	// Third disk - File path
 	if disks[2].File != "/var/lib/libvirt/images/mixed-ref-volume.qcow2" {
 		t.Error("Expected third disk to use File path")
@@ -510,17 +510,17 @@ func testMixedReferenceTypes(t *testing.T, ctx context.Context, k8sClient client
 	}
 
 	netifs := retrievedDomain.Spec.ForProvider.NetworkInterface
-	
+
 	// First interface - NetworkRef
 	if netifs[0].NetworkRef == nil || netifs[0].NetworkRef.Name != "mixed-ref-network" {
 		t.Error("Expected first interface to use NetworkRef")
 	}
-	
+
 	// Second interface - direct network name
 	if netifs[1].NetworkName != "default" {
 		t.Error("Expected second interface to use direct network name")
 	}
-	
+
 	// Third interface - bridge
 	if netifs[2].NetworkName != "br0" {
 		t.Error("Expected third interface to use bridge")
@@ -531,23 +531,23 @@ func testMixedReferenceTypes(t *testing.T, ctx context.Context, k8sClient client
 
 func testCircularDependencyDetection(t *testing.T, ctx context.Context, k8sClient client.Client) {
 	// Test detection of circular dependencies (though current design prevents this)
-	
+
 	// In the current design, circular dependencies are not possible because:
 	// - Domain can reference Volume and Network
 	// - Volume can reference StoragePool (by name, not Kubernetes resource)
 	// - Network is independent
 	// - StoragePool is independent
-	
+
 	// However, we can test edge cases that might create confusion
-	
+
 	// Create resources with similar names that might cause confusion
 	similarVolume1 := &v1beta1.Volume{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "circular-test-vol-1",
 		},
 		Spec: v1beta1.VolumeSpec{
-			ResourceSpec: xpv1.ManagedResourceSpec{
-				ProviderConfigReference: &xpv1.Reference{Name: "test-provider-config"},
+			ManagedResourceSpec: xpv1.ManagedResourceSpec{
+				ProviderConfigReference: &xpv1.ProviderConfigReference{Name: "test-provider-config"},
 			},
 			ForProvider: v1beta1.VolumeParameters{
 				Name:   "circular-test-vol-1.qcow2",
@@ -563,8 +563,8 @@ func testCircularDependencyDetection(t *testing.T, ctx context.Context, k8sClien
 			Name: "circular-test-vol-2",
 		},
 		Spec: v1beta1.VolumeSpec{
-			ResourceSpec: xpv1.ManagedResourceSpec{
-				ProviderConfigReference: &xpv1.Reference{Name: "test-provider-config"},
+			ManagedResourceSpec: xpv1.ManagedResourceSpec{
+				ProviderConfigReference: &xpv1.ProviderConfigReference{Name: "test-provider-config"},
 			},
 			ForProvider: v1beta1.VolumeParameters{
 				Name:   "circular-test-vol-2.qcow2",
@@ -586,8 +586,8 @@ func testCircularDependencyDetection(t *testing.T, ctx context.Context, k8sClien
 			Name: "circular-test-domain",
 		},
 		Spec: v1beta1.DomainSpec{
-			ResourceSpec: xpv1.ManagedResourceSpec{
-				ProviderConfigReference: &xpv1.Reference{Name: "test-provider-config"},
+			ManagedResourceSpec: xpv1.ManagedResourceSpec{
+				ProviderConfigReference: &xpv1.ProviderConfigReference{Name: "test-provider-config"},
 			},
 			ForProvider: v1beta1.DomainParameters{
 				Name:    "circular-test-vm",
@@ -640,7 +640,7 @@ func testCircularDependencyDetection(t *testing.T, ctx context.Context, k8sClien
 
 func testDependencyCleanupOrder(t *testing.T, ctx context.Context, k8sClient client.Client) {
 	// Test proper cleanup order: Domain → Volume → StoragePool, Network
-	
+
 	// Create full dependency chain
 	storagePool := createTestStoragePool("cleanup-test-pool")
 	volume := createTestVolume("cleanup-test-volume", "cleanup-test-pool")
@@ -657,9 +657,8 @@ func testDependencyCleanupOrder(t *testing.T, ctx context.Context, k8sClient cli
 			Name: "cleanup-test-domain",
 		},
 		Spec: v1beta1.DomainSpec{
-			ResourceSpec: xpv1.ManagedResourceSpec{
-				ProviderConfigReference: &xpv1.Reference{Name: "test-provider-config"},
-				DeletionPolicy:          xpv1.DeletionDelete,
+			ManagedResourceSpec: xpv1.ManagedResourceSpec{
+				ProviderConfigReference: &xpv1.ProviderConfigReference{Name: "test-provider-config"},
 			},
 			ForProvider: v1beta1.DomainParameters{
 				Name:    "cleanup-test-vm",
@@ -723,14 +722,14 @@ func testDependencyCleanupOrder(t *testing.T, ctx context.Context, k8sClient cli
 
 func testResourceNotFoundHandling(t *testing.T, ctx context.Context, k8sClient client.Client) {
 	// Test graceful handling when referenced resources don't exist
-	
+
 	domain := &v1beta1.Domain{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "not-found-test-domain",
 		},
 		Spec: v1beta1.DomainSpec{
-			ResourceSpec: xpv1.ManagedResourceSpec{
-				ProviderConfigReference: &xpv1.Reference{Name: "test-provider-config"},
+			ManagedResourceSpec: xpv1.ManagedResourceSpec{
+				ProviderConfigReference: &xpv1.ProviderConfigReference{Name: "test-provider-config"},
 			},
 			ForProvider: v1beta1.DomainParameters{
 				Name:    "not-found-test-vm",
@@ -799,7 +798,7 @@ func BenchmarkCrossReferenceResolution(b *testing.B) {
 	// Setup test data
 	volume := createTestVolume("bench-volume", "default")
 	network := createTestNetwork("bench-network")
-	
+
 	createResource(&testing.T{}, ctx, k8sClient, volume)
 	makeResourceReady(&testing.T{}, ctx, k8sClient, volume)
 	createResource(&testing.T{}, ctx, k8sClient, network)
@@ -810,8 +809,8 @@ func BenchmarkCrossReferenceResolution(b *testing.B) {
 			Name: "bench-domain",
 		},
 		Spec: v1beta1.DomainSpec{
-			ResourceSpec: xpv1.ManagedResourceSpec{
-				ProviderConfigReference: &xpv1.Reference{Name: "test-provider-config"},
+			ManagedResourceSpec: xpv1.ManagedResourceSpec{
+				ProviderConfigReference: &xpv1.ProviderConfigReference{Name: "test-provider-config"},
 			},
 			ForProvider: v1beta1.DomainParameters{
 				Name:    "bench-vm",
@@ -847,7 +846,7 @@ func BenchmarkCrossReferenceResolution(b *testing.B) {
 
 		// In a real benchmark, we would call the actual resolution functions
 		// For now, we just verify the references exist
-		if len(retrievedDomain.Spec.ForProvider.Disk) == 0 || 
+		if len(retrievedDomain.Spec.ForProvider.Disk) == 0 ||
 			retrievedDomain.Spec.ForProvider.Disk[0].VolumeRef == nil {
 			b.Fatal("Expected valid volume reference")
 		}

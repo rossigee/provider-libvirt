@@ -11,11 +11,11 @@ import (
 )
 
 type mockVolumeClient struct {
-	lookupByNameFn    func(pool *libvirt.StoragePool, name string) (*libvirt.StorageVol, error)
-	createXMLFn       func(pool *libvirt.StoragePool, xml string, flags uint32) (*libvirt.StorageVol, error)
-	deleteFn          func(vol *libvirt.StorageVol, flags uint32) error
-	getInfoFn         func(vol *libvirt.StorageVol) (*libvirt.StorageVolInfo, error)
-	resizeFn          func(volume *libvirt.StorageVol, capacity uint64, flags libvirt.StorageVolResizeFlags) error
+	lookupByNameFn     func(pool *libvirt.StoragePool, name string) (*libvirt.StorageVol, error)
+	createXMLFn        func(pool *libvirt.StoragePool, xml string, flags uint32) (*libvirt.StorageVol, error)
+	deleteFn           func(vol *libvirt.StorageVol, flags uint32) error
+	getInfoFn          func(vol *libvirt.StorageVol) (*libvirt.StorageVolInfo, error)
+	resizeFn           func(volume *libvirt.StorageVol, capacity uint64, flags libvirt.StorageVolResizeFlags) error
 	poolLookupByNameFn func(name string) (*libvirt.StoragePool, error)
 }
 

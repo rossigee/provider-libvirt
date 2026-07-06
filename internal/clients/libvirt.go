@@ -1,3 +1,4 @@
+//go:build cgo
 // +build cgo
 
 /*
@@ -17,11 +18,11 @@ import (
 
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"libvirt.org/go/libvirt"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	xpv1 "github.com/crossplane/crossplane/apis/v2/core/v2"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/resource"
+	xpv1 "github.com/crossplane/crossplane/apis/v2/core/v2"
 
 	"github.com/rossigee/provider-libvirt/apis/v1beta1"
 )
@@ -33,8 +34,8 @@ const (
 	keyURI = "uri"
 
 	// Default controller settings
-	DefaultPollInterval             = 60 * time.Second
-	DefaultMaxConcurrentReconciles  = 10
+	DefaultPollInterval            = 60 * time.Second
+	DefaultMaxConcurrentReconciles = 10
 
 	// error messages
 	errNoProviderConfig     = "no providerConfigRef provided"
@@ -241,14 +242,14 @@ func UUIDToString(uuid [16]byte) string {
 // StringToUUID converts a string UUID to libvirt UUID byte array
 func StringToUUID(uuidStr string) ([16]byte, error) {
 	var uuid [16]byte
-	
+
 	// Remove hyphens from UUID string
 	cleanUUID := strings.ReplaceAll(uuidStr, "-", "")
-	
+
 	if len(cleanUUID) != 32 {
 		return uuid, fmt.Errorf("invalid UUID length: expected 32 characters, got %d", len(cleanUUID))
 	}
-	
+
 	// Convert hex string to bytes
 	for i := 0; i < 16; i++ {
 		hexByte := cleanUUID[i*2 : i*2+2]
@@ -257,7 +258,7 @@ func StringToUUID(uuidStr string) ([16]byte, error) {
 			return uuid, fmt.Errorf("invalid hex in UUID: %s", hexByte)
 		}
 	}
-	
+
 	return uuid, nil
 }
 
@@ -344,7 +345,6 @@ func (c *LibvirtClient) NetworkGetXMLDesc(network *libvirt.Network, flags uint32
 	return network.GetXMLDesc(libvirt.NetworkXMLFlags(flags))
 }
 
-
 // NetworkCreate starts a network
 func (c *LibvirtClient) NetworkCreate(network *libvirt.Network) error {
 	return network.Create()
@@ -396,7 +396,6 @@ func (c *LibvirtClient) StoragePoolGetInfo(pool *libvirt.StoragePool) (*libvirt.
 func (c *LibvirtClient) StoragePoolListAllVolumes(pool *libvirt.StoragePool, flags uint32) ([]libvirt.StorageVol, error) {
 	return pool.ListAllStorageVolumes(flags)
 }
-
 
 // StoragePoolBuild builds a storage pool
 func (c *LibvirtClient) StoragePoolBuild(pool *libvirt.StoragePool, flags uint32) error {

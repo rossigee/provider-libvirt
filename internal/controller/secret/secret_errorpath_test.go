@@ -42,7 +42,6 @@ func TestCreateWrongResourceType(t *testing.T) {
 	}
 }
 
-
 func TestUpdateWrongResourceType(t *testing.T) {
 	ext := &external{service: nil, kube: nil}
 	_, err := ext.Update(context.Background(), &v1beta1.Domain{})

@@ -7,6 +7,7 @@ package domain
 import (
 	"context"
 	"fmt"
+	"regexp"
 
 	"github.com/pkg/errors"
 	"libvirt.org/go/libvirt"
@@ -110,9 +111,19 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 
 	cr.Status.SetConditions(xpv1.Available())
 
+	currentXML, err := domain.GetXMLDesc(0)
+	if err != nil {
+		return managed.ExternalObservation{}, errors.Wrap(err, "cannot get current domain XML")
+	}
+
+	generatedXML := c.generateDomainXML(cr)
+	normalizedCurrent := normalizeXML(currentXML)
+	normalizedGenerated := normalizeXML(generatedXML)
+	needsUpdate := normalizedCurrent != normalizedGenerated
+
 	return managed.ExternalObservation{
 		ResourceExists:   true,
-		ResourceUpToDate: true,
+		ResourceUpToDate: !needsUpdate,
 	}, nil
 }
 
@@ -187,9 +198,29 @@ func (c *external) Update(ctx context.Context, mg resource.Managed) (managed.Ext
 		}
 	}
 
+	// Regenerate and redefine domain XML to apply spec changes (e.g., VLAN, network config)
+	// This is critical for reflecting changes like VLAN tagging that require XML updates
+	newXML := c.generateDomainXML(cr)
+	if err := domain.Undefine(); err != nil {
+		return managed.ExternalUpdate{}, errors.Wrap(err, "cannot undefine domain for update")
+	}
+	newDomain, err := c.client.DomainDefineXML(newXML)
+	if err != nil {
+		return managed.ExternalUpdate{}, errors.Wrap(err, "cannot redefine domain with updated XML")
+	}
+	// Free the old domain handle
+	domain.Free()
+
+	// Restart domain if it was running
+	if isRunning {
+		if err := c.client.DomainCreate(newDomain); err != nil {
+			return managed.ExternalUpdate{}, errors.Wrap(err, "cannot restart domain after XML update")
+		}
+	}
+
 	// Update autostart
 	autostart := cr.Spec.ForProvider.Autostart != nil && *cr.Spec.ForProvider.Autostart
-	if err := c.client.DomainSetAutostart(domain, boolToInt(autostart)); err != nil {
+	if err := c.client.DomainSetAutostart(newDomain, boolToInt(autostart)); err != nil {
 		return managed.ExternalUpdate{}, errors.Wrap(err, "cannot set autostart")
 	}
 
@@ -431,6 +462,11 @@ func (c *external) generateDomainXML(cr *v1beta1.Domain) string {
 </domain>`
 
 	return xml
+}
+
+func normalizeXML(xml string) string {
+	re := regexp.MustCompile(`\s+`)
+	return re.ReplaceAllString(xml, " ")
 }
 
 // formatDomainState returns human-readable domain state

@@ -13,7 +13,7 @@ func TestGenerateDomainXMLWithWaitForLease(t *testing.T) {
 	cr := testDomain(func(d *v1beta1.Domain) {
 		d.Spec.ForProvider.NetworkInterface = []v1beta1.DomainNetworkInterface{
 			{
-				NetworkName: "default",
+				NetworkName:  "default",
 				WaitForLease: true,
 			},
 		}
@@ -30,7 +30,7 @@ func TestGenerateDomainXMLWithoutWaitForLease(t *testing.T) {
 	cr := testDomain(func(d *v1beta1.Domain) {
 		d.Spec.ForProvider.NetworkInterface = []v1beta1.DomainNetworkInterface{
 			{
-				NetworkName: "default",
+				NetworkName:  "default",
 				WaitForLease: false,
 			},
 		}

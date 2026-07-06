@@ -47,11 +47,11 @@ func TestParseSize(t *testing.T) {
 		{"invalid format", "abc", 0, true},
 		{"negative value", "-100G", 0, true},
 		{"invalid unit", "100X", 0, true},
-		{"invalid with B suffix", "100GB", 0, true}, // 'B' suffix not allowed in Kubernetes
-		{"invalid lowercase", "1g", 0, true}, // Lowercase not allowed in Kubernetes
-		{"too small", "512", 0, true}, // Less than 1MB minimum
-		{"too small with Ki", "512Ki", 0, true}, // 512Ki < 1MB
-		{"just over minimum", "1M", 1000000, false}, // 1M should be ok
+		{"invalid with B suffix", "100GB", 0, true},         // 'B' suffix not allowed in Kubernetes
+		{"invalid lowercase", "1g", 0, true},                // Lowercase not allowed in Kubernetes
+		{"too small", "512", 0, true},                       // Less than 1MB minimum
+		{"too small with Ki", "512Ki", 0, true},             // 512Ki < 1MB
+		{"just over minimum", "1M", 1000000, false},         // 1M should be ok
 		{"binary just over minimum", "1Mi", 1048576, false}, // 1Mi should be ok
 	}
 
@@ -83,7 +83,7 @@ func TestFormatSize(t *testing.T) {
 		{"gigabytes", 1073741824, "1GiB"},
 		{"gigabytes decimal", 1610612736, "1.5GiB"},
 		{"terabytes", 1099511627776, "1TiB"},
-		{"large size", 21474836480, "20GiB"}, // 20GB in bytes
+		{"large size", 21474836480, "20GiB"},    // 20GB in bytes
 		{"larger size", 107374182400, "100GiB"}, // 100GB in bytes
 	}
 

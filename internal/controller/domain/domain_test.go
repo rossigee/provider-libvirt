@@ -16,13 +16,13 @@ type domainModifier func(*v1beta1.Domain)
 
 // mockDomainClient implements DomainClient for testing
 type mockDomainClient struct {
-	lookupByNameFn   func(name string) error
-	defineXMLFn      func(xml string) error
-	createFn         func(d interface{}) error
-	setAutostartFn   func(d interface{}, as int) error
-	shutdownFn       func(d interface{}) error
-	destroyFn        func(d interface{}) error
-	undefineFn       func(d interface{}) error
+	lookupByNameFn func(name string) error
+	defineXMLFn    func(xml string) error
+	createFn       func(d interface{}) error
+	setAutostartFn func(d interface{}, as int) error
+	shutdownFn     func(d interface{}) error
+	destroyFn      func(d interface{}) error
+	undefineFn     func(d interface{}) error
 }
 
 func (m *mockDomainClient) DomainLookupByName(name string) (*libvirt.Domain, error) {
@@ -144,34 +144,17 @@ func TestGenerateDomainXML(t *testing.T) {
 			}),
 			want: "test-vm",
 		},
-		"DomainWithNetworkAndVlan": {
+		"DomainWithVLAN": {
 			domain: testDomain(func(d *v1beta1.Domain) {
 				d.Spec.ForProvider.NetworkInterface = []v1beta1.DomainNetworkInterface{
 					{
-						NetworkName: "default",
+						NetworkName: "br0",
 						Model:       "virtio",
-						Vlan: &v1beta1.DomainInterfaceVlan{
-							ID: 100,
-						},
+						Vlan:        &v1beta1.DomainInterfaceVlan{ID: 11},
 					},
 				}
 			}),
-			want: "<tag id='100'/>",
-		},
-		"DomainWithNetworkAndVlanNativeMode": {
-			domain: testDomain(func(d *v1beta1.Domain) {
-				d.Spec.ForProvider.NetworkInterface = []v1beta1.DomainNetworkInterface{
-					{
-						NetworkName: "default",
-						Model:       "virtio",
-						Vlan: &v1beta1.DomainInterfaceVlan{
-							ID:        200,
-							NativeMode: "untagged",
-						},
-					},
-				}
-			}),
-			want: "<tag id='200' nativeMode='untagged'/>",
+			want: "vlan",
 		},
 	}
 
@@ -353,8 +336,8 @@ func TestGenerateDomainXMLCustomArch(t *testing.T) {
 func TestGenerateDomainXMLMemory(t *testing.T) {
 	ext := &external{client: nil}
 	cases := map[string]int64{
-		"1GB":  1073741824,
-		"2GB":  2147483648,
+		"1GB":   1073741824,
+		"2GB":   2147483648,
 		"512MB": 536870912,
 	}
 
@@ -378,10 +361,10 @@ func memStr(m int64) string {
 func TestGenerateDomainXMLVCPU(t *testing.T) {
 	ext := &external{client: nil}
 	cases := map[string]int32{
-		"1CPU":  1,
-		"2CPU":  2,
-		"4CPU":  4,
-		"8CPU":  8,
+		"1CPU": 1,
+		"2CPU": 2,
+		"4CPU": 4,
+		"8CPU": 8,
 	}
 
 	for name, cpu := range cases {

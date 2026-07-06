@@ -30,7 +30,7 @@ func TestVMLifecycleWorkflows(t *testing.T) {
 
 	ctx := context.Background()
 	scheme := createTestScheme()
-	
+
 	// Test scenarios with different VM configurations
 	scenarios := []struct {
 		name        string
@@ -43,7 +43,7 @@ func TestVMLifecycleWorkflows(t *testing.T) {
 			testFunc:    testBasicVMLifecycle,
 		},
 		{
-			name:        "MultiDiskVMLifecycle", 
+			name:        "MultiDiskVMLifecycle",
 			description: "Test VM with multiple disks lifecycle",
 			testFunc:    testMultiDiskVMLifecycle,
 		},
@@ -78,13 +78,13 @@ func TestVMLifecycleWorkflows(t *testing.T) {
 		t.Run(scenario.name, func(t *testing.T) {
 			// Create fresh client for each test to avoid interference
 			k8sClient := fake.NewClientBuilder().WithScheme(scheme).Build()
-			
+
 			// Setup test environment
 			setupTestEnvironment(t, ctx, k8sClient)
-			
+
 			// Run the specific test
 			scenario.testFunc(t, ctx, k8sClient)
-			
+
 			// Cleanup test environment
 			cleanupTestEnvironment(t, ctx, k8sClient)
 		})
@@ -100,10 +100,10 @@ func testBasicVMLifecycle(t *testing.T, ctx context.Context, k8sClient client.Cl
 	// Create resources
 	createResource(t, ctx, k8sClient, storagePool)
 	makeResourceReady(t, ctx, k8sClient, storagePool)
-	
+
 	createResource(t, ctx, k8sClient, volume)
 	makeResourceReady(t, ctx, k8sClient, volume)
-	
+
 	createResource(t, ctx, k8sClient, network)
 	makeResourceReady(t, ctx, k8sClient, network)
 
@@ -113,9 +113,8 @@ func testBasicVMLifecycle(t *testing.T, ctx context.Context, k8sClient client.Cl
 			Name: "basic-vm",
 		},
 		Spec: v1beta1.DomainSpec{
-			ResourceSpec: xpv1.ManagedResourceSpec{
-				ProviderConfigReference: &xpv1.Reference{Name: "test-provider-config"},
-				DeletionPolicy:          xpv1.DeletionDelete,
+			ManagedResourceSpec: xpv1.ManagedResourceSpec{
+				ProviderConfigReference: &xpv1.ProviderConfigReference{Name: "test-provider-config"},
 			},
 			ForProvider: v1beta1.DomainParameters{
 				Name:    "basic-test-vm",
@@ -184,7 +183,7 @@ func testBasicVMLifecycle(t *testing.T, ctx context.Context, k8sClient client.Cl
 		}
 	})
 
-	// Phase 4: Stop VM  
+	// Phase 4: Stop VM
 	t.Run("StopVM", func(t *testing.T) {
 		var currentDomain v1beta1.Domain
 		err := k8sClient.Get(ctx, types.NamespacedName{Name: domain.Name}, &currentDomain)
@@ -258,8 +257,8 @@ func testMultiDiskVMLifecycle(t *testing.T, ctx context.Context, k8sClient clien
 			Name: "multi-disk-vm",
 		},
 		Spec: v1beta1.DomainSpec{
-			ResourceSpec: xpv1.ManagedResourceSpec{
-				ProviderConfigReference: &xpv1.Reference{Name: "test-provider-config"},
+			ManagedResourceSpec: xpv1.ManagedResourceSpec{
+				ProviderConfigReference: &xpv1.ProviderConfigReference{Name: "test-provider-config"},
 			},
 			ForProvider: v1beta1.DomainParameters{
 				Name:    "multi-disk-test-vm",
@@ -276,7 +275,7 @@ func testMultiDiskVMLifecycle(t *testing.T, ctx context.Context, k8sClient clien
 					},
 					{
 						VolumeRef: &xpv1.Reference{Name: "data-disk"},
-						Type:      "virtio", 
+						Type:      "virtio",
 						Device:    "vdb",
 						WWN:       "0x50014ee20b2a559a",
 					},
@@ -327,7 +326,7 @@ func testMultiDiskVMLifecycle(t *testing.T, ctx context.Context, k8sClient clien
 			t.Errorf("Missing disk %d", i)
 			continue
 		}
-		
+
 		disk := retrievedDomain.Spec.ForProvider.Disk[i]
 		if disk.VolumeRef == nil || disk.VolumeRef.Name != expected.volumeName {
 			t.Errorf("Disk %d: expected volume %s, got %v", i, expected.volumeName, disk.VolumeRef)
@@ -361,8 +360,8 @@ func testMultiNetworkVMLifecycle(t *testing.T, ctx context.Context, k8sClient cl
 			Name: "multi-network-vm",
 		},
 		Spec: v1beta1.DomainSpec{
-			ResourceSpec: xpv1.ManagedResourceSpec{
-				ProviderConfigReference: &xpv1.Reference{Name: "test-provider-config"},
+			ManagedResourceSpec: xpv1.ManagedResourceSpec{
+				ProviderConfigReference: &xpv1.ProviderConfigReference{Name: "test-provider-config"},
 			},
 			ForProvider: v1beta1.DomainParameters{
 				Name:    "multi-network-test-vm",
@@ -382,12 +381,12 @@ func testMultiNetworkVMLifecycle(t *testing.T, ctx context.Context, k8sClient cl
 					},
 					{
 						NetworkRef: &xpv1.Reference{Name: "mgmt-network"},
-						Model:      "virtio", 
+						Model:      "virtio",
 					},
 					{
 						// Test mixed configuration - bridge interface
 						NetworkName: "br0",
-						Model:  "virtio",
+						Model:       "virtio",
 					},
 				},
 			},
@@ -410,17 +409,17 @@ func testMultiNetworkVMLifecycle(t *testing.T, ctx context.Context, k8sClient cl
 
 	// Verify network interface types
 	interfaces := retrievedDomain.Spec.ForProvider.NetworkInterface
-	
+
 	// First interface - network reference
 	if interfaces[0].NetworkRef == nil || interfaces[0].NetworkRef.Name != "dmz-network" {
 		t.Errorf("Expected first interface to reference dmz-network")
 	}
-	
+
 	// Second interface - network reference
 	if interfaces[1].NetworkRef == nil || interfaces[1].NetworkRef.Name != "mgmt-network" {
 		t.Errorf("Expected second interface to reference mgmt-network")
 	}
-	
+
 	// Third interface - bridge
 	if interfaces[2].NetworkName != "br0" {
 		t.Errorf("Expected third interface to use bridge br0, got %s", interfaces[2].NetworkName)
@@ -431,9 +430,9 @@ func testMultiNetworkVMLifecycle(t *testing.T, ctx context.Context, k8sClient cl
 
 func testVMStateTransitions(t *testing.T, ctx context.Context, k8sClient client.Client) {
 	// Setup basic VM
-	volume := createTestVolume("state-test-disk", "default")  
+	volume := createTestVolume("state-test-disk", "default")
 	network := createTestNetwork("state-test-network")
-	
+
 	createResource(t, ctx, k8sClient, volume)
 	makeResourceReady(t, ctx, k8sClient, volume)
 	createResource(t, ctx, k8sClient, network)
@@ -444,8 +443,8 @@ func testVMStateTransitions(t *testing.T, ctx context.Context, k8sClient client.
 			Name: "state-test-vm",
 		},
 		Spec: v1beta1.DomainSpec{
-			ResourceSpec: xpv1.ManagedResourceSpec{
-				ProviderConfigReference: &xpv1.Reference{Name: "test-provider-config"},
+			ManagedResourceSpec: xpv1.ManagedResourceSpec{
+				ProviderConfigReference: &xpv1.ProviderConfigReference{Name: "test-provider-config"},
 			},
 			ForProvider: v1beta1.DomainParameters{
 				Name:    "state-transition-vm",
@@ -466,8 +465,8 @@ func testVMStateTransitions(t *testing.T, ctx context.Context, k8sClient client.
 
 	// Test state transitions: stopped -> running -> stopped
 	states := []struct {
-		name        string
-		running     bool
+		name          string
+		running       bool
 		expectedState string
 	}{
 		{"InitialStopped", false, "shutoff"},
@@ -519,7 +518,7 @@ func testVMConfigurationUpdates(t *testing.T, ctx context.Context, k8sClient cli
 	// Setup basic VM
 	volume := createTestVolume("config-test-disk", "default")
 	network := createTestNetwork("config-test-network")
-	
+
 	createResource(t, ctx, k8sClient, volume)
 	makeResourceReady(t, ctx, k8sClient, volume)
 	createResource(t, ctx, k8sClient, network)
@@ -530,8 +529,8 @@ func testVMConfigurationUpdates(t *testing.T, ctx context.Context, k8sClient cli
 			Name: "config-test-vm",
 		},
 		Spec: v1beta1.DomainSpec{
-			ResourceSpec: xpv1.ManagedResourceSpec{
-				ProviderConfigReference: &xpv1.Reference{Name: "test-provider-config"},
+			ManagedResourceSpec: xpv1.ManagedResourceSpec{
+				ProviderConfigReference: &xpv1.ProviderConfigReference{Name: "test-provider-config"},
 			},
 			ForProvider: v1beta1.DomainParameters{
 				Name:    "config-update-vm",
@@ -609,15 +608,15 @@ func testVMConfigurationUpdates(t *testing.T, ctx context.Context, k8sClient cli
 
 func testVMErrorRecovery(t *testing.T, ctx context.Context, k8sClient client.Client) {
 	// Test various error scenarios
-	
+
 	t.Run("MissingVolumeReference", func(t *testing.T) {
 		domain := &v1beta1.Domain{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "error-missing-volume",
 			},
 			Spec: v1beta1.DomainSpec{
-				ResourceSpec: xpv1.ManagedResourceSpec{
-					ProviderConfigReference: &xpv1.Reference{Name: "test-provider-config"},
+				ManagedResourceSpec: xpv1.ManagedResourceSpec{
+					ProviderConfigReference: &xpv1.ProviderConfigReference{Name: "test-provider-config"},
 				},
 				ForProvider: v1beta1.DomainParameters{
 					Name:    "error-vm",
@@ -632,7 +631,7 @@ func testVMErrorRecovery(t *testing.T, ctx context.Context, k8sClient client.Cli
 		}
 
 		createResource(t, ctx, k8sClient, domain)
-		
+
 		// The domain should be created but not become ready
 		var retrievedDomain v1beta1.Domain
 		err := k8sClient.Get(ctx, types.NamespacedName{Name: "error-missing-volume"}, &retrievedDomain)
@@ -641,7 +640,7 @@ func testVMErrorRecovery(t *testing.T, ctx context.Context, k8sClient client.Cli
 		}
 
 		// Verify the error reference is preserved for debugging
-		if len(retrievedDomain.Spec.ForProvider.Disk) == 0 || 
+		if len(retrievedDomain.Spec.ForProvider.Disk) == 0 ||
 			retrievedDomain.Spec.ForProvider.Disk[0].VolumeRef == nil ||
 			retrievedDomain.Spec.ForProvider.Disk[0].VolumeRef.Name != "non-existent-volume" {
 			t.Error("Expected domain to preserve invalid volume reference")
@@ -660,8 +659,8 @@ func testVMErrorRecovery(t *testing.T, ctx context.Context, k8sClient client.Cli
 				Name: "error-missing-network",
 			},
 			Spec: v1beta1.DomainSpec{
-				ResourceSpec: xpv1.ManagedResourceSpec{
-					ProviderConfigReference: &xpv1.Reference{Name: "test-provider-config"},
+				ManagedResourceSpec: xpv1.ManagedResourceSpec{
+					ProviderConfigReference: &xpv1.ProviderConfigReference{Name: "test-provider-config"},
 				},
 				ForProvider: v1beta1.DomainParameters{
 					Name:    "error-network-vm",
@@ -676,7 +675,7 @@ func testVMErrorRecovery(t *testing.T, ctx context.Context, k8sClient client.Cli
 		}
 
 		createResource(t, ctx, k8sClient, domain)
-		
+
 		var retrievedDomain v1beta1.Domain
 		err := k8sClient.Get(ctx, types.NamespacedName{Name: "error-missing-network"}, &retrievedDomain)
 		if err != nil {
@@ -684,7 +683,7 @@ func testVMErrorRecovery(t *testing.T, ctx context.Context, k8sClient client.Cli
 		}
 
 		// Verify the error reference is preserved
-		if len(retrievedDomain.Spec.ForProvider.NetworkInterface) == 0 || 
+		if len(retrievedDomain.Spec.ForProvider.NetworkInterface) == 0 ||
 			retrievedDomain.Spec.ForProvider.NetworkInterface[0].NetworkRef == nil ||
 			retrievedDomain.Spec.ForProvider.NetworkInterface[0].NetworkRef.Name != "non-existent-network" {
 			t.Error("Expected domain to preserve invalid network reference")
@@ -704,7 +703,7 @@ func testConcurrentVMOperations(t *testing.T, ctx context.Context, k8sClient cli
 	// Create shared resources
 	sharedVolume := createTestVolume("shared-disk", "default")
 	sharedNetwork := createTestNetwork("shared-network")
-	
+
 	createResource(t, ctx, k8sClient, sharedVolume)
 	makeResourceReady(t, ctx, k8sClient, sharedVolume)
 	createResource(t, ctx, k8sClient, sharedNetwork)
@@ -713,15 +712,15 @@ func testConcurrentVMOperations(t *testing.T, ctx context.Context, k8sClient cli
 	// Create multiple VMs concurrently
 	vmCount := 3
 	domains := make([]*v1beta1.Domain, vmCount)
-	
+
 	for i := 0; i < vmCount; i++ {
 		domains[i] = &v1beta1.Domain{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: fmt.Sprintf("concurrent-vm-%d", i),
 			},
 			Spec: v1beta1.DomainSpec{
-				ResourceSpec: xpv1.ManagedResourceSpec{
-					ProviderConfigReference: &xpv1.Reference{Name: "test-provider-config"},
+				ManagedResourceSpec: xpv1.ManagedResourceSpec{
+					ProviderConfigReference: &xpv1.ProviderConfigReference{Name: "test-provider-config"},
 				},
 				ForProvider: v1beta1.DomainParameters{
 					Name:    fmt.Sprintf("concurrent-test-vm-%d", i),
