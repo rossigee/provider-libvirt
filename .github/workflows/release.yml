@@ -50,7 +50,7 @@ jobs:
 
       - name: Install Crossplane CLI
         run: |
-          curl -sL https://Raw.githubusercontent.com/crossplane/crossplane/master/hack/install-crossplane-cli.sh | bash
+          curl -sL https://raw.githubusercontent.com/crossplane/crossplane/master/hack/install-crossplane-cli.sh | bash
           export PATH="$HOME/.crossplane/bin:$PATH"
           crossplane --version
 
