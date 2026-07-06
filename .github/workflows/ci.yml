@@ -213,6 +213,9 @@ jobs:
       - name: Vendor Dependencies
         run: go mod vendor
 
+      - name: Initialize Submodules
+        run: make submodules
+
       - name: Validate Build Process
         run: |
           # Validate that all build steps work without publishing
