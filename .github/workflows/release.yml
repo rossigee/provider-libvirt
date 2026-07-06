@@ -48,6 +48,12 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libvirt-dev
 
+      - name: Install Crossplane CLI
+        run: |
+          curl -sL https://Raw.githubusercontent.com/crossplane/crossplane/master/hack/install-crossplane-cli.sh | bash
+          export PATH="$HOME/.crossplane/bin:$PATH"
+          crossplane --version
+
       - name: Vendor Dependencies
         run: |
           go mod tidy
@@ -113,6 +119,20 @@ jobs:
             See the [README](https://github.com/rossigee/provider-libvirt) for installation and usage instructions.
           draft: false
           prerelease: false
+
+      - name: Build and push xpkg (Crossplane package)
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          # Build the xpkg
+          make xpkg.build.provider-libvirt XPKG_VERSION=${VERSION}
+          
+          # Push the xpkg to registry
+          docker push ${{ env.REGISTRY_ORGS }}/provider-libvirt:${VERSION} --all-platforms || true
+          
+          # For multi-platform xpkg, use crossplane CLI
+          crossplane xpkg push ${{ env.REGISTRY_ORGS }}/provider-libvirt:${VERSION} \
+            -f _output/xpkg/linux_amd64/provider-libvirt-${VERSION}.xpkg || true
 
       - name: Verify published artifacts
         run: |
