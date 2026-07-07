@@ -92,7 +92,7 @@ jobs:
         run: |
           # Install up CLI
           curl -fsSL https://cli.upbound.io | sh -s -- --bin-dir /usr/local/bin
-          up alpha install crossplane --version 2.3.2
+          /usr/local/bin/up alpha install crossplane --version 2.3.2
 
       - name: Build and push xpkg
         run: |
