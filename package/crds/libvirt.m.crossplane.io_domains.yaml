@@ -333,6 +333,30 @@ spec:
               atProvider:
                 description: DomainObservation are the observable fields of a Domain.
                 properties:
+                  disks:
+                    description: Disks attached to the domain. Empty disk list indicates
+                      a potential zombie.
+                    items:
+                      description: DiskInfo describes a disk device attached to a
+                        domain.
+                      properties:
+                        bootOrder:
+                          description: BootOrder is the boot order if configured
+                          format: int32
+                          type: integer
+                        device:
+                          description: Device is the target device name (e.g., "sda",
+                            "vda")
+                          type: string
+                        source:
+                          description: Source is the disk source (file path, volume
+                            name, etc.)
+                          type: string
+                        type:
+                          description: Type is the disk type (e.g., "disk", "cdrom")
+                          type: string
+                      type: object
+                    type: array
                   id:
                     description: ID is the domain ID
                     type: string
