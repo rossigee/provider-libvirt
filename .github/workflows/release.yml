@@ -88,15 +88,18 @@ jobs:
             ${{ env.REGISTRY_ORGS }}/provider-libvirt:latest
           push: true
 
-      - name: Install Crossplane CLI for xpkg build
-        run: |
-          # Install up CLI - downloads to current dir as 'up'
-          curl -fsSL https://cli.upbound.io | sh -s
-          # Move to PATH
-          mv up /usr/local/bin/
-          chmod +x /usr/local/bin/up
-          # Install crossplane plugin
-          /usr/local/bin/up alpha install crossplane --version 2.3.2
+      - name: Build and push xpkg image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./cluster/images/provider-libvirt-xpkg
+          file: ./cluster/images/provider-libvirt-xpkg/Dockerfile
+          build-args: |
+            TARGETOS=linux
+            TARGETARCH=amd64
+          tags: |
+            ${{ env.REGISTRY_ORGS }}/provider-libvirt:${{ steps.version.outputs.version }}
+            ${{ env.REGISTRY_ORGS }}/provider-libvirt:latest
+          push: true
 
       - name: Build and push xpkg
         run: |
