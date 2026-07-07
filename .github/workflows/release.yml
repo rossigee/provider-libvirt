@@ -93,23 +93,10 @@ jobs:
         with:
           context: ./cluster/images/provider-libvirt-xpkg
           file: ./cluster/images/provider-libvirt-xpkg/Dockerfile
-          build-args: |
-            TARGETOS=linux
-            TARGETARCH=amd64
           tags: |
             ${{ env.REGISTRY_ORGS }}/provider-libvirt:${{ steps.version.outputs.version }}
             ${{ env.REGISTRY_ORGS }}/provider-libvirt:latest
           push: true
-
-      - name: Build and push xpkg
-        run: |
-          up alpha xpkg build \
-            --package-root=. \
-            --package-file=_output/provider-libvirt.xpkg \
-            --descriptor-from-image=${{ env.REGISTRY_ORGS }}/provider-libvirt:${{ steps.version.outputs.version }}
-          up alpha xpkg push \
-            ${{ env.REGISTRY_ORGS }}/provider-libvirt:${{ steps.version.outputs.version }} \
-            -f _output/provider-libvirt.xpkg
 
       - name: Create GitHub Release
         uses: ncipollo/release-action@v1
