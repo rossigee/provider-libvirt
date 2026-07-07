@@ -194,6 +194,24 @@ type DomainObservation struct {
 
 	// UUID of the domain
 	UUID string `json:"uuid,omitempty"`
+
+	// Disks attached to the domain. Empty disk list indicates a potential zombie.
+	Disks []DiskInfo `json:"disks,omitempty"`
+}
+
+// DiskInfo describes a disk device attached to a domain.
+type DiskInfo struct {
+	// Device is the target device name (e.g., "sda", "vda")
+	Device string `json:"device,omitempty"`
+
+	// Type is the disk type (e.g., "disk", "cdrom")
+	Type string `json:"type,omitempty"`
+
+	// Source is the disk source (file path, volume name, etc.)
+	Source string `json:"source,omitempty"`
+
+	// BootOrder is the boot order if configured
+	BootOrder *int32 `json:"bootOrder,omitempty"`
 }
 
 // +kubebuilder:object:root=true

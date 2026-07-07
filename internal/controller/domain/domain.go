@@ -6,6 +6,7 @@ package domain
 
 import (
 	"context"
+	"encoding/xml"
 	"fmt"
 
 	"github.com/pkg/errors"
@@ -33,6 +34,7 @@ func Setup(mgr ctrl.Manager, l logging.Logger) error {
 			kube:         mgr.GetClient(),
 			usage:        resource.TrackerFn(func(ctx context.Context, mg resource.Managed) error { return nil }),
 			newServiceFn: clients.GetLibvirtClient,
+			logger:       l.WithValues("controller", name),
 		}),
 		managed.WithLogger(l.WithValues("controller", name)),
 		managed.WithPollInterval(clients.DefaultPollInterval),
@@ -48,6 +50,7 @@ type connector struct {
 	kube         client.Client
 	usage        resource.Tracker
 	newServiceFn func(ctx context.Context, kube client.Client, mg resource.Managed) (*clients.LibvirtClient, error)
+	logger       logging.Logger
 }
 
 func (c *connector) Connect(ctx context.Context, mg resource.Managed) (managed.ExternalClient, error) {
@@ -62,7 +65,7 @@ func (c *connector) Connect(ctx context.Context, mg resource.Managed) (managed.E
 		return nil, err
 	}
 
-	return &external{client: libvirtClient, kube: c.kube}, nil
+	return &external{client: libvirtClient, kube: c.kube, logger: c.logger}, nil
 }
 
 // DomainClient defines libvirt operations needed for domains
@@ -79,6 +82,7 @@ type DomainClient interface {
 type external struct {
 	client DomainClient
 	kube   client.Client // Kubernetes client for resolving references
+	logger logging.Logger
 }
 
 func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.ExternalObservation, error) {
@@ -102,20 +106,99 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 		return managed.ExternalObservation{}, err
 	}
 
+	domainState := libvirt.DomainState(state)
+
 	// Update status
-	cr.Status.AtProvider.State = formatDomainState(libvirt.DomainState(state))
+	cr.Status.AtProvider.State = formatDomainState(domainState)
 	uuid, err := domain.GetUUIDString()
 	if err != nil {
 		return managed.ExternalObservation{}, err
 	}
 	cr.Status.AtProvider.UUID = uuid
 
-	cr.Status.SetConditions(xpv1.Available())
+	// Get current XML and parse for disk information
+	currentXML, err := domain.GetXMLDesc(0)
+	if err != nil {
+		return managed.ExternalObservation{}, errors.Wrap(err, "cannot get current domain XML")
+	}
+
+	// Parse disks from domain XML
+	disks, err := c.parseDisksFromXML(currentXML)
+	if err != nil {
+		c.logger.Info("Failed to parse disks from XML, ignoring", "error", err)
+		disks = nil
+	}
+	cr.Status.AtProvider.Disks = disks
+
+	// Check for zombie condition: domain running but has no disks
+	if domainState == libvirt.DOMAIN_RUNNING && len(disks) == 0 {
+		c.logger.Info("WARNING: Domain is running with no disks attached - potential zombie", "domain", cr.Name)
+		cr.Status.SetConditions(
+			xpv1.Available(),
+			xpv1.Condition{
+				Type:    "ZombieRisk",
+				Status:  "True",
+				Reason:  "NoDisksAttached",
+				Message: "Domain is running but has no boot disk attached",
+			},
+		)
+	} else {
+		cr.Status.SetConditions(xpv1.Available())
+	}
 
 	return managed.ExternalObservation{
 		ResourceExists:   true,
 		ResourceUpToDate: true,
 	}, nil
+}
+
+// domainXML is a minimal struct to parse disk elements from libvirt domain XML
+type domainXML struct {
+	Devices struct {
+		Disks []diskXML `xml:"disk"`
+	} `xml:"devices"`
+}
+
+type diskXML struct {
+	Device string `xml:"device,attr"`
+	Type   string `xml:"type,attr"`
+	Source struct {
+		File string `xml:"file,attr"`
+		Dev  string `xml:"dev,attr"`
+	} `xml:"source"`
+	Target struct {
+		Dev string `xml:"dev,attr"`
+	} `xml:"target"`
+	Boot *struct {
+		Order int `xml:"order,attr"`
+	} `xml:"boot"`
+}
+
+func (c *external) parseDisksFromXML(xmlData string) ([]v1beta1.DiskInfo, error) {
+	var domain domainXML
+	if err := xml.Unmarshal([]byte(xmlData), &domain); err != nil {
+		return nil, errors.Wrap(err, "failed to parse domain XML for disks")
+	}
+
+	disks := make([]v1beta1.DiskInfo, 0, len(domain.Devices.Disks))
+	for _, d := range domain.Devices.Disks {
+		diskInfo := v1beta1.DiskInfo{
+			Device: d.Target.Dev,
+			Type:   d.Device,
+		}
+		if d.Source.File != "" {
+			diskInfo.Source = d.Source.File
+		} else if d.Source.Dev != "" {
+			diskInfo.Source = d.Source.Dev
+		}
+		if d.Boot != nil && d.Boot.Order > 0 {
+			order := int32(d.Boot.Order)
+			diskInfo.BootOrder = &order
+		}
+		disks = append(disks, diskInfo)
+	}
+
+	return disks, nil
 }
 
 func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.ExternalCreation, error) {
