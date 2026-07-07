@@ -88,6 +88,21 @@ jobs:
             ${{ env.REGISTRY_ORGS }}/provider-libvirt:latest
           push: true
 
+      - name: Install Crossplane CLI for xpkg build
+        run: |
+          curl -sL "https://raw.githubusercontent.com/crossplane/crossplane/master/installcrossplane" | bash -s -- --version 2.3.2
+          mv crossplane /usr/local/bin/
+
+      - name: Build and push xpkg
+        run: |
+          up alpha xpkg build \
+            --package-root=. \
+            --package-file=_output/provider-libvirt.xpkg \
+            --descriptor-from-image=${{ env.REGISTRY_ORGS }}/provider-libvirt:${{ steps.version.outputs.version }}
+          up alpha xpkg push \
+            ${{ env.REGISTRY_ORGS }}/provider-libvirt:${{ steps.version.outputs.version }} \
+            -f _output/provider-libvirt.xpkg
+
       - name: Create GitHub Release
         uses: ncipollo/release-action@v1
         with:
