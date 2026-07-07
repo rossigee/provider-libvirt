@@ -90,8 +90,9 @@ jobs:
 
       - name: Install Crossplane CLI for xpkg build
         run: |
-          curl -sL "https://raw.githubusercontent.com/crossplane/crossplane/master/installcrossplane" | bash -s -- --version 2.3.2
-          mv crossplane /usr/local/bin/
+          # Install up CLI
+          curl -fsSL https://cli.upbound.io | sh -s -- --bin-dir /usr/local/bin
+          up alpha install crossplane --version 2.3.2
 
       - name: Build and push xpkg
         run: |
