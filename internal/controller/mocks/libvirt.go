@@ -246,7 +246,7 @@ func (p *MockStoragePool) LookupStorageVolByName(name string) (*libvirt.StorageV
 	if _, ok := p.Volumes[name]; ok {
 		return (*libvirt.StorageVol)(nil), nil
 	}
-	return nil, errors.New("Volume not found")
+	return nil, errors.New("volume not found")
 }
 
 func (p *MockStoragePool) ListAllStorageVolumes(flags uint32) ([]libvirt.StorageVol, error) {
@@ -325,7 +325,7 @@ func (c *MockLibvirtClient) DomainLookupByName(name string) (*libvirt.Domain, er
 	if _, ok := c.domains[name]; ok {
 		return (*libvirt.Domain)(nil), nil
 	}
-	return nil, errors.New("Domain not found")
+	return nil, errors.New("domain not found")
 }
 
 func (c *MockLibvirtClient) DomainDefineXML(xml string) (*libvirt.Domain, error) {
@@ -391,7 +391,7 @@ func (c *MockLibvirtClient) NetworkLookupByName(name string) (*libvirt.Network, 
 	if _, ok := c.networks[name]; ok {
 		return (*libvirt.Network)(nil), nil
 	}
-	return nil, errors.New("Network not found")
+	return nil, errors.New("network not found")
 }
 
 func (c *MockLibvirtClient) NetworkDefineXML(xml string) (*libvirt.Network, error) {
@@ -475,7 +475,7 @@ func (c *MockLibvirtClient) StoragePoolLookupByName(name string) (*libvirt.Stora
 	if _, ok := c.storagePools[name]; ok {
 		return (*libvirt.StoragePool)(nil), nil
 	}
-	return nil, errors.New("Storage pool not found")
+	return nil, errors.New("storage pool not found")
 }
 
 func (c *MockLibvirtClient) StoragePoolDefineXML(xml string, flags uint32) (*libvirt.StoragePool, error) {
@@ -559,7 +559,7 @@ func (c *MockLibvirtClient) StorageVolLookupByName(pool *libvirt.StoragePool, na
 		_, err := c.StorageVolLookupByNameFn((*MockStoragePool)(nil), name)
 		return (*libvirt.StorageVol)(nil), err
 	}
-	return nil, errors.New("Volume not found")
+	return nil, errors.New("volume not found")
 }
 
 func (c *MockLibvirtClient) StorageVolCreateXML(pool *libvirt.StoragePool, xml string, flags uint32) (*libvirt.StorageVol, error) {

@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/pkg/errors"
 	"libvirt.org/go/libvirt"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -18,8 +19,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	xpv1 "github.com/crossplane/crossplane/apis/v2/core/v2"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/resource"
+	xpv1 "github.com/crossplane/crossplane/apis/v2/core/v2"
 
 	"github.com/rossigee/provider-libvirt/apis/v1beta1"
 )
@@ -81,7 +82,7 @@ func (r *reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	uri, ok := creds["uri"]
 	if !ok {
 		errMsg := "libvirt URI not found in credentials (expected \"uri\" key)"
-		log.Error(fmt.Errorf(errMsg), "invalid credentials")
+		log.Error(errors.New(errMsg), "invalid credentials")
 		r.setCondition(pc, corev1.ConditionFalse, "ConnectionError", errMsg)
 		if err := r.kube.Status().Update(ctx, pc); err != nil {
 			return ctrl.Result{}, err

@@ -1,3 +1,4 @@
+//go:build cgo
 // +build cgo
 
 /*
@@ -10,18 +11,18 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
 	"reflect"
 	"strings"
 	"time"
 
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	"k8s.io/client-go/util/retry"
 	"libvirt.org/go/libvirt"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	xpv1 "github.com/crossplane/crossplane/apis/v2/core/v2"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/resource"
+	xpv1 "github.com/crossplane/crossplane/apis/v2/core/v2"
 
 	"github.com/rossigee/provider-libvirt/apis/v1beta1"
 )
@@ -33,12 +34,12 @@ const (
 	keyURI = "uri"
 
 	// Default controller settings
-	DefaultPollInterval             = 60 * time.Second
-	DefaultMaxConcurrentReconciles  = 10
+	DefaultPollInterval            = 60 * time.Second
+	DefaultMaxConcurrentReconciles = 10
 
 	// Connection backoff settings
-	ConnBackoffInitial   = 5 * time.Second
-	ConnBackoffMax       = 5 * time.Minute
+	ConnBackoffInitial    = 5 * time.Second
+	ConnBackoffMax        = 5 * time.Minute
 	ConnBackoffMultiplier = 2.0
 
 	// error messages
@@ -51,9 +52,9 @@ const (
 	errConnectLibvirt       = "cannot connect to libvirt"
 
 	// Annotations for connection tracking
-	AnnotationLastConnFailure = "provider-libvirt.crossplane.io/last-connection-failure"
+	AnnotationLastConnFailure     = "provider-libvirt.crossplane.io/last-connection-failure"
 	AnnotationLastConnFailureTime = "provider-libvirt.crossplane.io/last-connection-failure-time"
-	AnnotationConnFailureCount = "provider-libvirt.crossplane.io/connection-failure-count"
+	AnnotationConnFailureCount    = "provider-libvirt.crossplane.io/connection-failure-count"
 )
 
 // LibvirtCredentials represents libvirt connection credentials
@@ -61,8 +62,8 @@ type LibvirtCredentials map[string]string
 
 // RetriableError wraps an error to indicate it's transient and should be retried with backoff
 type RetriableError struct {
-	Err      error
-	Backoff  time.Duration
+	Err       error
+	Backoff   time.Duration
 	Retriable bool
 }
 
@@ -154,7 +155,6 @@ func GetLibvirtClient(ctx context.Context, kube client.Client, mg resource.Manag
 	if configRef == nil {
 		return nil, errors.New("CRITICAL: configRef is nil - ProviderConfigReference not extracted from resource")
 	}
-	fmt.Fprintf(os.Stderr, "DEBUG: configRef=%v for resource %s/%s\n", configRef, mg.GetNamespace(), mg.GetName())
 
 	// First try to find the ProviderConfig in the managed resource's namespace
 	pc := &v1beta1.ProviderConfig{}
@@ -166,7 +166,7 @@ func GetLibvirtClient(ctx context.Context, kube client.Client, mg resource.Manag
 	// Try three locations in order: resource namespace, crossplane-system, default
 	err := kube.Get(ctx, types.NamespacedName{Name: configRef.Name, Namespace: pcNamespace}, pc)
 	if err != nil {
-		panic(fmt.Sprintf("GetLibvirtClient: kube.Get failed in %s for %s: %v", pcNamespace, configRef.Name, err))
+		return nil, errors.Wrap(err, "cannot get ProviderConfig")
 	}
 
 	// Check if ProviderConfig has recent connection failures - if so, back off
@@ -174,8 +174,8 @@ func GetLibvirtClient(ctx context.Context, kube client.Client, mg resource.Manag
 		failureCount := getConnectionFailureCount(pc)
 		backoff := GetBackoffDuration(failureCount)
 		return nil, &RetriableError{
-			Err:      fmt.Errorf("backing off after %d connection failures to %s; retry after %v", failureCount, pc.Name, backoff),
-			Backoff:  backoff,
+			Err:       fmt.Errorf("backing off after %d connection failures to %s; retry after %v", failureCount, pc.Name, backoff),
+			Backoff:   backoff,
 			Retriable: true,
 		}
 	}
@@ -210,8 +210,8 @@ func GetLibvirtClient(ctx context.Context, kube client.Client, mg resource.Manag
 			failureCount := getConnectionFailureCount(pc) + 1
 			backoff := GetBackoffDuration(failureCount)
 			return nil, &RetriableError{
-				Err:      errors.Wrap(err, "transient connection error to libvirt"),
-				Backoff:  backoff,
+				Err:       errors.Wrap(err, "transient connection error to libvirt"),
+				Backoff:   backoff,
 				Retriable: true,
 			}
 		}
@@ -263,37 +263,51 @@ func getConnectionFailureCount(pc *v1beta1.ProviderConfig) int {
 	}
 
 	count := 0
-	fmt.Sscanf(countStr, "%d", &count)
+	_, _ = fmt.Sscanf(countStr, "%d", &count)
 	return count
 }
 
 // recordConnectionFailure updates the ProviderConfig annotations to track failures
 func recordConnectionFailure(ctx context.Context, kube client.Client, pc *v1beta1.ProviderConfig, err error) {
-	if pc.Annotations == nil {
-		pc.Annotations = make(map[string]string)
-	}
+	_ = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		// Reload the ProviderConfig to get the latest version
+		latest := &v1beta1.ProviderConfig{}
+		if getErr := kube.Get(ctx, client.ObjectKeyFromObject(pc), latest); getErr != nil {
+			return getErr
+		}
 
-	failureCount := getConnectionFailureCount(pc) + 1
-	pc.Annotations[AnnotationLastConnFailure] = err.Error()
-	pc.Annotations[AnnotationLastConnFailureTime] = time.Now().Format(time.RFC3339)
-	pc.Annotations[AnnotationConnFailureCount] = fmt.Sprintf("%d", failureCount)
+		if latest.Annotations == nil {
+			latest.Annotations = make(map[string]string)
+		}
 
-	// Update annotations without error handling - failures here shouldn't block
-	_ = kube.Update(ctx, pc)
+		failureCount := getConnectionFailureCount(latest) + 1
+		latest.Annotations[AnnotationLastConnFailure] = err.Error()
+		latest.Annotations[AnnotationLastConnFailureTime] = time.Now().Format(time.RFC3339)
+		latest.Annotations[AnnotationConnFailureCount] = fmt.Sprintf("%d", failureCount)
+
+		return kube.Update(ctx, latest)
+	})
 }
 
 // clearConnectionFailures resets the connection failure tracking
 func clearConnectionFailures(ctx context.Context, kube client.Client, pc *v1beta1.ProviderConfig) {
-	if pc.Annotations == nil {
-		return
-	}
+	_ = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		// Reload the ProviderConfig to get the latest version
+		latest := &v1beta1.ProviderConfig{}
+		if getErr := kube.Get(ctx, client.ObjectKeyFromObject(pc), latest); getErr != nil {
+			return getErr
+		}
 
-	delete(pc.Annotations, AnnotationLastConnFailure)
-	delete(pc.Annotations, AnnotationLastConnFailureTime)
-	delete(pc.Annotations, AnnotationConnFailureCount)
+		if latest.Annotations == nil {
+			return nil
+		}
 
-	// Update annotations without error handling
-	_ = kube.Update(ctx, pc)
+		delete(latest.Annotations, AnnotationLastConnFailure)
+		delete(latest.Annotations, AnnotationLastConnFailureTime)
+		delete(latest.Annotations, AnnotationConnFailureCount)
+
+		return kube.Update(ctx, latest)
+	})
 }
 
 // NewLibvirtClient creates a new libvirt client from credentials
@@ -397,14 +411,14 @@ func UUIDToString(uuid [16]byte) string {
 // StringToUUID converts a string UUID to libvirt UUID byte array
 func StringToUUID(uuidStr string) ([16]byte, error) {
 	var uuid [16]byte
-	
+
 	// Remove hyphens from UUID string
 	cleanUUID := strings.ReplaceAll(uuidStr, "-", "")
-	
+
 	if len(cleanUUID) != 32 {
 		return uuid, fmt.Errorf("invalid UUID length: expected 32 characters, got %d", len(cleanUUID))
 	}
-	
+
 	// Convert hex string to bytes
 	for i := 0; i < 16; i++ {
 		hexByte := cleanUUID[i*2 : i*2+2]
@@ -413,7 +427,7 @@ func StringToUUID(uuidStr string) ([16]byte, error) {
 			return uuid, fmt.Errorf("invalid hex in UUID: %s", hexByte)
 		}
 	}
-	
+
 	return uuid, nil
 }
 
@@ -500,7 +514,6 @@ func (c *LibvirtClient) NetworkGetXMLDesc(network *libvirt.Network, flags uint32
 	return network.GetXMLDesc(libvirt.NetworkXMLFlags(flags))
 }
 
-
 // NetworkCreate starts a network
 func (c *LibvirtClient) NetworkCreate(network *libvirt.Network) error {
 	return network.Create()
@@ -552,7 +565,6 @@ func (c *LibvirtClient) StoragePoolGetInfo(pool *libvirt.StoragePool) (*libvirt.
 func (c *LibvirtClient) StoragePoolListAllVolumes(pool *libvirt.StoragePool, flags uint32) ([]libvirt.StorageVol, error) {
 	return pool.ListAllStorageVolumes(flags)
 }
-
 
 // StoragePoolBuild builds a storage pool
 func (c *LibvirtClient) StoragePoolBuild(pool *libvirt.StoragePool, flags uint32) error {
