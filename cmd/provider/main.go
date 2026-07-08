@@ -46,7 +46,6 @@ func main() {
 		ctrl.SetLogger(zl)
 	}
 
-	shutdownTracing(context.Background())
 
 	cfg, err := ctrl.GetConfig()
 	kingpin.FatalIfError(err, "Cannot get API server rest config")
