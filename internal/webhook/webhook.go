@@ -5,7 +5,7 @@ Copyright 2025 Ross Golder
 package webhook
 
 import (
-	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime"
 )
 
 // SetupWebhookWithManager sets up the webhooks with the manager.

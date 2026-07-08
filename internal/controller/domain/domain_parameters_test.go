@@ -1,12 +1,10 @@
 package domain
 
 import (
-	"testing"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	xpv1 "github.com/crossplane/crossplane/apis/v2/core/v2"
-
+	"github.com/crossplane/crossplane/apis/v2/core/v2"
 	"github.com/rossigee/provider-libvirt/apis/v1beta1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1"
+	"testing"
 )
 
 // Parameter validation and configuration tests
@@ -23,11 +21,11 @@ func TestDomainNameRequired(t *testing.T) {
 
 func TestDomainMemoryBounds(t *testing.T) {
 	cases := map[string]int64{
-		"minimal":   67108864,    // 64MB
-		"small":     268435456,   // 256MB
-		"medium":    1073741824,  // 1GB
-		"large":     4294967296,  // 4GB
-		"xlarge":    17179869184, // 16GB
+		"minimal": 67108864,    // 64MB
+		"small":   268435456,   // 256MB
+		"medium":  1073741824,  // 1GB
+		"large":   4294967296,  // 4GB
+		"xlarge":  17179869184, // 16GB
 	}
 
 	for name, memory := range cases {

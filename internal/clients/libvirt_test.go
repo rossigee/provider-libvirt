@@ -6,20 +6,18 @@ package clients
 
 import (
 	"fmt"
+	"github.com/rossigee/provider-libvirt/apis/v1beta1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	"testing"
 	"time"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	"github.com/rossigee/provider-libvirt/apis/v1beta1"
 )
 
 func TestGetBackoffDuration(t *testing.T) {
 	tests := []struct {
-		name          string
-		failureCount  int
-		expectedMin   time.Duration
-		expectedMax   time.Duration
+		name         string
+		failureCount int
+		expectedMin  time.Duration
+		expectedMax  time.Duration
 	}{
 		{
 			name:         "zero failures",
@@ -226,8 +224,8 @@ func TestShouldBackoffConnection(t *testing.T) {
 	nowRFC3339 := now.Format(time.RFC3339)
 
 	tests := []struct {
-		name         string
-		pc           *v1beta1.ProviderConfig
+		name          string
+		pc            *v1beta1.ProviderConfig
 		shouldBackoff bool
 	}{
 		{

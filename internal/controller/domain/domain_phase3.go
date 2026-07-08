@@ -2,12 +2,10 @@ package domain
 
 import (
 	"context"
-
-	xpv1 "github.com/crossplane/crossplane/apis/v2/core/v2"
+	"github.com/crossplane/crossplane/apis/v2/core/v2"
 	"github.com/pkg/errors"
-	"k8s.io/apimachinery/pkg/types"
-
 	"github.com/rossigee/provider-libvirt/apis/v1beta1"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 // resolveVolumeRef resolves a Volume reference to get the volume path

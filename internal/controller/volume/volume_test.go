@@ -2,11 +2,9 @@ package volume
 
 import (
 	"fmt"
-	"testing"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	"github.com/rossigee/provider-libvirt/apis/v1beta1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1"
+	"testing"
 )
 
 type volumeModifier func(*v1beta1.Volume)

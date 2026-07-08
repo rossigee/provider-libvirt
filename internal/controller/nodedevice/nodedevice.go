@@ -6,18 +6,15 @@ package nodedevice
 
 import (
 	"context"
-
-	"github.com/pkg/errors"
-	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-
 	"github.com/crossplane/crossplane-runtime/v2/pkg/event"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/logging"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/reconciler/managed"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/resource"
-
+	"github.com/pkg/errors"
 	"github.com/rossigee/provider-libvirt/apis/v1beta1"
 	"github.com/rossigee/provider-libvirt/internal/clients"
+	"sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // Setup adds a controller that reconciles NodeDevice managed resources.

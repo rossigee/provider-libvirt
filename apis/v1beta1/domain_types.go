@@ -5,11 +5,11 @@ Copyright 2025 Ross Golder
 package v1beta1
 
 import (
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-
-	xpv1 "github.com/crossplane/crossplane/apis/v2/core/v2"
+	"github.com/crossplane/crossplane/apis/v2/core/v2"
 )
+
 
 // DomainSpec defines the desired state of Domain
 type DomainSpec struct {
@@ -280,7 +280,4 @@ func (mg *Domain) GetWriteConnectionSecretToReference() *xpv1.LocalSecretReferen
 func (mg *Domain) SetWriteConnectionSecretToReference(r *xpv1.LocalSecretReference) {
 	mg.Spec.WriteConnectionSecretToReference = r
 }
-
-func init() {
-	SchemeBuilder.Register(&Domain{}, &DomainList{})
 }

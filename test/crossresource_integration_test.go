@@ -9,20 +9,16 @@ package test
 
 import (
 	"context"
-	"testing"
-
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"github.com/crossplane/crossplane/apis/v2/core/v2"
+	"github.com/rossigee/provider-libvirt/apis/v1beta1"
+	"k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
-
-	xpv1 "github.com/crossplane/crossplane/apis/v2/core/v2"
-
-	"github.com/rossigee/provider-libvirt/apis/v1beta1"
+	"testing"
 )
-
 
 // TestCrossResourceIntegration tests the complete cross-resource workflow:
 // StoragePool → Volume → Network → Domain with references
@@ -107,10 +103,10 @@ func testCompleteVMSetup(t *testing.T, ctx context.Context, k8sClient client.Cli
 				ProviderConfigReference: &xpv1.ProviderConfigReference{Name: "test-provider-config"},
 			},
 			ForProvider: v1beta1.VolumeParameters{
-				Name:     "test-vm-disk.qcow2",
-				Pool:     "test-pool", // References the StoragePool
-				Format:   "qcow2",
-				Size: int64Ptr(21474836480), // 20GB in bytes
+				Name:   "test-vm-disk.qcow2",
+				Pool:   "test-pool", // References the StoragePool
+				Format: "qcow2",
+				Size:   int64Ptr(21474836480), // 20GB in bytes
 			},
 		},
 	}
@@ -203,9 +199,9 @@ func testCompleteVMSetup(t *testing.T, ctx context.Context, k8sClient client.Cli
 				// Network interface with Network reference (NEW cross-resource feature)
 				NetworkInterface: []v1beta1.DomainNetworkInterface{
 					{
-						NetworkRef:    &xpv1.Reference{Name: "test-vm-network"}, // Cross-resource reference
-						Model:         "virtio",
-						WaitForLease:  true,
+						NetworkRef:   &xpv1.Reference{Name: "test-vm-network"}, // Cross-resource reference
+						Model:        "virtio",
+						WaitForLease: true,
 					},
 				},
 				Console: []v1beta1.DomainConsole{
@@ -360,7 +356,7 @@ func testVolumeReferenceValidation(t *testing.T, ctx context.Context, k8sClient 
 
 	// In a real scenario, the controller would set an error condition
 	// For this test, we just verify the reference exists
-	if len(retrievedDomain.Spec.ForProvider.Disk) == 0 || 
+	if len(retrievedDomain.Spec.ForProvider.Disk) == 0 ||
 		retrievedDomain.Spec.ForProvider.Disk[0].VolumeRef == nil {
 		t.Error("Expected Domain to preserve invalid VolumeRef for debugging")
 	}
@@ -408,7 +404,7 @@ func testNetworkReferenceValidation(t *testing.T, ctx context.Context, k8sClient
 	}
 
 	// Verify the reference is preserved
-	if len(retrievedDomain.Spec.ForProvider.NetworkInterface) == 0 || 
+	if len(retrievedDomain.Spec.ForProvider.NetworkInterface) == 0 ||
 		retrievedDomain.Spec.ForProvider.NetworkInterface[0].NetworkRef == nil {
 		t.Error("Expected Domain to preserve invalid NetworkRef for debugging")
 	}
@@ -491,7 +487,7 @@ func testBackwardCompatibility(t *testing.T, ctx context.Context, k8sClient clie
 
 func testResourceDependencyOrdering(t *testing.T, ctx context.Context, k8sClient client.Client) {
 	// Test case: Create Domain before its dependencies to verify proper error handling
-	
+
 	// Try to create Domain that references non-existent resources
 	domain := &v1beta1.Domain{
 		ObjectMeta: metav1.ObjectMeta{
@@ -537,10 +533,10 @@ func testResourceDependencyOrdering(t *testing.T, ctx context.Context, k8sClient
 				ProviderConfigReference: &xpv1.ProviderConfigReference{Name: "test-provider-config"},
 			},
 			ForProvider: v1beta1.VolumeParameters{
-				Name:     "future-volume.qcow2",
-				Pool:     "default",
-				Format:   "qcow2",
-				Size: int64Ptr(10737418240), // 10GB in bytes
+				Name:   "future-volume.qcow2",
+				Pool:   "default",
+				Format: "qcow2",
+				Size:   int64Ptr(10737418240), // 10GB in bytes
 			},
 		},
 	}
@@ -618,4 +614,3 @@ func createTestScheme() *runtime.Scheme {
 	_ = corev1.AddToScheme(scheme)
 	return scheme
 }
-

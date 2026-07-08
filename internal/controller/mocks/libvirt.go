@@ -2,9 +2,8 @@ package mocks
 
 import (
 	"errors"
-	"sync"
-
 	"libvirt.org/go/libvirt"
+	"sync"
 )
 
 // MockLibvirtClient mocks the LibvirtClient for testing
@@ -21,16 +20,16 @@ type MockLibvirtClient struct {
 	DomainSetAutostartFn func(domain *MockDomain, autostart int) error
 
 	// Network operations
-	NetworkLookupByNameFn   func(name string) (*MockNetwork, error)
-	NetworkDefineXMLFn      func(xml string) (*MockNetwork, error)
-	NetworkCreateFn         func(network *MockNetwork) error
-	NetworkDestroyFn        func(network *MockNetwork) error
-	NetworkUndefineFn       func(network *MockNetwork) error
-	NetworkSetAutostartFn   func(network *MockNetwork, autostart bool) error
-	NetworkIsActiveFn       func(network *MockNetwork) (bool, error)
-	NetworkIsPersistentFn   func(network *MockNetwork) (bool, error)
-	NetworkGetAutostartFn   func(network *MockNetwork) (bool, error)
-	NetworkGetXMLDescFn     func(network *MockNetwork, flags uint32) (string, error)
+	NetworkLookupByNameFn func(name string) (*MockNetwork, error)
+	NetworkDefineXMLFn    func(xml string) (*MockNetwork, error)
+	NetworkCreateFn       func(network *MockNetwork) error
+	NetworkDestroyFn      func(network *MockNetwork) error
+	NetworkUndefineFn     func(network *MockNetwork) error
+	NetworkSetAutostartFn func(network *MockNetwork, autostart bool) error
+	NetworkIsActiveFn     func(network *MockNetwork) (bool, error)
+	NetworkIsPersistentFn func(network *MockNetwork) (bool, error)
+	NetworkGetAutostartFn func(network *MockNetwork) (bool, error)
+	NetworkGetXMLDescFn   func(network *MockNetwork, flags uint32) (string, error)
 
 	// Storage pool operations
 	StoragePoolLookupByNameFn   func(name string) (*MockStoragePool, error)
@@ -47,12 +46,12 @@ type MockLibvirtClient struct {
 	StoragePoolListAllVolumesFn func(pool *MockStoragePool, flags uint32) ([]libvirt.StorageVol, error)
 
 	// Volume operations
-	StorageVolLookupByNameFn   func(pool *MockStoragePool, name string) (*MockStorageVol, error)
-	StorageVolCreateXMLFn      func(pool *MockStoragePool, xml string, flags uint32) (*MockStorageVol, error)
-	StorageVolDeleteFn         func(vol *MockStorageVol, flags uint32) error
-	StorageVolGetInfoFn        func(vol *MockStorageVol) (*libvirt.StorageVolInfo, error)
-	StorageVolGetXMLDescFn     func(vol *MockStorageVol, flags uint32) (string, error)
-	StorageVolResizeFn         func(vol *MockStorageVol, capacity uint64, flags libvirt.StorageVolResizeFlags) error
+	StorageVolLookupByNameFn func(pool *MockStoragePool, name string) (*MockStorageVol, error)
+	StorageVolCreateXMLFn    func(pool *MockStoragePool, xml string, flags uint32) (*MockStorageVol, error)
+	StorageVolDeleteFn       func(vol *MockStorageVol, flags uint32) error
+	StorageVolGetInfoFn      func(vol *MockStorageVol) (*libvirt.StorageVolInfo, error)
+	StorageVolGetXMLDescFn   func(vol *MockStorageVol, flags uint32) (string, error)
+	StorageVolResizeFn       func(vol *MockStorageVol, capacity uint64, flags libvirt.StorageVolResizeFlags) error
 
 	// Internal state
 	domains      map[string]*MockDomain
@@ -73,16 +72,16 @@ func NewMockLibvirtClient() *MockLibvirtClient {
 
 // MockDomain mocks libvirt.Domain
 type MockDomain struct {
-	Name       string
-	UUID       string
-	ID         int
-	State      libvirt.DomainState
-	XML        string
-	Autostart  int
-	Memory     uint64
-	MaxMemory  uint64
-	VCPUCount  uint
-	CPUTime    uint64
+	Name      string
+	UUID      string
+	ID        int
+	State     libvirt.DomainState
+	XML       string
+	Autostart int
+	Memory    uint64
+	MaxMemory uint64
+	VCPUCount uint
+	CPUTime   uint64
 }
 
 func (d *MockDomain) GetState() (libvirt.DomainState, int, error) {
@@ -91,11 +90,11 @@ func (d *MockDomain) GetState() (libvirt.DomainState, int, error) {
 
 func (d *MockDomain) GetInfo() (*libvirt.DomainInfo, error) {
 	return &libvirt.DomainInfo{
-		State:    d.State,
-		MaxMem:   d.MaxMemory,
-		Memory:   d.Memory,
+		State:     d.State,
+		MaxMem:    d.MaxMemory,
+		Memory:    d.Memory,
 		NrVirtCpu: d.VCPUCount,
-		CpuTime:  d.CPUTime,
+		CpuTime:   d.CPUTime,
 	}, nil
 }
 

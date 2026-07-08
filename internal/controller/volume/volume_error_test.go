@@ -1,9 +1,8 @@
 package volume
 
 import (
-	"testing"
-
 	"github.com/rossigee/provider-libvirt/apis/v1beta1"
+	"testing"
 )
 
 // Error path and validation tests for volume controller

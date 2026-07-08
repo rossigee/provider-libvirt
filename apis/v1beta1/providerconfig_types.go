@@ -5,11 +5,11 @@ Copyright 2025 Ross Golder
 package v1beta1
 
 import (
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-
-	xpv1 "github.com/crossplane/crossplane/apis/v2/core/v2"
+	"github.com/crossplane/crossplane/apis/v2/core/v2"
 )
+
 
 // ProviderConfigSpec defines the desired state of ProviderConfig
 type ProviderConfigSpec struct {
@@ -73,7 +73,4 @@ var ProviderConfigGroupVersionKind = schema.GroupVersionKind{
 
 // ProviderConfigKind is the kind for ProviderConfig
 const ProviderConfigKind = "ProviderConfig"
-
-func init() {
-	SchemeBuilder.Register(&ProviderConfig{}, &ProviderConfigList{})
 }

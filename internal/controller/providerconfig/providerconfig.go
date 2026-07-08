@@ -8,21 +8,17 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"time"
-
+	"github.com/crossplane/crossplane-runtime/v2/pkg/resource"
+	"github.com/crossplane/crossplane/apis/v2/core/v2"
 	"github.com/pkg/errors"
+	"github.com/rossigee/provider-libvirt/apis/v1beta1"
+	"k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	"libvirt.org/go/libvirt"
-	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	"github.com/crossplane/crossplane-runtime/v2/pkg/resource"
-	xpv1 "github.com/crossplane/crossplane/apis/v2/core/v2"
-
-	"github.com/rossigee/provider-libvirt/apis/v1beta1"
+	"time"
 )
 
 const (

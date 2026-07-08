@@ -2,27 +2,25 @@ package domain
 
 import (
 	"fmt"
-	"testing"
-
 	"github.com/google/go-cmp/cmp"
 	"github.com/pkg/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"libvirt.org/go/libvirt"
-
 	"github.com/rossigee/provider-libvirt/apis/v1beta1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1"
+	"libvirt.org/go/libvirt"
+	"testing"
 )
 
 type domainModifier func(*v1beta1.Domain)
 
 // mockDomainClient implements DomainClient for testing
 type mockDomainClient struct {
-	lookupByNameFn   func(name string) error
-	defineXMLFn      func(xml string) error
-	createFn         func(d interface{}) error
-	setAutostartFn   func(d interface{}, as int) error
-	shutdownFn       func(d interface{}) error
-	destroyFn        func(d interface{}) error
-	undefineFn       func(d interface{}) error
+	lookupByNameFn func(name string) error
+	defineXMLFn    func(xml string) error
+	createFn       func(d interface{}) error
+	setAutostartFn func(d interface{}, as int) error
+	shutdownFn     func(d interface{}) error
+	destroyFn      func(d interface{}) error
+	undefineFn     func(d interface{}) error
 }
 
 func (m *mockDomainClient) DomainLookupByName(name string) (*libvirt.Domain, error) {
@@ -165,7 +163,7 @@ func TestGenerateDomainXML(t *testing.T) {
 						NetworkName: "default",
 						Model:       "virtio",
 						Vlan: &v1beta1.DomainInterfaceVlan{
-							ID:        200,
+							ID:         200,
 							NativeMode: "untagged",
 						},
 					},
@@ -353,8 +351,8 @@ func TestGenerateDomainXMLCustomArch(t *testing.T) {
 func TestGenerateDomainXMLMemory(t *testing.T) {
 	ext := &external{client: nil}
 	cases := map[string]int64{
-		"1GB":  1073741824,
-		"2GB":  2147483648,
+		"1GB":   1073741824,
+		"2GB":   2147483648,
 		"512MB": 536870912,
 	}
 
@@ -378,10 +376,10 @@ func memStr(m int64) string {
 func TestGenerateDomainXMLVCPU(t *testing.T) {
 	ext := &external{client: nil}
 	cases := map[string]int32{
-		"1CPU":  1,
-		"2CPU":  2,
-		"4CPU":  4,
-		"8CPU":  8,
+		"1CPU": 1,
+		"2CPU": 2,
+		"4CPU": 4,
+		"8CPU": 8,
 	}
 
 	for name, cpu := range cases {

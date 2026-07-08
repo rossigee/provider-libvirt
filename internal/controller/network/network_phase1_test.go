@@ -1,9 +1,8 @@
 package network
 
 import (
-	"testing"
-
 	"github.com/rossigee/provider-libvirt/apis/v1beta1"
+	"testing"
 )
 
 // Phase 1 API Tests - Domain, Bridge STP Delay

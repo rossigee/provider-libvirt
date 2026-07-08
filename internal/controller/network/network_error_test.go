@@ -1,9 +1,8 @@
 package network
 
 import (
-	"testing"
-
 	"github.com/rossigee/provider-libvirt/apis/v1beta1"
+	"testing"
 )
 
 // Error path and validation tests for network controller

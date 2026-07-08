@@ -1,9 +1,8 @@
 package domain
 
 import (
-	"testing"
-
 	"github.com/rossigee/provider-libvirt/apis/v1beta1"
+	"testing"
 )
 
 // Phase 2 API Tests - WaitForLease
@@ -13,7 +12,7 @@ func TestGenerateDomainXMLWithWaitForLease(t *testing.T) {
 	cr := testDomain(func(d *v1beta1.Domain) {
 		d.Spec.ForProvider.NetworkInterface = []v1beta1.DomainNetworkInterface{
 			{
-				NetworkName: "default",
+				NetworkName:  "default",
 				WaitForLease: true,
 			},
 		}
@@ -30,7 +29,7 @@ func TestGenerateDomainXMLWithoutWaitForLease(t *testing.T) {
 	cr := testDomain(func(d *v1beta1.Domain) {
 		d.Spec.ForProvider.NetworkInterface = []v1beta1.DomainNetworkInterface{
 			{
-				NetworkName: "default",
+				NetworkName:  "default",
 				WaitForLease: false,
 			},
 		}

@@ -1,11 +1,9 @@
 package network
 
 import (
-	"testing"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	"github.com/rossigee/provider-libvirt/apis/v1beta1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1"
+	"testing"
 )
 
 type networkModifier func(*v1beta1.Network)

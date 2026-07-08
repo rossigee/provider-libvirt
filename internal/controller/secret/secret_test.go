@@ -2,21 +2,18 @@ package secret
 
 import (
 	"context"
-	"testing"
-
+	"github.com/crossplane/crossplane-runtime/v2/pkg/reconciler/managed"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/resource"
 	"github.com/google/go-cmp/cmp"
 	"github.com/pkg/errors"
+	"github.com/rossigee/provider-libvirt/apis/v1beta1"
 	"k8s.io/apimachinery/pkg/api/meta"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	"github.com/crossplane/crossplane-runtime/v2/pkg/reconciler/managed"
-	"github.com/crossplane/crossplane-runtime/v2/pkg/resource"
-
-	"github.com/rossigee/provider-libvirt/apis/v1beta1"
+	"testing"
 )
 
 // mockKube implements client.Client for testing

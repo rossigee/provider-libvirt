@@ -2,26 +2,24 @@ package storagepool
 
 import (
 	"context"
-	"testing"
-
 	"github.com/pkg/errors"
-	"libvirt.org/go/libvirt"
-
 	"github.com/rossigee/provider-libvirt/apis/v1beta1"
+	"libvirt.org/go/libvirt"
+	"testing"
 )
 
 type mockStoragePoolClient struct {
-	lookupByNameFn    func(name string) (*libvirt.StoragePool, error)
-	defineXMLFn       func(xml string, flags uint32) (*libvirt.StoragePool, error)
-	createFn          func(sp *libvirt.StoragePool, flags uint32) error
-	destroyFn         func(sp *libvirt.StoragePool) error
-	undefineFn        func(sp *libvirt.StoragePool) error
-	isActiveFn        func(sp *libvirt.StoragePool) (bool, error)
-	isPersistentFn    func(sp *libvirt.StoragePool) (bool, error)
-	getAutostartFn    func(sp *libvirt.StoragePool) (bool, error)
-	setAutostartFn    func(sp *libvirt.StoragePool, autostart bool) error
-	getInfoFn         func(sp *libvirt.StoragePool) (*libvirt.StoragePoolInfo, error)
-	buildFn           func(sp *libvirt.StoragePool, flags uint32) error
+	lookupByNameFn func(name string) (*libvirt.StoragePool, error)
+	defineXMLFn    func(xml string, flags uint32) (*libvirt.StoragePool, error)
+	createFn       func(sp *libvirt.StoragePool, flags uint32) error
+	destroyFn      func(sp *libvirt.StoragePool) error
+	undefineFn     func(sp *libvirt.StoragePool) error
+	isActiveFn     func(sp *libvirt.StoragePool) (bool, error)
+	isPersistentFn func(sp *libvirt.StoragePool) (bool, error)
+	getAutostartFn func(sp *libvirt.StoragePool) (bool, error)
+	setAutostartFn func(sp *libvirt.StoragePool, autostart bool) error
+	getInfoFn      func(sp *libvirt.StoragePool) (*libvirt.StoragePoolInfo, error)
+	buildFn        func(sp *libvirt.StoragePool, flags uint32) error
 }
 
 func (m *mockStoragePoolClient) StoragePoolLookupByName(name string) (*libvirt.StoragePool, error) {

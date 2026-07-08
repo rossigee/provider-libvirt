@@ -5,13 +5,11 @@ Copyright 2025 Ross Golder
 package v1beta1
 
 import (
-	"testing"
-
+	"github.com/crossplane/crossplane/apis/v2/core/v2"
 	"github.com/google/go-cmp/cmp"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-
-	xpv1 "github.com/crossplane/crossplane/apis/v2/core/v2"
+	"testing"
 )
 
 // Helper function to create pointer to int64

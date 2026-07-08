@@ -1,11 +1,9 @@
 package domain
 
 import (
-	"testing"
-
-	"libvirt.org/go/libvirt"
-
 	"github.com/rossigee/provider-libvirt/apis/v1beta1"
+	"libvirt.org/go/libvirt"
+	"testing"
 )
 
 // Error path and validation tests for domain controller

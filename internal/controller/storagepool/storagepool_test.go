@@ -1,12 +1,10 @@
 package storagepool
 
 import (
-	"testing"
-
 	"github.com/google/go-cmp/cmp"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	"github.com/rossigee/provider-libvirt/apis/v1beta1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1"
+	"testing"
 )
 
 type storagePoolModifier func(*v1beta1.StoragePool)

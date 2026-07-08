@@ -6,17 +6,8 @@ package main
 
 import (
 	"context"
-	"os"
-	"path/filepath"
-
 	"github.com/alecthomas/kingpin/v2"
-	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/cache"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
-	"sigs.k8s.io/controller-runtime/pkg/healthz"
-
 	"github.com/crossplane/crossplane-runtime/v2/pkg/logging"
-
 	"github.com/rossigee/provider-libvirt/apis/v1beta1"
 	"github.com/rossigee/provider-libvirt/internal/controller/domain"
 	"github.com/rossigee/provider-libvirt/internal/controller/network"
@@ -27,6 +18,12 @@ import (
 	"github.com/rossigee/provider-libvirt/internal/controller/volume"
 	"github.com/rossigee/provider-libvirt/internal/tracing"
 	"github.com/rossigee/provider-libvirt/internal/webhook"
+	"os"
+	"path/filepath"
+	"sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
+	"sigs.k8s.io/controller-runtime/pkg/healthz"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
 func main() {
@@ -45,7 +42,6 @@ func main() {
 	if *debug {
 		ctrl.SetLogger(zl)
 	}
-
 
 	cfg, err := ctrl.GetConfig()
 	kingpin.FatalIfError(err, "Cannot get API server rest config")

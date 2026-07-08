@@ -9,18 +9,15 @@ package test
 
 import (
 	"context"
-	"testing"
-	"time"
-
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"github.com/crossplane/crossplane/apis/v2/core/v2"
+	"github.com/rossigee/provider-libvirt/apis/v1beta1"
+	"k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
-
-	xpv1 "github.com/crossplane/crossplane/apis/v2/core/v2"
-
-	"github.com/rossigee/provider-libvirt/apis/v1beta1"
+	"testing"
+	"time"
 )
 
 // TestDomainLifecycle tests the complete lifecycle of a Domain resource
@@ -32,7 +29,7 @@ func TestDomainLifecycle(t *testing.T) {
 
 	// This test would require a real libvirt connection
 	// For now, it demonstrates the test structure
-	
+
 	scheme := runtime.NewScheme()
 	_ = v1beta1.SchemeBuilder.AddToScheme(scheme)
 	_ = corev1.AddToScheme(scheme)
@@ -70,7 +67,6 @@ func TestDomainLifecycle(t *testing.T) {
 				ProviderConfigReference: &xpv1.ProviderConfigReference{
 					Name: "test-provider-config",
 				},
-				
 			},
 			ForProvider: v1beta1.DomainParameters{
 				Name:    "test-integration-vm",
@@ -115,7 +111,7 @@ func TestDomainLifecycle(t *testing.T) {
 	// 3. Test state transitions (start/stop)
 	// 4. Test updates
 	// 5. Test deletion
-	
+
 	// Simulate waiting for reconciliation
 	time.Sleep(100 * time.Millisecond)
 
@@ -186,13 +182,13 @@ func TestProviderConfigValidation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
-			
+
 			err := fakeClient.Create(context.Background(), tt.config)
-			
+
 			if tt.wantErr && err == nil {
 				t.Error("Expected error but got none")
 			}
-			
+
 			if !tt.wantErr && err != nil {
 				t.Errorf("Unexpected error: %v", err)
 			}
@@ -257,13 +253,13 @@ func TestDomainSpecValidation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
-			
+
 			err := fakeClient.Create(context.Background(), tt.domain)
-			
+
 			if tt.wantErr && err == nil {
 				t.Error("Expected error but got none")
 			}
-			
+
 			if !tt.wantErr && err != nil {
 				t.Errorf("Unexpected error: %v", err)
 			}

@@ -5,11 +5,11 @@ Copyright 2025 Ross Golder
 package v1beta1
 
 import (
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-
-	xpv1 "github.com/crossplane/crossplane/apis/v2/core/v2"
+	"github.com/crossplane/crossplane/apis/v2/core/v2"
 )
+
 
 // VolumeSpec defines the desired state of Volume
 type VolumeSpec struct {
@@ -299,7 +299,4 @@ func (mg *Volume) GetWriteConnectionSecretToReference() *xpv1.LocalSecretReferen
 func (mg *Volume) SetWriteConnectionSecretToReference(r *xpv1.LocalSecretReference) {
 	mg.Spec.WriteConnectionSecretToReference = r
 }
-
-func init() {
-	SchemeBuilder.Register(&Volume{}, &VolumeList{})
 }

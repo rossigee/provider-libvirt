@@ -2,25 +2,23 @@ package network
 
 import (
 	"context"
-	"testing"
-
 	"github.com/pkg/errors"
-	"libvirt.org/go/libvirt"
-
 	"github.com/rossigee/provider-libvirt/apis/v1beta1"
+	"libvirt.org/go/libvirt"
+	"testing"
 )
 
 // mockNetworkClient for testing
 type mockNetworkClient struct {
-	lookupByNameFn    func(name string) (*libvirt.Network, error)
-	defineXMLFn       func(xml string) (*libvirt.Network, error)
-	createFn          func(n *libvirt.Network) error
-	destroyFn         func(n *libvirt.Network) error
-	undefineFn        func(n *libvirt.Network) error
-	isActiveFn        func(n *libvirt.Network) (bool, error)
-	isPersistentFn    func(n *libvirt.Network) (bool, error)
-	getAutostartFn    func(n *libvirt.Network) (bool, error)
-	setAutostartFn    func(n *libvirt.Network, autostart bool) error
+	lookupByNameFn func(name string) (*libvirt.Network, error)
+	defineXMLFn    func(xml string) (*libvirt.Network, error)
+	createFn       func(n *libvirt.Network) error
+	destroyFn      func(n *libvirt.Network) error
+	undefineFn     func(n *libvirt.Network) error
+	isActiveFn     func(n *libvirt.Network) (bool, error)
+	isPersistentFn func(n *libvirt.Network) (bool, error)
+	getAutostartFn func(n *libvirt.Network) (bool, error)
+	setAutostartFn func(n *libvirt.Network, autostart bool) error
 }
 
 func (m *mockNetworkClient) NetworkLookupByName(name string) (*libvirt.Network, error) {

@@ -2,9 +2,8 @@ package secret
 
 import (
 	"context"
-	"testing"
-
 	"github.com/rossigee/provider-libvirt/apis/v1beta1"
+	"testing"
 )
 
 // Error path tests for secret controller
@@ -41,7 +40,6 @@ func TestCreateWrongResourceType(t *testing.T) {
 		t.Error("Create should fail for wrong resource type")
 	}
 }
-
 
 func TestUpdateWrongResourceType(t *testing.T) {
 	ext := &external{service: nil, kube: nil}

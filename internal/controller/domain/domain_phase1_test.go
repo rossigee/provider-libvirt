@@ -1,9 +1,8 @@
 package domain
 
 import (
-	"testing"
-
 	"github.com/rossigee/provider-libvirt/apis/v1beta1"
+	"testing"
 )
 
 // Phase 1 API Tests - WWN, Console Target, Boot Devices, Machine Type

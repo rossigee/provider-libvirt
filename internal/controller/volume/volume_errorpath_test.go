@@ -2,20 +2,18 @@ package volume
 
 import (
 	"context"
-	"testing"
-
 	"github.com/pkg/errors"
-	"libvirt.org/go/libvirt"
-
 	"github.com/rossigee/provider-libvirt/apis/v1beta1"
+	"libvirt.org/go/libvirt"
+	"testing"
 )
 
 type mockVolumeClient struct {
-	lookupByNameFn    func(pool *libvirt.StoragePool, name string) (*libvirt.StorageVol, error)
-	createXMLFn       func(pool *libvirt.StoragePool, xml string, flags uint32) (*libvirt.StorageVol, error)
-	deleteFn          func(vol *libvirt.StorageVol, flags uint32) error
-	getInfoFn         func(vol *libvirt.StorageVol) (*libvirt.StorageVolInfo, error)
-	resizeFn          func(volume *libvirt.StorageVol, capacity uint64, flags libvirt.StorageVolResizeFlags) error
+	lookupByNameFn     func(pool *libvirt.StoragePool, name string) (*libvirt.StorageVol, error)
+	createXMLFn        func(pool *libvirt.StoragePool, xml string, flags uint32) (*libvirt.StorageVol, error)
+	deleteFn           func(vol *libvirt.StorageVol, flags uint32) error
+	getInfoFn          func(vol *libvirt.StorageVol) (*libvirt.StorageVolInfo, error)
+	resizeFn           func(volume *libvirt.StorageVol, capacity uint64, flags libvirt.StorageVolResizeFlags) error
 	poolLookupByNameFn func(name string) (*libvirt.StoragePool, error)
 }
 

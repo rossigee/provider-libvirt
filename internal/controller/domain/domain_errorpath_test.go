@@ -2,11 +2,9 @@ package domain
 
 import (
 	"context"
-	"testing"
-
 	"github.com/pkg/errors"
-
 	"github.com/rossigee/provider-libvirt/apis/v1beta1"
+	"testing"
 )
 
 // Error path tests for domain controller

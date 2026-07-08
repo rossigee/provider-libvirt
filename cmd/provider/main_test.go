@@ -1,10 +1,9 @@
 package main
 
 import (
+	"github.com/alecthomas/kingpin/v2"
 	"os"
 	"testing"
-
-	"github.com/alecthomas/kingpin/v2"
 )
 
 func TestMain(m *testing.M) {

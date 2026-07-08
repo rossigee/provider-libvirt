@@ -7,20 +7,17 @@ package network
 import (
 	"context"
 	"fmt"
-
-	"github.com/pkg/errors"
-	"libvirt.org/go/libvirt"
-	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-
 	"github.com/crossplane/crossplane-runtime/v2/pkg/event"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/logging"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/reconciler/managed"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/resource"
-	xpv1 "github.com/crossplane/crossplane/apis/v2/core/v2"
-
+	"github.com/crossplane/crossplane/apis/v2/core/v2"
+	"github.com/pkg/errors"
 	"github.com/rossigee/provider-libvirt/apis/v1beta1"
 	"github.com/rossigee/provider-libvirt/internal/clients"
+	"libvirt.org/go/libvirt"
+	"sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // NetworkClient defines libvirt operations needed for networks
