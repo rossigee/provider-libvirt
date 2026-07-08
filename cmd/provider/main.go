@@ -5,6 +5,7 @@ Copyright 2025 Ross Golder
 package main
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 
@@ -24,6 +25,7 @@ import (
 	"github.com/rossigee/provider-libvirt/internal/controller/secret"
 	"github.com/rossigee/provider-libvirt/internal/controller/storagepool"
 	"github.com/rossigee/provider-libvirt/internal/controller/volume"
+	"github.com/rossigee/provider-libvirt/internal/tracing"
 	"github.com/rossigee/provider-libvirt/internal/webhook"
 )
 
@@ -37,9 +39,14 @@ func main() {
 
 	zl := zap.New(zap.UseDevMode(*debug))
 	log := logging.NewLogrLogger(zl.WithName("provider-libvirt"))
+
+	shutdownTracing := tracing.Init("provider-libvirt")
+	defer shutdownTracing(context.Background())
 	if *debug {
 		ctrl.SetLogger(zl)
 	}
+
+	shutdownTracing(context.Background())
 
 	cfg, err := ctrl.GetConfig()
 	kingpin.FatalIfError(err, "Cannot get API server rest config")
