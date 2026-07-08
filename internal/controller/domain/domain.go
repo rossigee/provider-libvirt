@@ -30,7 +30,7 @@ func Setup(mgr ctrl.Manager, l logging.Logger) error {
 
 	r := managed.NewReconciler(mgr,
 		resource.ManagedKind(v1beta1.DomainGroupVersionKind),
-		managed.WithExternalConnecter(&connector{
+		managed.WithExternalConnector(&connector{
 			kube:         mgr.GetClient(),
 			usage:        resource.TrackerFn(func(ctx context.Context, mg resource.Managed) error { return nil }),
 			newServiceFn: clients.GetLibvirtClient,
@@ -38,7 +38,7 @@ func Setup(mgr ctrl.Manager, l logging.Logger) error {
 		}),
 		managed.WithLogger(l.WithValues("controller", name)),
 		managed.WithPollInterval(clients.DefaultPollInterval),
-		managed.WithRecorder(event.NewAPIRecorder(mgr.GetEventRecorderFor(name))))
+		managed.WithRecorder(event.NewAPIRecorder(mgr.GetEventRecorder(name))))
 
 	return ctrl.NewControllerManagedBy(mgr).
 		Named(name).

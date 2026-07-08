@@ -68,9 +68,8 @@ func testCompleteVMSetup(t *testing.T, ctx context.Context, k8sClient client.Cli
 			Name: "test-storage-pool",
 		},
 		Spec: v1beta1.StoragePoolSpec{
-			ResourceSpec: xpv1.ManagedResourceSpec{
-				ProviderConfigReference: &xpv1.Reference{Name: "test-provider-config"},
-				DeletionPolicy:          xpv1.DeletionDelete,
+			ManagedResourceSpec: xpv1.ManagedResourceSpec{
+				ProviderConfigReference: &xpv1.ProviderConfigReference{Name: "test-provider-config"},
 			},
 			ForProvider: v1beta1.StoragePoolParameters{
 				Name: "test-pool",
@@ -104,9 +103,8 @@ func testCompleteVMSetup(t *testing.T, ctx context.Context, k8sClient client.Cli
 			Name: "test-vm-disk",
 		},
 		Spec: v1beta1.VolumeSpec{
-			ResourceSpec: xpv1.ManagedResourceSpec{
-				ProviderConfigReference: &xpv1.Reference{Name: "test-provider-config"},
-				DeletionPolicy:          xpv1.DeletionDelete,
+			ManagedResourceSpec: xpv1.ManagedResourceSpec{
+				ProviderConfigReference: &xpv1.ProviderConfigReference{Name: "test-provider-config"},
 			},
 			ForProvider: v1beta1.VolumeParameters{
 				Name:     "test-vm-disk.qcow2",
@@ -138,9 +136,8 @@ func testCompleteVMSetup(t *testing.T, ctx context.Context, k8sClient client.Cli
 			Name: "test-vm-network",
 		},
 		Spec: v1beta1.NetworkSpec{
-			ResourceSpec: xpv1.ManagedResourceSpec{
-				ProviderConfigReference: &xpv1.Reference{Name: "test-provider-config"},
-				DeletionPolicy:          xpv1.DeletionDelete,
+			ManagedResourceSpec: xpv1.ManagedResourceSpec{
+				ProviderConfigReference: &xpv1.ProviderConfigReference{Name: "test-provider-config"},
 			},
 			ForProvider: v1beta1.NetworkParameters{
 				Name: "test-network",
@@ -183,9 +180,8 @@ func testCompleteVMSetup(t *testing.T, ctx context.Context, k8sClient client.Cli
 			Name: "test-vm-with-refs",
 		},
 		Spec: v1beta1.DomainSpec{
-			ResourceSpec: xpv1.ManagedResourceSpec{
-				ProviderConfigReference: &xpv1.Reference{Name: "test-provider-config"},
-				DeletionPolicy:          xpv1.DeletionDelete,
+			ManagedResourceSpec: xpv1.ManagedResourceSpec{
+				ProviderConfigReference: &xpv1.ProviderConfigReference{Name: "test-provider-config"},
 			},
 			ForProvider: v1beta1.DomainParameters{
 				Name:    "test-integration-vm",
@@ -333,8 +329,8 @@ func testVolumeReferenceValidation(t *testing.T, ctx context.Context, k8sClient 
 			Name: "test-invalid-volume-ref",
 		},
 		Spec: v1beta1.DomainSpec{
-			ResourceSpec: xpv1.ManagedResourceSpec{
-				ProviderConfigReference: &xpv1.Reference{Name: "test-provider-config"},
+			ManagedResourceSpec: xpv1.ManagedResourceSpec{
+				ProviderConfigReference: &xpv1.ProviderConfigReference{Name: "test-provider-config"},
 			},
 			ForProvider: v1beta1.DomainParameters{
 				Name:   "test-vm-invalid-ref",
@@ -383,8 +379,8 @@ func testNetworkReferenceValidation(t *testing.T, ctx context.Context, k8sClient
 			Name: "test-invalid-network-ref",
 		},
 		Spec: v1beta1.DomainSpec{
-			ResourceSpec: xpv1.ManagedResourceSpec{
-				ProviderConfigReference: &xpv1.Reference{Name: "test-provider-config"},
+			ManagedResourceSpec: xpv1.ManagedResourceSpec{
+				ProviderConfigReference: &xpv1.ProviderConfigReference{Name: "test-provider-config"},
 			},
 			ForProvider: v1beta1.DomainParameters{
 				Name:   "test-vm-invalid-network",
@@ -431,8 +427,8 @@ func testBackwardCompatibility(t *testing.T, ctx context.Context, k8sClient clie
 			Name: "test-legacy-paths",
 		},
 		Spec: v1beta1.DomainSpec{
-			ResourceSpec: xpv1.ManagedResourceSpec{
-				ProviderConfigReference: &xpv1.Reference{Name: "test-provider-config"},
+			ManagedResourceSpec: xpv1.ManagedResourceSpec{
+				ProviderConfigReference: &xpv1.ProviderConfigReference{Name: "test-provider-config"},
 			},
 			ForProvider: v1beta1.DomainParameters{
 				Name:   "test-legacy-vm",
@@ -502,8 +498,8 @@ func testResourceDependencyOrdering(t *testing.T, ctx context.Context, k8sClient
 			Name: "test-dependency-ordering",
 		},
 		Spec: v1beta1.DomainSpec{
-			ResourceSpec: xpv1.ManagedResourceSpec{
-				ProviderConfigReference: &xpv1.Reference{Name: "test-provider-config"},
+			ManagedResourceSpec: xpv1.ManagedResourceSpec{
+				ProviderConfigReference: &xpv1.ProviderConfigReference{Name: "test-provider-config"},
 			},
 			ForProvider: v1beta1.DomainParameters{
 				Name:   "test-dependency-vm",
@@ -537,8 +533,8 @@ func testResourceDependencyOrdering(t *testing.T, ctx context.Context, k8sClient
 			Name: "future-volume",
 		},
 		Spec: v1beta1.VolumeSpec{
-			ResourceSpec: xpv1.ManagedResourceSpec{
-				ProviderConfigReference: &xpv1.Reference{Name: "test-provider-config"},
+			ManagedResourceSpec: xpv1.ManagedResourceSpec{
+				ProviderConfigReference: &xpv1.ProviderConfigReference{Name: "test-provider-config"},
 			},
 			ForProvider: v1beta1.VolumeParameters{
 				Name:     "future-volume.qcow2",
@@ -554,8 +550,8 @@ func testResourceDependencyOrdering(t *testing.T, ctx context.Context, k8sClient
 			Name: "future-network",
 		},
 		Spec: v1beta1.NetworkSpec{
-			ResourceSpec: xpv1.ManagedResourceSpec{
-				ProviderConfigReference: &xpv1.Reference{Name: "test-provider-config"},
+			ManagedResourceSpec: xpv1.ManagedResourceSpec{
+				ProviderConfigReference: &xpv1.ProviderConfigReference{Name: "test-provider-config"},
 			},
 			ForProvider: v1beta1.NetworkParameters{
 				Name: "future-network",

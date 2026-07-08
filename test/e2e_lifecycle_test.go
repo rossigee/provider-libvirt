@@ -113,9 +113,9 @@ func testBasicVMLifecycle(t *testing.T, ctx context.Context, k8sClient client.Cl
 			Name: "basic-vm",
 		},
 		Spec: v1beta1.DomainSpec{
-			ResourceSpec: xpv1.ManagedResourceSpec{
-				ProviderConfigReference: &xpv1.Reference{Name: "test-provider-config"},
-				DeletionPolicy:          xpv1.DeletionDelete,
+			ManagedResourceSpec: xpv1.ManagedResourceSpec{
+				ProviderConfigReference: &xpv1.ProviderConfigReference{Name: "test-provider-config"},
+				
 			},
 			ForProvider: v1beta1.DomainParameters{
 				Name:    "basic-test-vm",
@@ -258,8 +258,8 @@ func testMultiDiskVMLifecycle(t *testing.T, ctx context.Context, k8sClient clien
 			Name: "multi-disk-vm",
 		},
 		Spec: v1beta1.DomainSpec{
-			ResourceSpec: xpv1.ManagedResourceSpec{
-				ProviderConfigReference: &xpv1.Reference{Name: "test-provider-config"},
+			ManagedResourceSpec: xpv1.ManagedResourceSpec{
+				ProviderConfigReference: &xpv1.ProviderConfigReference{Name: "test-provider-config"},
 			},
 			ForProvider: v1beta1.DomainParameters{
 				Name:    "multi-disk-test-vm",
@@ -361,8 +361,8 @@ func testMultiNetworkVMLifecycle(t *testing.T, ctx context.Context, k8sClient cl
 			Name: "multi-network-vm",
 		},
 		Spec: v1beta1.DomainSpec{
-			ResourceSpec: xpv1.ManagedResourceSpec{
-				ProviderConfigReference: &xpv1.Reference{Name: "test-provider-config"},
+			ManagedResourceSpec: xpv1.ManagedResourceSpec{
+				ProviderConfigReference: &xpv1.ProviderConfigReference{Name: "test-provider-config"},
 			},
 			ForProvider: v1beta1.DomainParameters{
 				Name:    "multi-network-test-vm",
@@ -444,8 +444,8 @@ func testVMStateTransitions(t *testing.T, ctx context.Context, k8sClient client.
 			Name: "state-test-vm",
 		},
 		Spec: v1beta1.DomainSpec{
-			ResourceSpec: xpv1.ManagedResourceSpec{
-				ProviderConfigReference: &xpv1.Reference{Name: "test-provider-config"},
+			ManagedResourceSpec: xpv1.ManagedResourceSpec{
+				ProviderConfigReference: &xpv1.ProviderConfigReference{Name: "test-provider-config"},
 			},
 			ForProvider: v1beta1.DomainParameters{
 				Name:    "state-transition-vm",
@@ -530,8 +530,8 @@ func testVMConfigurationUpdates(t *testing.T, ctx context.Context, k8sClient cli
 			Name: "config-test-vm",
 		},
 		Spec: v1beta1.DomainSpec{
-			ResourceSpec: xpv1.ManagedResourceSpec{
-				ProviderConfigReference: &xpv1.Reference{Name: "test-provider-config"},
+			ManagedResourceSpec: xpv1.ManagedResourceSpec{
+				ProviderConfigReference: &xpv1.ProviderConfigReference{Name: "test-provider-config"},
 			},
 			ForProvider: v1beta1.DomainParameters{
 				Name:    "config-update-vm",
@@ -616,8 +616,8 @@ func testVMErrorRecovery(t *testing.T, ctx context.Context, k8sClient client.Cli
 				Name: "error-missing-volume",
 			},
 			Spec: v1beta1.DomainSpec{
-				ResourceSpec: xpv1.ManagedResourceSpec{
-					ProviderConfigReference: &xpv1.Reference{Name: "test-provider-config"},
+				ManagedResourceSpec: xpv1.ManagedResourceSpec{
+					ProviderConfigReference: &xpv1.ProviderConfigReference{Name: "test-provider-config"},
 				},
 				ForProvider: v1beta1.DomainParameters{
 					Name:    "error-vm",
@@ -660,8 +660,8 @@ func testVMErrorRecovery(t *testing.T, ctx context.Context, k8sClient client.Cli
 				Name: "error-missing-network",
 			},
 			Spec: v1beta1.DomainSpec{
-				ResourceSpec: xpv1.ManagedResourceSpec{
-					ProviderConfigReference: &xpv1.Reference{Name: "test-provider-config"},
+				ManagedResourceSpec: xpv1.ManagedResourceSpec{
+					ProviderConfigReference: &xpv1.ProviderConfigReference{Name: "test-provider-config"},
 				},
 				ForProvider: v1beta1.DomainParameters{
 					Name:    "error-network-vm",
@@ -720,8 +720,8 @@ func testConcurrentVMOperations(t *testing.T, ctx context.Context, k8sClient cli
 				Name: fmt.Sprintf("concurrent-vm-%d", i),
 			},
 			Spec: v1beta1.DomainSpec{
-				ResourceSpec: xpv1.ManagedResourceSpec{
-					ProviderConfigReference: &xpv1.Reference{Name: "test-provider-config"},
+				ManagedResourceSpec: xpv1.ManagedResourceSpec{
+					ProviderConfigReference: &xpv1.ProviderConfigReference{Name: "test-provider-config"},
 				},
 				ForProvider: v1beta1.DomainParameters{
 					Name:    fmt.Sprintf("concurrent-test-vm-%d", i),

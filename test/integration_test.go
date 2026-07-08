@@ -66,11 +66,11 @@ func TestDomainLifecycle(t *testing.T) {
 			Name: "test-domain",
 		},
 		Spec: v1beta1.DomainSpec{
-			ResourceSpec: xpv1.ManagedResourceSpec{
-				ProviderConfigReference: &xpv1.Reference{
+			ManagedResourceSpec: xpv1.ManagedResourceSpec{
+				ProviderConfigReference: &xpv1.ProviderConfigReference{
 					Name: "test-provider-config",
 				},
-				DeletionPolicy: xpv1.DeletionDelete,
+				
 			},
 			ForProvider: v1beta1.DomainParameters{
 				Name:    "test-integration-vm",
@@ -214,8 +214,8 @@ func TestDomainSpecValidation(t *testing.T) {
 					Name: "valid-domain",
 				},
 				Spec: v1beta1.DomainSpec{
-					ResourceSpec: xpv1.ManagedResourceSpec{
-						ProviderConfigReference: &xpv1.Reference{
+					ManagedResourceSpec: xpv1.ManagedResourceSpec{
+						ProviderConfigReference: &xpv1.ProviderConfigReference{
 							Name: "test-config",
 						},
 					},
@@ -235,8 +235,8 @@ func TestDomainSpecValidation(t *testing.T) {
 					Name: "minimal-domain",
 				},
 				Spec: v1beta1.DomainSpec{
-					ResourceSpec: xpv1.ManagedResourceSpec{
-						ProviderConfigReference: &xpv1.Reference{
+					ManagedResourceSpec: xpv1.ManagedResourceSpec{
+						ProviderConfigReference: &xpv1.ProviderConfigReference{
 							Name: "test-config",
 						},
 					},

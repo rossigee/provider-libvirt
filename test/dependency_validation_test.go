@@ -95,8 +95,8 @@ func testVolumeReadinessValidation(t *testing.T, ctx context.Context, k8sClient 
 			Name: "readiness-test-domain",
 		},
 		Spec: v1beta1.DomainSpec{
-			ResourceSpec: xpv1.ManagedResourceSpec{
-				ProviderConfigReference: &xpv1.Reference{Name: "test-provider-config"},
+			ManagedResourceSpec: xpv1.ManagedResourceSpec{
+				ProviderConfigReference: &xpv1.ProviderConfigReference{Name: "test-provider-config"},
 			},
 			ForProvider: v1beta1.DomainParameters{
 				Name:    "readiness-test-vm",
@@ -196,8 +196,8 @@ func testNetworkReadinessValidation(t *testing.T, ctx context.Context, k8sClient
 			Name: "network-readiness-test-domain",
 		},
 		Spec: v1beta1.DomainSpec{
-			ResourceSpec: xpv1.ManagedResourceSpec{
-				ProviderConfigReference: &xpv1.Reference{Name: "test-provider-config"},
+			ManagedResourceSpec: xpv1.ManagedResourceSpec{
+				ProviderConfigReference: &xpv1.ProviderConfigReference{Name: "test-provider-config"},
 			},
 			ForProvider: v1beta1.DomainParameters{
 				Name:    "network-readiness-test-vm",
@@ -260,8 +260,8 @@ func testStoragePoolDependencyValidation(t *testing.T, ctx context.Context, k8sC
 			Name: "pool-dependency-volume",
 		},
 		Spec: v1beta1.VolumeSpec{
-			ResourceSpec: xpv1.ManagedResourceSpec{
-				ProviderConfigReference: &xpv1.Reference{Name: "test-provider-config"},
+			ManagedResourceSpec: xpv1.ManagedResourceSpec{
+				ProviderConfigReference: &xpv1.ProviderConfigReference{Name: "test-provider-config"},
 			},
 			ForProvider: v1beta1.VolumeParameters{
 				Name:   "pool-dependency-volume.qcow2",
@@ -291,8 +291,8 @@ func testStoragePoolDependencyValidation(t *testing.T, ctx context.Context, k8sC
 			Name: "dependency-test-pool",
 		},
 		Spec: v1beta1.StoragePoolSpec{
-			ResourceSpec: xpv1.ManagedResourceSpec{
-				ProviderConfigReference: &xpv1.Reference{Name: "test-provider-config"},
+			ManagedResourceSpec: xpv1.ManagedResourceSpec{
+				ProviderConfigReference: &xpv1.ProviderConfigReference{Name: "test-provider-config"},
 			},
 			ForProvider: v1beta1.StoragePoolParameters{
 				Name: "non-existent-pool", // This matches the Volume's Pool
@@ -343,8 +343,8 @@ func testCrossReferenceResolution(t *testing.T, ctx context.Context, k8sClient c
 			Name: "xref-test-domain",
 		},
 		Spec: v1beta1.DomainSpec{
-			ResourceSpec: xpv1.ManagedResourceSpec{
-				ProviderConfigReference: &xpv1.Reference{Name: "test-provider-config"},
+			ManagedResourceSpec: xpv1.ManagedResourceSpec{
+				ProviderConfigReference: &xpv1.ProviderConfigReference{Name: "test-provider-config"},
 			},
 			ForProvider: v1beta1.DomainParameters{
 				Name:    "xref-test-vm",
@@ -423,8 +423,8 @@ func testMixedReferenceTypes(t *testing.T, ctx context.Context, k8sClient client
 			Name: "mixed-ref-domain",
 		},
 		Spec: v1beta1.DomainSpec{
-			ResourceSpec: xpv1.ManagedResourceSpec{
-				ProviderConfigReference: &xpv1.Reference{Name: "test-provider-config"},
+			ManagedResourceSpec: xpv1.ManagedResourceSpec{
+				ProviderConfigReference: &xpv1.ProviderConfigReference{Name: "test-provider-config"},
 			},
 			ForProvider: v1beta1.DomainParameters{
 				Name:    "mixed-ref-vm",
@@ -546,8 +546,8 @@ func testCircularDependencyDetection(t *testing.T, ctx context.Context, k8sClien
 			Name: "circular-test-vol-1",
 		},
 		Spec: v1beta1.VolumeSpec{
-			ResourceSpec: xpv1.ManagedResourceSpec{
-				ProviderConfigReference: &xpv1.Reference{Name: "test-provider-config"},
+			ManagedResourceSpec: xpv1.ManagedResourceSpec{
+				ProviderConfigReference: &xpv1.ProviderConfigReference{Name: "test-provider-config"},
 			},
 			ForProvider: v1beta1.VolumeParameters{
 				Name:   "circular-test-vol-1.qcow2",
@@ -563,8 +563,8 @@ func testCircularDependencyDetection(t *testing.T, ctx context.Context, k8sClien
 			Name: "circular-test-vol-2",
 		},
 		Spec: v1beta1.VolumeSpec{
-			ResourceSpec: xpv1.ManagedResourceSpec{
-				ProviderConfigReference: &xpv1.Reference{Name: "test-provider-config"},
+			ManagedResourceSpec: xpv1.ManagedResourceSpec{
+				ProviderConfigReference: &xpv1.ProviderConfigReference{Name: "test-provider-config"},
 			},
 			ForProvider: v1beta1.VolumeParameters{
 				Name:   "circular-test-vol-2.qcow2",
@@ -586,8 +586,8 @@ func testCircularDependencyDetection(t *testing.T, ctx context.Context, k8sClien
 			Name: "circular-test-domain",
 		},
 		Spec: v1beta1.DomainSpec{
-			ResourceSpec: xpv1.ManagedResourceSpec{
-				ProviderConfigReference: &xpv1.Reference{Name: "test-provider-config"},
+			ManagedResourceSpec: xpv1.ManagedResourceSpec{
+				ProviderConfigReference: &xpv1.ProviderConfigReference{Name: "test-provider-config"},
 			},
 			ForProvider: v1beta1.DomainParameters{
 				Name:    "circular-test-vm",
@@ -657,9 +657,9 @@ func testDependencyCleanupOrder(t *testing.T, ctx context.Context, k8sClient cli
 			Name: "cleanup-test-domain",
 		},
 		Spec: v1beta1.DomainSpec{
-			ResourceSpec: xpv1.ManagedResourceSpec{
-				ProviderConfigReference: &xpv1.Reference{Name: "test-provider-config"},
-				DeletionPolicy:          xpv1.DeletionDelete,
+			ManagedResourceSpec: xpv1.ManagedResourceSpec{
+				ProviderConfigReference: &xpv1.ProviderConfigReference{Name: "test-provider-config"},
+				
 			},
 			ForProvider: v1beta1.DomainParameters{
 				Name:    "cleanup-test-vm",
@@ -729,8 +729,8 @@ func testResourceNotFoundHandling(t *testing.T, ctx context.Context, k8sClient c
 			Name: "not-found-test-domain",
 		},
 		Spec: v1beta1.DomainSpec{
-			ResourceSpec: xpv1.ManagedResourceSpec{
-				ProviderConfigReference: &xpv1.Reference{Name: "test-provider-config"},
+			ManagedResourceSpec: xpv1.ManagedResourceSpec{
+				ProviderConfigReference: &xpv1.ProviderConfigReference{Name: "test-provider-config"},
 			},
 			ForProvider: v1beta1.DomainParameters{
 				Name:    "not-found-test-vm",
@@ -810,8 +810,8 @@ func BenchmarkCrossReferenceResolution(b *testing.B) {
 			Name: "bench-domain",
 		},
 		Spec: v1beta1.DomainSpec{
-			ResourceSpec: xpv1.ManagedResourceSpec{
-				ProviderConfigReference: &xpv1.Reference{Name: "test-provider-config"},
+			ManagedResourceSpec: xpv1.ManagedResourceSpec{
+				ProviderConfigReference: &xpv1.ProviderConfigReference{Name: "test-provider-config"},
 			},
 			ForProvider: v1beta1.DomainParameters{
 				Name:    "bench-vm",

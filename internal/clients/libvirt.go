@@ -127,7 +127,7 @@ func GetLibvirtClient(ctx context.Context, kube client.Client, mg resource.Manag
 
 	// Use reflection to extract ProviderConfigReference from Spec field
 	mgVal := reflect.ValueOf(mg)
-	if mgVal.Kind() == reflect.Ptr {
+	if mgVal.Kind() == reflect.Pointer {
 		mgVal = mgVal.Elem()
 	}
 
@@ -439,7 +439,7 @@ func StringToUUID(uuidStr string) ([16]byte, error) {
 
 // DomainLookupByName looks up a domain by name
 func (c *LibvirtClient) DomainLookupByName(name string) (*libvirt.Domain, error) {
-	return c.Connect.LookupDomainByName(name)
+	return c.LookupDomainByName(name)
 }
 
 // DomainGetState gets the state of a domain
@@ -491,7 +491,7 @@ func (c *LibvirtClient) DomainSetAutostart(domain *libvirt.Domain, autostart int
 
 // NetworkLookupByName looks up a network by name
 func (c *LibvirtClient) NetworkLookupByName(name string) (*libvirt.Network, error) {
-	return c.Connect.LookupNetworkByName(name)
+	return c.LookupNetworkByName(name)
 }
 
 // NetworkIsActive checks if a network is active
@@ -538,7 +538,7 @@ func (c *LibvirtClient) NetworkUndefine(network *libvirt.Network) error {
 
 // StoragePoolLookupByName looks up a storage pool by name
 func (c *LibvirtClient) StoragePoolLookupByName(name string) (*libvirt.StoragePool, error) {
-	return c.Connect.LookupStoragePoolByName(name)
+	return c.LookupStoragePoolByName(name)
 }
 
 // StoragePoolIsActive checks if a storage pool is active
@@ -626,7 +626,7 @@ func (c *LibvirtClient) SecretLookupByUUID(uuid string) (*libvirt.Secret, error)
 	if err != nil {
 		return nil, err
 	}
-	return c.Connect.LookupSecretByUUID(uuidBytes[:])
+	return c.LookupSecretByUUID(uuidBytes[:])
 }
 
 // SecretSetValue sets secret value
