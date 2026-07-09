@@ -21,8 +21,7 @@ limitations under the License.
 package v1beta1
 
 import (
-	xpv1 "github.com/crossplane/crossplane/apis/v2/core/v2"
-
+	"github.com/crossplane/crossplane/apis/v2/core/v2"
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
@@ -113,7 +112,7 @@ func (in *DomainDisk) DeepCopyInto(out *DomainDisk) {
 	*out = *in
 	if in.VolumeRef != nil {
 		in, out := &in.VolumeRef, &out.VolumeRef
-		*out = new(xpv1.Reference)
+		*out = new(v2.Reference)
 		(*in).DeepCopyInto(*out)
 	}
 	if in.BootOrder != nil {
@@ -205,7 +204,7 @@ func (in *DomainNetworkInterface) DeepCopyInto(out *DomainNetworkInterface) {
 	*out = *in
 	if in.NetworkRef != nil {
 		in, out := &in.NetworkRef, &out.NetworkRef
-		*out = new(xpv1.Reference)
+		*out = new(v2.Reference)
 		(*in).DeepCopyInto(*out)
 	}
 	if in.Vlan != nil {
@@ -1646,7 +1645,7 @@ func (in *VolumeEncryption) DeepCopyInto(out *VolumeEncryption) {
 	*out = *in
 	if in.SecretRef != nil {
 		in, out := &in.SecretRef, &out.SecretRef
-		*out = new(xpv1.Reference)
+		*out = new(v2.Reference)
 		(*in).DeepCopyInto(*out)
 	}
 	if in.Secret != nil {

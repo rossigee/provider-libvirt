@@ -1,0 +1,356 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.20.1
+  name: networks.libvirt.m.crossplane.io
+spec:
+  group: libvirt.m.crossplane.io
+  names:
+    categories:
+    - crossplane
+    - managed
+    - libvirt
+    kind: Network
+    listKind: NetworkList
+    plural: networks
+    singular: network
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .status.conditions[?(@.type=='Ready')].status
+      name: READY
+      type: string
+    - jsonPath: .status.conditions[?(@.type=='Synced')].status
+      name: SYNCED
+      type: string
+    - jsonPath: .spec.forProvider.mode
+      name: MODE
+      type: string
+    - jsonPath: .status.atProvider.active
+      name: ACTIVE
+      type: boolean
+    - jsonPath: .metadata.creationTimestamp
+      name: AGE
+      type: date
+    name: v1beta1
+    schema:
+      openAPIV3Schema:
+        description: A Network is a managed resource that represents a libvirt network.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: NetworkSpec defines the desired state of Network
+            properties:
+              forProvider:
+                description: NetworkParameters are the configurable fields of a Network.
+                properties:
+                  addresses:
+                    description: Addresses for the network
+                    items:
+                      type: string
+                    type: array
+                  autostart:
+                    default: true
+                    description: Autostart the network
+                    type: boolean
+                  bridge:
+                    description: Bridge configuration for bridge mode
+                    properties:
+                      name:
+                        description: Name of the bridge
+                        type: string
+                      stpDelay:
+                        description: STP (Spanning Tree Protocol) delay
+                        format: int32
+                        type: integer
+                    type: object
+                  dhcp:
+                    description: DHCP configuration
+                    properties:
+                      enabled:
+                        default: true
+                        description: Enabled indicates if DHCP is enabled
+                        type: boolean
+                      end:
+                        description: End IP address for DHCP range
+                        type: string
+                      ranges:
+                        description: Ranges for DHCP (multiple ranges supported)
+                        items:
+                          description: NetworkDHCPRange represents DHCP range configuration
+                          properties:
+                            end:
+                              description: End IP address for DHCP range
+                              type: string
+                            hosts:
+                              description: DHCP hosts with fixed IP assignments
+                              items:
+                                description: NetworkDHCPHost represents a DHCP host
+                                  configuration
+                                properties:
+                                  ip:
+                                    description: IP address to assign to the host
+                                    type: string
+                                  mac:
+                                    description: MAC address of the host
+                                    type: string
+                                  name:
+                                    description: Name of the host
+                                    type: string
+                                required:
+                                - ip
+                                - mac
+                                type: object
+                              type: array
+                            start:
+                              description: Start IP address for DHCP range
+                              type: string
+                          required:
+                          - end
+                          - start
+                          type: object
+                        type: array
+                      start:
+                        description: Start IP address for DHCP range
+                        type: string
+                    type: object
+                  dns:
+                    description: DNS configuration
+                    properties:
+                      enabled:
+                        default: true
+                        description: Enabled indicates if DNS is enabled
+                        type: boolean
+                      forwarders:
+                        description: Forwarders for DNS
+                        items:
+                          type: string
+                        type: array
+                    type: object
+                  domain:
+                    description: Domain for the network
+                    type: string
+                  ip:
+                    description: IP configuration for the network
+                    items:
+                      description: NetworkIP represents IP configuration
+                      properties:
+                        address:
+                          description: Address of the network
+                          type: string
+                        dhcp:
+                          description: DHCP configuration for this IP
+                          properties:
+                            end:
+                              description: End IP address for DHCP range
+                              type: string
+                            hosts:
+                              description: DHCP hosts with fixed IP assignments
+                              items:
+                                description: NetworkDHCPHost represents a DHCP host
+                                  configuration
+                                properties:
+                                  ip:
+                                    description: IP address to assign to the host
+                                    type: string
+                                  mac:
+                                    description: MAC address of the host
+                                    type: string
+                                  name:
+                                    description: Name of the host
+                                    type: string
+                                required:
+                                - ip
+                                - mac
+                                type: object
+                              type: array
+                            start:
+                              description: Start IP address for DHCP range
+                              type: string
+                          required:
+                          - end
+                          - start
+                          type: object
+                        netmask:
+                          description: Netmask for the network
+                          type: string
+                      required:
+                      - address
+                      type: object
+                    type: array
+                  mode:
+                    default: nat
+                    description: Mode of the network (e.g., "nat", "bridge", "isolated")
+                    type: string
+                  name:
+                    description: Name of the network
+                    type: string
+                required:
+                - name
+                type: object
+              managementPolicies:
+                default:
+                - '*'
+                description: |-
+                  THIS IS A BETA FIELD. It is on by default but can be opted out
+                  through a Crossplane feature flag.
+                  ManagementPolicies specify the array of actions Crossplane is allowed to
+                  take on the managed and external resources.
+                  See the design doc for more information: https://github.com/crossplane/crossplane/blob/499895a25d1a1a0ba1604944ef98ac7a1a71f197/design/design-doc-observe-only-resources.md?plain=1#L223
+                  and this one: https://github.com/crossplane/crossplane/blob/444267e84783136daa93568b364a5f01228cacbe/design/one-pager-ignore-changes.md
+                items:
+                  description: |-
+                    A ManagementAction represents an action that the Crossplane controllers
+                    can take on an external resource.
+                  enum:
+                  - Observe
+                  - Create
+                  - Update
+                  - Delete
+                  - LateInitialize
+                  - '*'
+                  type: string
+                type: array
+              providerConfigRef:
+                default:
+                  kind: ClusterProviderConfig
+                  name: default
+                description: |-
+                  ProviderConfigReference specifies how the provider that will be used to
+                  create, observe, update, and delete this managed resource should be
+                  configured.
+                properties:
+                  kind:
+                    description: Kind of the referenced object.
+                    type: string
+                  name:
+                    description: Name of the referenced object.
+                    type: string
+                required:
+                - kind
+                - name
+                type: object
+              writeConnectionSecretToRef:
+                description: |-
+                  WriteConnectionSecretToReference specifies the namespace and name of a
+                  Secret to which any connection details for this managed resource should
+                  be written. Connection details frequently include the endpoint, username,
+                  and password required to connect to the managed resource.
+                properties:
+                  name:
+                    description: Name of the secret.
+                    type: string
+                required:
+                - name
+                type: object
+            required:
+            - forProvider
+            type: object
+          status:
+            description: NetworkStatus defines the observed state of Network
+            properties:
+              atProvider:
+                description: NetworkObservation are the observable fields of a Network.
+                properties:
+                  active:
+                    description: Active state of the network
+                    type: boolean
+                  autostart:
+                    description: Autostart state of the network
+                    type: boolean
+                  bridge:
+                    description: Bridge name
+                    type: string
+                  persistent:
+                    description: Persistent state of the network
+                    type: boolean
+                  uuid:
+                    description: UUID of the network
+                    type: string
+                type: object
+              conditions:
+                description: Conditions of the resource.
+                items:
+                  description: A Condition that may apply to a resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        LastTransitionTime is the last time this condition transitioned from one
+                        status to another.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        A Message containing details about this condition's last transition from
+                        one status to another, if any.
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        ObservedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      type: integer
+                    reason:
+                      description: A Reason for this condition's last transition from
+                        one status to another.
+                      type: string
+                    status:
+                      description: Status of this condition; is it currently True,
+                        False, or Unknown?
+                      type: string
+                    type:
+                      description: |-
+                        Type of this condition. At most one of each condition type may apply to
+                        a resource at any point in time.
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
+              lastHandledReconcileAt:
+                description: |-
+                  LastHandledReconcileAt holds the value of the most recent
+                  reconcile-requested-at annotation token that the controller has
+                  processed. Users can compare this to the annotation to determine
+                  whether a reconcile request has been handled.
+                type: string
+              observedGeneration:
+                description: |-
+                  ObservedGeneration is the latest metadata.generation
+                  which resulted in either a ready state, or stalled due to error
+                  it can not recover from without human intervention.
+                format: int64
+                type: integer
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
