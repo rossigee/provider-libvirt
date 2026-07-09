@@ -17,7 +17,7 @@ jobs:
   release:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           submodules: true
           fetch-depth: 0
@@ -76,7 +76,7 @@ jobs:
             ./cmd/provider
 
       - name: Build and push Docker image (amd64)
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: ./cluster/images/provider-libvirt/Dockerfile
@@ -89,7 +89,7 @@ jobs:
           push: true
 
       - name: Build and push xpkg image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: ./cluster/images/provider-libvirt-xpkg
           file: ./cluster/images/provider-libvirt-xpkg/Dockerfile
