@@ -15,6 +15,6 @@ LABEL org.opencontainers.image.source="https://github.com/rossigee/provider-libv
 ARG TARGETOS
 ARG TARGETARCH
 
-COPY --chmod=0755 _output/bin/${TARGETOS}_${TARGETARCH}/provider /usr/local/bin/provider
+COPY --chmod=0755 bin/${TARGETOS}_${TARGETARCH}/provider /usr/local/bin/provider
 
 ENTRYPOINT ["/usr/local/bin/provider"]
