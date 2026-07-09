@@ -2,8 +2,9 @@ package domain
 
 import (
 	"context"
-	"github.com/crossplane/crossplane/apis/v2/core/v2"
+	xpv1 "github.com/crossplane/crossplane/apis/v2/core/v2"
 	"github.com/pkg/errors"
+
 	"github.com/rossigee/provider-libvirt/apis/v1beta1"
 	"k8s.io/apimachinery/pkg/types"
 )

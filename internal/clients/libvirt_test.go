@@ -6,8 +6,9 @@ package clients
 
 import (
 	"fmt"
+
 	"github.com/rossigee/provider-libvirt/apis/v1beta1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"testing"
 	"time"
 )

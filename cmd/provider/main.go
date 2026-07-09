@@ -8,7 +8,7 @@ import (
 	"context"
 	"github.com/alecthomas/kingpin/v2"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/logging"
-	"github.com/rossigee/provider-libvirt/apis/v1beta1"
+
 	"github.com/rossigee/provider-libvirt/internal/controller/domain"
 	"github.com/rossigee/provider-libvirt/internal/controller/network"
 	"github.com/rossigee/provider-libvirt/internal/controller/nodedevice"
@@ -20,7 +20,9 @@ import (
 	"github.com/rossigee/provider-libvirt/internal/webhook"
 	"os"
 	"path/filepath"
-	"sigs.k8s.io/controller-runtime"
+
+	"github.com/rossigee/provider-libvirt/apis/v1beta1"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"

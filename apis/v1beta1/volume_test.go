@@ -5,9 +5,9 @@ Copyright 2025 Ross Golder
 package v1beta1
 
 import (
-	"github.com/crossplane/crossplane/apis/v2/core/v2"
+	xpv1 "github.com/crossplane/crossplane/apis/v2/core/v2"
 	"github.com/google/go-cmp/cmp"
-	"k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"testing"
 )
@@ -101,7 +101,7 @@ func TestVolumeConversion(t *testing.T) {
 
 	// Compare original and converted
 	if diff := cmp.Diff(volume, converted); diff != "" {
-		t.Errorf("Volume conversion mismatch (-want +got):\n%s", diff)
+		t.Errorf("Volume conversion mismatch (-want +got):n%s", diff)
 	}
 }
 
