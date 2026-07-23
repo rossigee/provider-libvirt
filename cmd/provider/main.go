@@ -36,14 +36,20 @@ func main() {
 	)
 	kingpin.MustParse(app.Parse(os.Args[1:]))
 
+	// Set up TLS environment variables for libvirt connections
+	// TLS certificates are mounted at /tls/client/ in the container
+	if _, err := os.Stat("/tls/client/ca.crt"); err == nil {
+		os.Setenv("LIBVIRT_CACERT", "/tls/client/ca.crt")
+		os.Setenv("LIBVIRT_TLS_CERT", "/tls/client/tls.crt")
+		os.Setenv("LIBVIRT_TLS_KEY", "/tls/client/tls.key")
+	}
+
 	zl := zap.New(zap.UseDevMode(*debug))
+	ctrl.SetLogger(zl)
 	log := logging.NewLogrLogger(zl.WithName("provider-libvirt"))
 
 	shutdownTracing := tracing.Init("provider-libvirt")
 	defer shutdownTracing(context.Background())
-	if *debug {
-		ctrl.SetLogger(zl)
-	}
 
 	cfg, err := ctrl.GetConfig()
 	kingpin.FatalIfError(err, "Cannot get API server rest config")

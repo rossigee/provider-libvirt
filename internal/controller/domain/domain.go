@@ -379,11 +379,6 @@ func (c *external) generateDomainXML(cr *v1beta1.Domain) string {
 			device = fmt.Sprintf("vd%c", 'a'+rune(i))
 		}
 
-		diskType := "virtio"
-		if disk.Type != "" {
-			diskType = disk.Type
-		}
-
 		bus := "virtio"
 		if disk.Bus != "" {
 			bus = disk.Bus
@@ -406,12 +401,16 @@ func (c *external) generateDomainXML(cr *v1beta1.Domain) string {
       <wwn>%s</wwn>`, disk.WWN)
 			}
 
+			deviceType := "disk"
+			if disk.Type == "cdrom" {
+				deviceType = "cdrom"
+			}
 			xml += fmt.Sprintf(`
-    <disk type='file' device='disk'%s>
-      <driver name='qemu' type='%s'/>
+    <disk type='file' device='%s'%s>
+      <driver name='qemu' type='raw'/>
       <source file='%s'/>
       <target dev='%s' bus='%s'/>%s
-    </disk>`, bootOrder, diskType, source, device, bus, wwn)
+    </disk>`, deviceType, bootOrder, source, device, bus, wwn)
 		}
 	}
 

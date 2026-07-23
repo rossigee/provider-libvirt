@@ -5,16 +5,15 @@ Copyright 2025 Ross Golder
 package v1beta1
 
 import (
+	xpv1 "github.com/crossplane/crossplane/apis/v2/core/v2"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	xpv1 "github.com/crossplane/crossplane/apis/v2/core/v2"
 )
-
 
 // DomainSpec defines the desired state of Domain
 type DomainSpec struct {
 	xpv1.ManagedResourceSpec `json:",inline"`
-	ForProvider       DomainParameters `json:"forProvider"`
+	ForProvider              DomainParameters `json:"forProvider"`
 }
 
 // DomainParameters are the configurable fields of a Domain.
@@ -90,9 +89,8 @@ type DomainDisk struct {
 	// +kubebuilder:validation:Optional
 	Device string `json:"device,omitempty"`
 
-	// Type of the disk interface (e.g., "virtio", "ide", "scsi")
+	// Type of disk device (e.g., "disk", "cdrom")
 	// +kubebuilder:validation:Optional
-	// +kubebuilder:default="virtio"
 	Type string `json:"type,omitempty"`
 
 	// BootOrder for this disk
@@ -138,7 +136,7 @@ type DomainNetworkInterface struct {
 }
 
 type DomainInterfaceVlan struct {
-	ID int32 `json:"id"`
+	ID         int32  `json:"id"`
 	NativeMode string `json:"nativeMode,omitempty"`
 }
 
@@ -181,7 +179,7 @@ type DomainGraphics struct {
 // DomainStatus defines the observed state of Domain
 type DomainStatus struct {
 	xpv1.ManagedResourceStatus `json:",inline"`
-	AtProvider          DomainObservation `json:"atProvider,omitempty"`
+	AtProvider                 DomainObservation `json:"atProvider,omitempty"`
 }
 
 // DomainObservation are the observable fields of a Domain.
@@ -249,7 +247,6 @@ var (
 	DomainGroupVersionKind = SchemeGroupVersion.WithKind(DomainKind)
 )
 
-
 // GetCondition of this Domain.
 func (mg *Domain) GetCondition(ct xpv1.ConditionType) xpv1.Condition {
 	return mg.Status.GetCondition(ct)
@@ -259,7 +256,6 @@ func (mg *Domain) GetCondition(ct xpv1.ConditionType) xpv1.Condition {
 func (mg *Domain) SetConditions(c ...xpv1.Condition) {
 	mg.Status.SetConditions(c...)
 }
-
 
 // GetManagementPolicies of this Resource.
 func (mg *Domain) GetManagementPolicies() xpv1.ManagementPolicies {
