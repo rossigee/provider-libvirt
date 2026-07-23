@@ -15,11 +15,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pkg/errors"
-	"libvirt.org/go/libvirt"
-	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-
 	"github.com/crossplane/crossplane-runtime/v2/pkg/event"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/logging"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/reconciler/managed"
@@ -418,8 +413,10 @@ func (c *external) populateFromURL(ctx context.Context, vol *libvirt.StorageVol,
 	if err != nil {
 		return errors.Wrap(err, "cannot download from URL")
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
+
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		_ = resp.Body.Close()
 		return fmt.Errorf("HTTP download returned status %d for URL %s", resp.StatusCode, url)
 	}
 
@@ -428,7 +425,7 @@ func (c *external) populateFromURL(ctx context.Context, vol *libvirt.StorageVol,
 	if err != nil {
 		return errors.Wrap(err, "cannot create libvirt stream")
 	}
-	defer stream.Free()
+	defer func() { _ = stream.Free() }()
 
 	if err := vol.Upload(stream, 0, 0, 0); err != nil {
 		return errors.Wrap(err, "cannot start libvirt upload")

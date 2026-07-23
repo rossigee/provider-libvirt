@@ -73,7 +73,7 @@ func TestResourceDependencyValidation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			k8sClient := fake.NewClientBuilder().WithScheme(scheme).Build()
+			k8sClient := fake.NewClientBuilder().WithScheme(scheme).WithStatusSubresource(&v1beta1.Volume{}, &v1beta1.Domain{}, &v1beta1.Network{}, &v1beta1.StoragePool{}).Build()
 			setupTestEnvironment(t, ctx, k8sClient)
 			tt.testFunc(t, ctx, k8sClient)
 		})
@@ -791,7 +791,7 @@ func testResourceNotFoundHandling(t *testing.T, ctx context.Context, k8sClient c
 func BenchmarkCrossReferenceResolution(b *testing.B) {
 	ctx := context.Background()
 	scheme := createTestScheme()
-	k8sClient := fake.NewClientBuilder().WithScheme(scheme).Build()
+	k8sClient := fake.NewClientBuilder().WithScheme(scheme).WithStatusSubresource(&v1beta1.Volume{}, &v1beta1.Domain{}, &v1beta1.Network{}, &v1beta1.StoragePool{}).Build()
 
 	// Setup test data
 	volume := createTestVolume("bench-volume", "default")

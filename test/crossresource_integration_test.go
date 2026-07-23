@@ -12,7 +12,7 @@ import (
 	xpv1 "github.com/crossplane/crossplane/apis/v2/core/v2"
 
 	"github.com/rossigee/provider-libvirt/apis/v1beta1"
-	"k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -30,7 +30,7 @@ func TestCrossResourceIntegration(t *testing.T) {
 
 	ctx := context.Background()
 	scheme := createTestScheme()
-	fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithStatusSubresource(&v1beta1.Volume{}, &v1beta1.Domain{}, &v1beta1.Network{}, &v1beta1.StoragePool{}).Build()
 
 	// Test case: Complete VM setup with cross-resource dependencies
 	t.Run("CompleteVMSetupWithCrossReferences", func(t *testing.T) {

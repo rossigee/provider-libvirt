@@ -12,7 +12,7 @@ import (
 	xpv1 "github.com/crossplane/crossplane/apis/v2/core/v2"
 
 	"github.com/rossigee/provider-libvirt/apis/v1beta1"
-	"k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -36,7 +36,7 @@ func TestDomainLifecycle(t *testing.T) {
 	_ = corev1.AddToScheme(scheme)
 
 	// Create fake client for this test
-	fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithStatusSubresource(&v1beta1.ProviderConfig{}, &v1beta1.Volume{}, &v1beta1.Domain{}, &v1beta1.Network{}, &v1beta1.StoragePool{}).Build()
 
 	// Test data
 	providerConfig := &v1beta1.ProviderConfig{
@@ -182,7 +182,7 @@ func TestProviderConfigValidation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
+			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithStatusSubresource(&v1beta1.ProviderConfig{}, &v1beta1.Volume{}, &v1beta1.Domain{}, &v1beta1.Network{}, &v1beta1.StoragePool{}).Build()
 
 			err := fakeClient.Create(context.Background(), tt.config)
 
@@ -253,7 +253,7 @@ func TestDomainSpecValidation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
+			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithStatusSubresource(&v1beta1.ProviderConfig{}, &v1beta1.Volume{}, &v1beta1.Domain{}, &v1beta1.Network{}, &v1beta1.StoragePool{}).Build()
 
 			err := fakeClient.Create(context.Background(), tt.domain)
 

@@ -75,7 +75,7 @@ func TestVMLifecycleWorkflows(t *testing.T) {
 	for _, scenario := range scenarios {
 		t.Run(scenario.name, func(t *testing.T) {
 			// Create fresh client for each test to avoid interference
-			k8sClient := fake.NewClientBuilder().WithScheme(scheme).Build()
+			k8sClient := fake.NewClientBuilder().WithScheme(scheme).WithStatusSubresource(&v1beta1.Volume{}, &v1beta1.Domain{}, &v1beta1.Network{}, &v1beta1.StoragePool{}).Build()
 
 			// Setup test environment
 			setupTestEnvironment(t, ctx, k8sClient)
