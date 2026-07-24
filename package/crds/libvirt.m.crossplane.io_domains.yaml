@@ -107,9 +107,7 @@ spec:
                           description: File path for direct file access (legacy)
                           type: string
                         type:
-                          default: virtio
-                          description: Type of the disk interface (e.g., "virtio",
-                            "ide", "scsi")
+                          description: Type of disk device (e.g., "disk", "cdrom")
                           type: string
                         volumeRef:
                           description: VolumeRef references a Volume resource (for
