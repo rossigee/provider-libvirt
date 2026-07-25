@@ -48,86 +48,11 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libvirt-dev
 
-      - name: Vendor Dependencies
-        run: |
-          go mod tidy
-          go mod vendor
-
-      - name: Run code generation
-        run: make generate
-
-      - name: Check go.mod is up to date
-        run: |
-          go mod tidy
-          git diff --exit-code
-
-      - name: Run unit tests
-        run: make test
-
-      - name: Run linting
-        run: make lint || true
-
-      - name: Build provider binary
-        run: |
-          mkdir -p _output/bin/linux_amd64
-          CGO_ENABLED=1 GOFLAGS="-mod=vendor" VERSION="${{ steps.version.outputs.version }}" \
-          go build -mod=vendor -v -o _output/bin/linux_amd64/provider \
-            -ldflags "-X github.com/rossigee/provider-libvirt/internal/version.Version=${{ steps.version.outputs.version }}" \
-            ./cmd/provider
-
-      - name: Build and push Docker image (amd64)
-        uses: docker/build-push-action@v7
+      - name: Run Goreleaser
+        uses: goreleaser/goreleaser-action@v6
         with:
-          context: .
-          file: ./cluster/images/provider-libvirt/Dockerfile
-          build-args: |
-            TARGETOS=linux
-            TARGETARCH=amd64
-          tags: |
-            ${{ env.REGISTRY_ORGS }}/provider-libvirt:${{ steps.version.outputs.version }}
-            ${{ env.REGISTRY_ORGS }}/provider-libvirt:latest
-          push: true
-
-      - name: Build and push xpkg image
-        uses: docker/build-push-action@v7
-        with:
-          context: ./cluster/images/provider-libvirt-xpkg
-          file: ./cluster/images/provider-libvirt-xpkg/Dockerfile
-          tags: |
-            ${{ env.REGISTRY_ORGS }}/provider-libvirt:${{ steps.version.outputs.version }}
-            ${{ env.REGISTRY_ORGS }}/provider-libvirt:latest
-          push: true
-
-      - name: Create GitHub Release
-        uses: ncipollo/release-action@v2
-        with:
-          tag: ${{ steps.version.outputs.version }}
-          name: Release ${{ steps.version.outputs.version }}
-          allowUpdates: true
-          body: |
-            ## Provider Image
-            Published to: `${{ env.REGISTRY_ORGS }}/provider-libvirt:${{ steps.version.outputs.version }}`
-
-            ## Crossplane Installation
-            ```bash
-            kubectl apply -f - <<EOF
-            apiVersion: pkg.crossplane.io/v1
-            kind: Provider
-            metadata:
-        allowUpdates: true
-              name: provider-libvirt
-            spec:
-              package: ${{ env.REGISTRY_ORGS }}/provider-libvirt:${{ steps.version.outputs.version }}
-            EOF
-            ```
-
-            ## Documentation
-            See the [README](https://github.com/rossigee/provider-libvirt) for installation and usage instructions.
-          draft: false
-          prerelease: false
-
-      - name: Verify published artifacts
-        run: |
-          echo "Verifying published artifacts..."
-          docker pull ${{ env.REGISTRY_ORGS }}/provider-libvirt:${{ steps.version.outputs.version }} && echo "✓ Docker image published" || echo "✗ Docker image not found"
-          echo "Release complete: ${{ steps.version.outputs.version }}"
+          version: latest
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.version.outputs.version }}

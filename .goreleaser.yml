@@ -1,0 +1,83 @@
+project_name: provider-libvirt
+
+before:
+  hooks:
+    - go mod tidy
+    - go mod vendor
+
+builds:
+  - id: provider-libvirt
+    env:
+      - CGO_ENABLED=1
+    goos:
+      - linux
+    goarch:
+      - amd64
+      - arm64
+    goarm:
+      - v7
+    ldflags:
+      - -X github.com/rossigee/provider-libvirt/internal/version.Version={{.Version}}
+    binary: provider
+    main: ./cmd/provider
+    flags:
+      - -mod=vendor
+
+archives:
+  - id: default
+    format: tar.gz
+    format_overrides:
+      - goos: windows
+        format: zip
+
+checksum:
+  name: checksums.txt
+  algorithm: sha256
+
+github:
+  owner: rossigee
+  name: provider-libvirt
+
+release:
+  github:
+    owner: rossigee
+    name: provider-libvirt
+  draft: false
+  prerelease: auto
+  name_template: '{{.Tag}}'
+  body_template: |
+    ## Provider Image
+    Published to: `ghcr.io/rossigee/provider-libvirt:{{.Version}}`
+
+    ## Crossplane Installation
+    ```bash
+    kubectl apply -f - <<EOF
+    apiVersion: pkg.crossplane.io/v1
+    kind: Provider
+    metadata:
+      name: provider-libvirt
+    spec:
+      package: ghcr.io/rossigee/provider-libvirt:{{.Version}}
+    EOF
+    ```
+
+    ## Documentation
+    See the [README](https://github.com/rossigee/provider-libvirt) for installation and usage instructions.
+
+dockers:
+  - image_templates:
+      - ghcr.io/rossigee/provider-libvirt:{{.Tag}}
+      - ghcr.io/rossigee/provider-libvirt:latest
+    dockerfile: ./cluster/images/provider-libvirt/Dockerfile
+    build_args:
+      - TARGETOS=linux
+      - TARGETARCH=amd64
+    ids:
+      - provider-libvirt
+
+  - image_templates:
+      - ghcr.io/rossigee/provider-libvirt-xpkg:{{.Tag}}
+      - ghcr.io/rossigee/provider-libvirt-xpkg:latest
+    dockerfile: ./cluster/images/provider-libvirt-xpkg/Dockerfile
+    ids:
+      - provider-libvirt
