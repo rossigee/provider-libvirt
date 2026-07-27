@@ -81,16 +81,6 @@ jobs:
       - name: Init build submodule
         run: git submodule update --init --depth 1 build
 
-      # NOTE: `make build`/`make xpkg.build` fetch their own Crossplane CLI
-      # into their own tool cache as a Make prerequisite - this step is only
-      # for the standalone verification step below, installed to a path nothing
-      # else in this workflow touches so it can't be cleaned/overwritten.
-      - name: Install Crossplane CLI (for verification step)
-        run: |
-          PLATFORM=$(go env GOOS)_$(go env GOARCH)
-          curl -sSL "https://github.com/crossplane/crossplane/releases/download/v2.3.2/crossplane-${PLATFORM}" | sudo tee /usr/local/bin/crossplane-cli > /dev/null
-          sudo chmod +x /usr/local/bin/crossplane-cli
-
       - name: Build runtime image
         run: make build BUILD_PLATFORMS="linux_amd64 linux_arm64"
         env:
@@ -115,7 +105,8 @@ jobs:
           set -e
           VERSION="${{ steps.version.outputs.version }}"
           IMAGE="ghcr.io/${{ github.repository_owner }}/provider-libvirt:${VERSION}"
-          crossplane-cli xpkg extract "${IMAGE}" -o /tmp/verify.gz
+          CROSSPLANE_CLI=$(make -s --no-print-directory print.crossplane-cli | tail -1)
+          "${CROSSPLANE_CLI}" xpkg extract "${IMAGE}" -o /tmp/verify.gz
           CRD_COUNT=$(gunzip -c /tmp/verify.gz | grep -c '^kind: CustomResourceDefinition' || true)
           echo "Found ${CRD_COUNT} CRDs in published package"
           if [ "${CRD_COUNT}" -lt 8 ]; then

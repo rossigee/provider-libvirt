@@ -119,6 +119,12 @@ install-crds: generate
 uninstall-crds:
 	kubectl delete -f package/crds
 
+# Prints the path to the Crossplane CLI this build uses (fetching it first
+# if necessary), so CI steps outside the Makefile (e.g. release verification)
+# can reuse the exact same binary instead of guessing at download URLs.
+print.crossplane-cli: $(CROSSPLANE_CLI)
+	@echo $(CROSSPLANE_CLI)
+
 # Install examples into cluster
 install-examples:
 	kubectl apply -f examples/
@@ -127,4 +133,4 @@ install-examples:
 delete-examples:
 	kubectl delete --ignore-not-found -f examples/
 
-.PHONY: submodules run install-crds uninstall-crds install-examples delete-examples
+.PHONY: submodules run install-crds uninstall-crds install-examples delete-examples print.crossplane-cli
