@@ -26,7 +26,8 @@ builds:
     # to cross-compile for arm64 from an amd64 runner (installed via
     # dpkg --add-architecture arm64 + apt in the release workflow).
     overrides:
-      - goarch: arm64
+      - goos: linux
+        goarch: arm64
         env:
           - CC=aarch64-linux-gnu-gcc
           - CXX=aarch64-linux-gnu-g++
