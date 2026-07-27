@@ -95,11 +95,22 @@ run: go.build
 	@# To see other arguments that can be provided, run the command with --help instead
 	$(GO_OUT_DIR)/provider --debug
 
+# Cross-compiling CGO for a foreign arch needs that arch's cross-compiler and
+# libvirt headers/libs (installed via dpkg --add-architecture in CI). Native
+# arch (amd64 on an amd64 runner) needs none of this, hence the empty defaults.
+CC_amd64 :=
+CXX_amd64 :=
+PKG_CONFIG_PATH_amd64 :=
+CC_arm64 := aarch64-linux-gnu-gcc
+CXX_arm64 := aarch64-linux-gnu-g++
+PKG_CONFIG_PATH_arm64 := /usr/lib/aarch64-linux-gnu/pkgconfig
+
 # Custom build target for CGO packages (overrides the static build)
 go.build:
 	@$(INFO) go build $(PLATFORM) with CGO
 	@mkdir -p $(GO_OUT_DIR)
-	$(foreach p,$(GO_CGO_PACKAGES),@CGO_ENABLED=1 $(GO) build -v -o $(GO_OUT_DIR)/$(lastword $(subst /, ,$(p)))$(GO_OUT_EXT) $(GO_BUILDFLAGS) $(p) || $(FAIL) ${\n})
+	$(eval CGO_ARCH := $(word 2,$(subst _, ,$(PLATFORM))))
+	$(foreach p,$(GO_CGO_PACKAGES),@CGO_ENABLED=1 CC=$(CC_$(CGO_ARCH)) CXX=$(CXX_$(CGO_ARCH)) PKG_CONFIG_PATH=$(PKG_CONFIG_PATH_$(CGO_ARCH)) $(GO) build -v -o $(GO_OUT_DIR)/$(lastword $(subst /, ,$(p)))$(GO_OUT_EXT) $(GO_BUILDFLAGS) $(p) || $(FAIL) ${\n})
 	@$(OK) go build $(PLATFORM) with CGO
 
 # NOTE: we ensure up is installed prior to running platform-specific packaging steps in xpkg.build.

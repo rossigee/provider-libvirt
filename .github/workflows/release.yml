@@ -43,10 +43,19 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Install libvirt development libraries
+      - name: Install libvirt development libraries (amd64 + arm64 cross)
         run: |
+          # arm64 packages live on ports.ubuntu.com, not the default amd64
+          # mirrors, so the existing sources must be restricted to amd64 and
+          # a ports source added for arm64 before it can be installed.
+          sudo dpkg --add-architecture arm64
+          sudo sed -i -E 's/^deb (http|mirror\+file)/deb [arch=amd64] \1/' /etc/apt/sources.list.d/*.sources 2>/dev/null || true
+          sudo sed -i -E 's/^deb (http|mirror\+file)/deb [arch=amd64] \1/' /etc/apt/sources.list 2>/dev/null || true
+          echo "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble main universe" | sudo tee /etc/apt/sources.list.d/arm64-ports.list
+          echo "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble-updates main universe" | sudo tee -a /etc/apt/sources.list.d/arm64-ports.list
+          echo "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble-security main universe" | sudo tee -a /etc/apt/sources.list.d/arm64-ports.list
           sudo apt-get update
-          sudo apt-get install -y libvirt-dev
+          sudo apt-get install -y libvirt-dev gcc-aarch64-linux-gnu libvirt-dev:arm64
 
       - name: Run Goreleaser
         uses: goreleaser/goreleaser-action@v6
@@ -74,12 +83,12 @@ jobs:
           ln -sf .cache/tools/${PLATFORM}/crossplane-cli-v2.3.2 .cache/tools/${PLATFORM}/crossplane-cli
 
       - name: Build runtime image
-        run: make build BUILD_PLATFORMS="linux_amd64"
+        run: make build BUILD_PLATFORMS="linux_amd64 linux_arm64"
         env:
           VERSION: ${{ steps.version.outputs.version }}
 
       - name: Build Crossplane package
-        run: make xpkg.build BUILD_PLATFORMS="linux_amd64"
+        run: make xpkg.build BUILD_PLATFORMS="linux_amd64 linux_arm64"
         env:
           VERSION: ${{ steps.version.outputs.version }}
 
