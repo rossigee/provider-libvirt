@@ -15,9 +15,6 @@ builds:
       - linux
     goarch:
       - amd64
-      - arm64
-    goarm:
-      - v7
     ldflags:
       - -X github.com/rossigee/provider-libvirt/internal/version.Version={{.Version}}
     binary: provider
