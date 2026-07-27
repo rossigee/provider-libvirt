@@ -53,9 +53,14 @@ XPKGS = provider-libvirt
 # image is present in daemon.
 xpkg.build.provider-libvirt: do.build.images
 
+# The plain runtime image and the xpkg package publish to the same tag
+# (IMAGES and XPKGS are both "provider-libvirt"). The xpkg push must run
+# last: it's the one that adds the io.crossplane.xpkg layer annotations
+# Crossplane's package manager (and `crossplane xpkg extract`) require -
+# a plain `docker push` after it would silently overwrite those away.
 publish.artifacts:
-	$(foreach r,$(XPKG_REG_ORGS), $(foreach x,$(XPKGS),@$(MAKE) xpkg.release.publish.$(r).$(x)))
 	$(foreach r,$(REGISTRY_ORGS), $(foreach i,$(IMAGES),@$(MAKE) img.release.publish.$(r).$(i)))
+	$(foreach r,$(XPKG_REG_ORGS), $(foreach x,$(XPKGS),@$(MAKE) xpkg.release.publish.$(r).$(x)))
 
 # Setup Package Metadata
 CROSSPLANE_VERSION = 2.3.2
