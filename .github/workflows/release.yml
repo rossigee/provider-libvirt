@@ -49,7 +49,14 @@ jobs:
           # mirrors, so the existing sources must be restricted to amd64 and
           # a ports source added for arm64 before it can be installed.
           sudo dpkg --add-architecture arm64
-          sudo sed -i -E 's/^deb (http|mirror\+file)/deb [arch=amd64] \1/' /etc/apt/sources.list.d/*.sources 2>/dev/null || true
+          # Ubuntu 24.04 runners use the DEB822 .sources format, where every
+          # stanza defaults to covering all added architectures. Restrict the
+          # existing (amd64-only) mirrors explicitly, since arm64 packages
+          # live on ports.ubuntu.com, not the main/security archive.
+          for f in /etc/apt/sources.list.d/*.sources; do
+            [ -f "$f" ] || continue
+            grep -q '^Architectures:' "$f" || sudo sed -i '/^Types: deb$/a Architectures: amd64' "$f"
+          done
           sudo sed -i -E 's/^deb (http|mirror\+file)/deb [arch=amd64] \1/' /etc/apt/sources.list 2>/dev/null || true
           echo "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble main universe" | sudo tee /etc/apt/sources.list.d/arm64-ports.list
           echo "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble-updates main universe" | sudo tee -a /etc/apt/sources.list.d/arm64-ports.list
