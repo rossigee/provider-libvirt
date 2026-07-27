@@ -56,3 +56,51 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ steps.version.outputs.version }}
+
+      # The Crossplane runtime image and xpkg package are built and published
+      # separately from goreleaser, via the provider's own Makefile (the same
+      # build/makelib/xpkg.mk machinery provider-harbor and provider-btcpay use).
+      # This ensures the published package is a real xpkg (package.yaml + CRDs +
+      # embedded runtime image), not a hand-rolled Docker image missing its CRDs.
+      - name: Init build submodule
+        run: git submodule update --init --depth 1 build
+
+      - name: Install Crossplane CLI
+        run: |
+          PLATFORM=$(go env GOOS)_$(go env GOARCH)
+          mkdir -p .cache/tools/${PLATFORM}
+          curl -sSL "https://github.com/crossplane/crossplane/releases/download/v2.3.2/crossplane-${PLATFORM}" -o .cache/tools/${PLATFORM}/crossplane-cli-v2.3.2
+          chmod +x .cache/tools/${PLATFORM}/crossplane-cli-v2.3.2
+          ln -sf .cache/tools/${PLATFORM}/crossplane-cli-v2.3.2 .cache/tools/${PLATFORM}/crossplane-cli
+
+      - name: Build runtime image
+        run: make build BUILD_PLATFORMS="linux_amd64"
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+
+      - name: Build Crossplane package
+        run: make xpkg.build BUILD_PLATFORMS="linux_amd64"
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+
+      - name: Publish runtime image and Crossplane package
+        run: |
+          make publish \
+            REGISTRY_ORGS="ghcr.io/${{ github.repository_owner }}" \
+            XPKG_REG_ORGS="ghcr.io/${{ github.repository_owner }}" \
+            BRANCH_NAME=master
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+
+      - name: Verify published package contains CRDs
+        run: |
+          set -e
+          VERSION="${{ steps.version.outputs.version }}"
+          IMAGE="ghcr.io/${{ github.repository_owner }}/provider-libvirt:${VERSION}"
+          .cache/tools/$(go env GOOS)_$(go env GOARCH)/crossplane-cli xpkg extract "${IMAGE}" -o /tmp/verify.gz
+          CRD_COUNT=$(gunzip -c /tmp/verify.gz | grep -c '^kind: CustomResourceDefinition' || true)
+          echo "Found ${CRD_COUNT} CRDs in published package"
+          if [ "${CRD_COUNT}" -lt 8 ]; then
+            echo "::error::Published package is missing CRDs (expected 8, found ${CRD_COUNT})"
+            exit 1
+          fi

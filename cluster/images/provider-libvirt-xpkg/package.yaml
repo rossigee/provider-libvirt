@@ -1,8 +1,0 @@
-apiVersion: meta.pkg.crossplane.io/v1
-kind: Provider
-metadata:
-  name: provider-libvirt
-spec:
-  controller:
-    image: ghcr.io/rossigee/provider-libvirt:latest
-    imagePullPolicy: IfNotPresent
