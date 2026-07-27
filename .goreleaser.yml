@@ -33,12 +33,8 @@ archives:
         format: zip
 
 checksum:
-  name: checksums.txt
+  name_template: checksums.txt
   algorithm: sha256
-
-github:
-  owner: rossigee
-  name: provider-libvirt
 
 release:
   github:
@@ -47,7 +43,7 @@ release:
   draft: false
   prerelease: auto
   name_template: '{{.Tag}}'
-  body_template: |
+  header: |
     ## Provider Image
     Published to: `ghcr.io/rossigee/provider-libvirt:{{.Version}}`
 
