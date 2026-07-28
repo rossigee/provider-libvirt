@@ -7,6 +7,8 @@ package main
 import (
 	"context"
 	"github.com/alecthomas/kingpin/v2"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/kubernetes/scheme"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/logging"
 
 	"github.com/rossigee/provider-libvirt/internal/controller/domain"
@@ -51,18 +53,21 @@ func main() {
 	shutdownTracing := tracing.Init("provider-libvirt")
 	defer shutdownTracing(context.Background())
 
+	s := runtime.NewScheme()
+	kingpin.FatalIfError(scheme.AddToScheme(s), "Cannot add k8s types to scheme")
+	kingpin.FatalIfError(v1beta1.SchemeBuilder.AddToScheme(s), "Cannot add v1beta1 APIs to scheme")
+
 	cfg, err := ctrl.GetConfig()
 	kingpin.FatalIfError(err, "Cannot get API server rest config")
 
 	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
+		Scheme:                 s,
 		LeaderElection:         false,
 		LeaderElectionID:       "crossplane-leader-election-provider-libvirt",
 		Cache:                  cache.Options{},
 		HealthProbeBindAddress: ":9440",
 	})
 	kingpin.FatalIfError(err, "Cannot create controller manager")
-
-	kingpin.FatalIfError(v1beta1.SchemeBuilder.AddToScheme(mgr.GetScheme()), "Cannot add v1beta1 APIs to scheme")
 
 	kingpin.FatalIfError(domain.Setup(mgr, log), "Cannot setup Domain controller")
 	kingpin.FatalIfError(network.Setup(mgr, log), "Cannot setup Network controller")
