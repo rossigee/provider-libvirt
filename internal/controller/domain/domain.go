@@ -14,6 +14,7 @@ import (
 	"github.com/crossplane/crossplane-runtime/v2/pkg/resource"
 	xpv1 "github.com/crossplane/crossplane/apis/v2/core/v2"
 	"github.com/pkg/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/rossigee/provider-libvirt/apis/v1beta1"
 	"github.com/rossigee/provider-libvirt/internal/clients"
@@ -134,10 +135,11 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 		cr.Status.SetConditions(
 			xpv1.Available(),
 			xpv1.Condition{
-				Type:    "ZombieRisk",
-				Status:  "True",
-				Reason:  "NoDisksAttached",
-				Message: "Domain is running but has no boot disk attached",
+				Type:               "ZombieRisk",
+				Status:             "True",
+				Reason:             "NoDisksAttached",
+				Message:            "Domain is running but has no boot disk attached",
+				LastTransitionTime: metav1.Now(),
 			},
 		)
 	} else {
