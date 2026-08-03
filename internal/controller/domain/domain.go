@@ -8,6 +8,8 @@ import (
 	"context"
 	"encoding/xml"
 	"fmt"
+	"strings"
+
 	"github.com/crossplane/crossplane-runtime/v2/pkg/event"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/logging"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/reconciler/managed"
@@ -130,8 +132,23 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 	cr.Status.AtProvider.Disks = disks
 
 	// Check for zombie condition: domain running but has no disks
-	if domainState == libvirt.DOMAIN_RUNNING && len(disks) == 0 {
-		c.logger.Info("WARNING: Domain is running with no disks attached - potential zombie", "domain", cr.Name)
+	// but CR expects disks (via VolumeRef or File)
+	crHasDisks := len(cr.Spec.ForProvider.Disk) > 0
+	for _, d := range cr.Spec.ForProvider.Disk {
+		if d.VolumeRef != nil && d.VolumeRef.Name != "" {
+			crHasDisks = true
+			break
+		}
+		if d.File != "" {
+			crHasDisks = true
+			break
+		}
+	}
+
+	needsDiskFix := domainState == libvirt.DOMAIN_RUNNING && len(disks) == 0 && crHasDisks
+
+	if needsDiskFix {
+		c.logger.Info("WARNING: Domain is running with no disks attached - needs disk fix", "domain", cr.Name)
 		cr.Status.SetConditions(
 			xpv1.Available(),
 			xpv1.Condition{
@@ -142,9 +159,14 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 				LastTransitionTime: metav1.Now(),
 			},
 		)
-	} else {
-		cr.Status.SetConditions(xpv1.Available())
+		// Signal that an update is needed to fix the disk attachment
+		return managed.ExternalObservation{
+			ResourceExists:   true,
+			ResourceUpToDate: false,
+		}, nil
 	}
+
+	cr.Status.SetConditions(xpv1.Available())
 
 	return managed.ExternalObservation{
 		ResourceExists:   true,
@@ -209,7 +231,10 @@ func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.Ext
 
 	cr.Status.SetConditions(xpv1.Creating())
 
-	xml := c.generateDomainXML(cr)
+	xml, err := c.generateDomainXML(ctx, cr)
+	if err != nil {
+		return managed.ExternalCreation{}, errors.Wrap(err, "failed to generate domain XML")
+	}
 
 	domain, err := c.client.DomainDefineXML(xml)
 	if err != nil {
@@ -258,7 +283,81 @@ func (c *external) Update(ctx context.Context, mg resource.Managed) (managed.Ext
 		return managed.ExternalUpdate{}, err
 	}
 
-	// Handle running state
+	domainState := libvirt.DomainState(state)
+
+	// Get current XML to check disk count
+	currentXML, err := domain.GetXMLDesc(0)
+	if err != nil {
+		return managed.ExternalUpdate{}, errors.Wrap(err, "cannot get current domain XML")
+	}
+
+	// Parse disks from current XML
+	currentDisks, err := c.parseDisksFromXML(currentXML)
+	if err != nil {
+		c.logger.Info("Failed to parse disks from current XML", "error", err)
+		currentDisks = nil
+	}
+
+	// Check if CR expects disks but domain has none
+	crHasDisks := len(cr.Spec.ForProvider.Disk) > 0
+	for _, d := range cr.Spec.ForProvider.Disk {
+		if d.VolumeRef != nil && d.VolumeRef.Name != "" {
+			crHasDisks = true
+			break
+		}
+		if d.File != "" {
+			crHasDisks = true
+			break
+		}
+	}
+
+	needsDiskFix := domainState == libvirt.DOMAIN_RUNNING && len(currentDisks) == 0 && crHasDisks
+
+	if needsDiskFix {
+		c.logger.Info("Fixing zombie domain: destroying and recreating with correct disk configuration", "domain", cr.Name)
+
+		// Destroy the running domain
+		if err := c.client.DomainDestroy(domain); err != nil {
+			return managed.ExternalUpdate{}, errors.Wrap(err, "cannot destroy domain for disk fix")
+		}
+
+		// Undefine the domain
+		if err := c.client.DomainUndefine(domain); err != nil {
+			return managed.ExternalUpdate{}, errors.Wrap(err, "cannot undefine domain for disk fix")
+		}
+
+		// Generate new domain XML with disks properly resolved
+		newXML, err := c.generateDomainXML(ctx, cr)
+		if err != nil {
+			return managed.ExternalUpdate{}, errors.Wrap(err, "failed to generate domain XML with disks")
+		}
+
+		// Define the new domain
+		newDomain, err := c.client.DomainDefineXML(newXML)
+		if err != nil {
+			return managed.ExternalUpdate{}, errors.Wrap(err, "cannot redefine domain with disks")
+		}
+
+		// Start domain if it should be running
+		running := cr.Spec.ForProvider.Running == nil || *cr.Spec.ForProvider.Running
+		if running {
+			if err := c.client.DomainCreate(newDomain); err != nil {
+				return managed.ExternalUpdate{}, errors.Wrap(err, "cannot start domain after disk fix")
+			}
+		}
+
+		// Set autostart if specified
+		if cr.Spec.ForProvider.Autostart != nil && *cr.Spec.ForProvider.Autostart {
+			if err := c.client.DomainSetAutostart(newDomain, 1); err != nil {
+				return managed.ExternalUpdate{}, errors.Wrap(err, "cannot set autostart after disk fix")
+			}
+		}
+
+		c.logger.Info("Successfully fixed zombie domain by recreating with disks", "domain", cr.Name)
+		return managed.ExternalUpdate{}, nil
+	}
+
+	// Handle running state (normal update path)
 	running := cr.Spec.ForProvider.Running == nil || *cr.Spec.ForProvider.Running
 	isRunning := libvirt.DomainState(state) == libvirt.DOMAIN_RUNNING
 
@@ -323,7 +422,7 @@ func (c *external) Disconnect(_ context.Context) error {
 }
 
 // generateDomainXML creates libvirt domain XML definition
-func (c *external) generateDomainXML(cr *v1beta1.Domain) string {
+func (c *external) generateDomainXML(ctx context.Context, cr *v1beta1.Domain) (string, error) {
 	params := cr.Spec.ForProvider
 
 	domainType := "kvm"
@@ -386,9 +485,9 @@ func (c *external) generateDomainXML(cr *v1beta1.Domain) string {
 			bus = disk.Bus
 		}
 
-		source := ""
-		if disk.File != "" {
-			source = disk.File
+		source, err := c.resolveDiskSource(ctx, disk, cr.Namespace)
+		if err != nil {
+			return "", errors.Wrapf(err, "failed to resolve disk source for device %s", device)
 		}
 
 		if source != "" {
@@ -407,12 +506,20 @@ func (c *external) generateDomainXML(cr *v1beta1.Domain) string {
 			if disk.Type == "cdrom" {
 				deviceType = "cdrom"
 			}
+
+			diskType := "file"
+			sourceType := "file"
+			if strings.HasPrefix(source, "/dev/") {
+				diskType = "block"
+				sourceType = "dev"
+			}
+
 			xml += fmt.Sprintf(`
-    <disk type='file' device='%s'%s>
+    <disk type='%s' device='%s'%s>
       <driver name='qemu' type='raw'/>
-      <source file='%s'/>
+      <source %s='%s'/>
       <target dev='%s' bus='%s'/>%s
-    </disk>`, deviceType, bootOrder, source, device, bus, wwn)
+    </disk>`, diskType, deviceType, bootOrder, sourceType, source, device, bus, wwn)
 		}
 	}
 
@@ -514,7 +621,7 @@ func (c *external) generateDomainXML(cr *v1beta1.Domain) string {
   </devices>
 </domain>`
 
-	return xml
+	return xml, nil
 }
 
 // formatDomainState returns human-readable domain state
