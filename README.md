@@ -2,7 +2,9 @@
 
 A **Crossplane v2 native provider** for libvirt that uses the Go libvirt API directly instead of terraform.
 
-> **Status**: CI/CD fixed - all libvirt compilation and crossplane packaging working correctly.
+## Container Registry
+
+- **Primary**: `ghcr.io/rossigee/provider-libvirt`
 
 ## Features
 
@@ -25,7 +27,7 @@ This provider eliminates the terraform dependency that plagued previous libvirt 
 2. **Native Controllers**: Built with `crossplane-runtime` controllers, not terraform wrappers
 3. **Efficient Networking**: Perfect for SSH/TLS connections like `qemu+ssh://user@host/system`
 
-## Quick Start
+## Getting Started
 
 ### 1. Install the Provider
 
@@ -259,16 +261,19 @@ make reviewable
 
 **Current Status**: ✅ All tests passing (133+ test cases), ✅ Clean lint results
 
-## Supported Resources
+## Resource Types
 
-All resources support both **cluster-scoped (legacy)** and **namespaced (v2 native)** deployment patterns:
+All resources are namespaced (`libvirt.m.crossplane.io/v1beta1`) — there is
+no separate cluster-scoped API version for this provider.
 
-- ✅ **Domain** - Virtual machine management with full lifecycle control
-- ✅ **Volume** - Storage volume management with cloud-init URL/file provisioning
-- ✅ **Network** - Network management (NAT, bridge, routed, isolated modes)
-- ✅ **StoragePool** - Storage pool management (dir, fs, nfs, iscsi, lvm, rbd, gluster, zfs)
-- ✅ **NodeDevice** - Hardware device management for GPU/USB passthrough
-- ✅ **Secret** - Secure credential and certificate management
+| Resource | Description |
+|----------|-------------|
+| Domain | Virtual machine management with full lifecycle control |
+| Volume | Storage volume management with cloud-init URL/file provisioning |
+| Network | Network management (NAT, bridge, routed, isolated modes) |
+| StoragePool | Storage pool management (dir, fs, nfs, iscsi, lvm, rbd, gluster, zfs) |
+| NodeDevice | Hardware device management for GPU/USB passthrough |
+| Secret | Secure credential and certificate management |
 
 ### Resource Cross-References
 
