@@ -21,6 +21,8 @@ type mockStoragePoolClient struct {
 	setAutostartFn func(sp *libvirt.StoragePool, autostart bool) error
 	getInfoFn      func(sp *libvirt.StoragePool) (*libvirt.StoragePoolInfo, error)
 	buildFn        func(sp *libvirt.StoragePool, flags uint32) error
+	closeFn        func() error
+	closeCalled    bool
 }
 
 func (m *mockStoragePoolClient) StoragePoolLookupByName(name string) (*libvirt.StoragePool, error) {
@@ -101,7 +103,34 @@ func (m *mockStoragePoolClient) StoragePoolBuild(sp *libvirt.StoragePool, flags 
 }
 
 func (m *mockStoragePoolClient) Close() error {
+	m.closeCalled = true
+	if m.closeFn != nil {
+		return m.closeFn()
+	}
 	return nil
+}
+
+func TestStoragePoolDisconnect(t *testing.T) {
+	mock := &mockStoragePoolClient{}
+	e := &external{client: mock}
+
+	if err := e.Disconnect(context.Background()); err != nil {
+		t.Fatalf("Disconnect() returned unexpected error: %v", err)
+	}
+	if !mock.closeCalled {
+		t.Error("Disconnect() did not close the underlying libvirt connection")
+	}
+}
+
+func TestStoragePoolDisconnectPropagatesCloseError(t *testing.T) {
+	wantErr := errors.New("boom")
+	mock := &mockStoragePoolClient{closeFn: func() error { return wantErr }}
+	e := &external{client: mock}
+
+	err := e.Disconnect(context.Background())
+	if err == nil || err.Error() != wantErr.Error() {
+		t.Errorf("Disconnect() = %v, want error %v", err, wantErr)
+	}
 }
 
 // Error path tests

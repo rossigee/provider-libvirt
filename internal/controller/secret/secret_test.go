@@ -8,6 +8,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/rossigee/provider-libvirt/apis/v1beta1"
+	"github.com/rossigee/provider-libvirt/internal/clients"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -492,5 +493,13 @@ func TestConnect(t *testing.T) {
 				t.Errorf("Connect(...): -wantErr, +gotErr:\n%s", diff)
 			}
 		})
+	}
+}
+
+func TestSecretDisconnect(t *testing.T) {
+	e := &external{service: &clients.LibvirtClient{}}
+
+	if err := e.Disconnect(context.Background()); err != nil {
+		t.Fatalf("Disconnect() returned unexpected error: %v", err)
 	}
 }

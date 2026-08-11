@@ -20,6 +20,8 @@ type mockNetworkClient struct {
 	isPersistentFn func(n *libvirt.Network) (bool, error)
 	getAutostartFn func(n *libvirt.Network) (bool, error)
 	setAutostartFn func(n *libvirt.Network, autostart bool) error
+	closeFn        func() error
+	closeCalled    bool
 }
 
 func (m *mockNetworkClient) NetworkLookupByName(name string) (*libvirt.Network, error) {
@@ -86,7 +88,34 @@ func (m *mockNetworkClient) NetworkSetAutostart(n *libvirt.Network, autostart bo
 }
 
 func (m *mockNetworkClient) Close() error {
+	m.closeCalled = true
+	if m.closeFn != nil {
+		return m.closeFn()
+	}
 	return nil
+}
+
+func TestNetworkDisconnect(t *testing.T) {
+	mock := &mockNetworkClient{}
+	e := &external{client: mock}
+
+	if err := e.Disconnect(context.Background()); err != nil {
+		t.Fatalf("Disconnect() returned unexpected error: %v", err)
+	}
+	if !mock.closeCalled {
+		t.Error("Disconnect() did not close the underlying libvirt connection")
+	}
+}
+
+func TestNetworkDisconnectPropagatesCloseError(t *testing.T) {
+	wantErr := errors.New("boom")
+	mock := &mockNetworkClient{closeFn: func() error { return wantErr }}
+	e := &external{client: mock}
+
+	err := e.Disconnect(context.Background())
+	if err == nil || err.Error() != wantErr.Error() {
+		t.Errorf("Disconnect() = %v, want error %v", err, wantErr)
+	}
 }
 
 // Error path tests

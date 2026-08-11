@@ -18,6 +18,8 @@ type mockVolumeClient struct {
 	resizeFn           func(volume *libvirt.StorageVol, capacity uint64, flags libvirt.StorageVolResizeFlags) error
 	poolLookupByNameFn func(name string) (*libvirt.StoragePool, error)
 	newStreamFn        func(flags libvirt.StreamFlags) (*libvirt.Stream, error)
+	closeFn            func() error
+	closeCalled        bool
 }
 
 func (m *mockVolumeClient) StorageVolLookupByName(pool *libvirt.StoragePool, name string) (*libvirt.StorageVol, error) {
@@ -70,7 +72,34 @@ func (m *mockVolumeClient) NewStream(flags libvirt.StreamFlags) (*libvirt.Stream
 }
 
 func (m *mockVolumeClient) Close() error {
+	m.closeCalled = true
+	if m.closeFn != nil {
+		return m.closeFn()
+	}
 	return nil
+}
+
+func TestVolumeDisconnect(t *testing.T) {
+	mock := &mockVolumeClient{}
+	e := &external{client: mock}
+
+	if err := e.Disconnect(context.Background()); err != nil {
+		t.Fatalf("Disconnect() returned unexpected error: %v", err)
+	}
+	if !mock.closeCalled {
+		t.Error("Disconnect() did not close the underlying libvirt connection")
+	}
+}
+
+func TestVolumeDisconnectPropagatesCloseError(t *testing.T) {
+	wantErr := errors.New("boom")
+	mock := &mockVolumeClient{closeFn: func() error { return wantErr }}
+	e := &external{client: mock}
+
+	err := e.Disconnect(context.Background())
+	if err == nil || err.Error() != wantErr.Error() {
+		t.Errorf("Disconnect() = %v, want error %v", err, wantErr)
+	}
 }
 
 // Error path tests

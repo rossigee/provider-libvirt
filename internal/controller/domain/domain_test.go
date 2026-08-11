@@ -24,6 +24,8 @@ type mockDomainClient struct {
 	shutdownFn     func(d interface{}) error
 	destroyFn      func(d interface{}) error
 	undefineFn     func(d interface{}) error
+	closeFn        func() error
+	closeCalled    bool
 }
 
 func (m *mockDomainClient) DomainLookupByName(name string) (*libvirt.Domain, error) {
@@ -82,6 +84,10 @@ func (m *mockDomainClient) DomainUndefine(d *libvirt.Domain) error {
 }
 
 func (m *mockDomainClient) Close() error {
+	m.closeCalled = true
+	if m.closeFn != nil {
+		return m.closeFn()
+	}
 	return nil
 }
 
@@ -114,6 +120,29 @@ func testDomain(m ...domainModifier) *v1beta1.Domain {
 
 func boolPtr(b bool) *bool {
 	return &b
+}
+
+func TestDisconnect(t *testing.T) {
+	mock := &mockDomainClient{}
+	e := &external{client: mock}
+
+	if err := e.Disconnect(context.Background()); err != nil {
+		t.Fatalf("Disconnect() returned unexpected error: %v", err)
+	}
+	if !mock.closeCalled {
+		t.Error("Disconnect() did not close the underlying libvirt connection")
+	}
+}
+
+func TestDisconnectPropagatesCloseError(t *testing.T) {
+	wantErr := errors.New("boom")
+	mock := &mockDomainClient{closeFn: func() error { return wantErr }}
+	e := &external{client: mock}
+
+	err := e.Disconnect(context.Background())
+	if err == nil || err.Error() != wantErr.Error() {
+		t.Errorf("Disconnect() = %v, want error %v", err, wantErr)
+	}
 }
 
 func TestGenerateDomainXML(t *testing.T) {
