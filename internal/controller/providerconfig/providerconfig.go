@@ -15,6 +15,7 @@ import (
 	"github.com/rossigee/provider-libvirt/apis/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/util/retry"
 	"libvirt.org/go/libvirt"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -58,10 +59,8 @@ func (r *reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	data, err := resource.CommonCredentialExtractor(ctx, pc.Spec.Credentials.Source, r.kube, pc.Spec.Credentials.CommonCredentialSelectors)
 	if err != nil {
 		log.Error(err, "cannot extract credentials")
-		if r.setCondition(pc, corev1.ConditionFalse, "ConnectionError", fmt.Sprintf("cannot extract credentials: %v", err)) {
-			if err := r.kube.Status().Update(ctx, pc); err != nil {
-				return ctrl.Result{}, err
-			}
+		if err := r.updateReadyCondition(ctx, req.NamespacedName, corev1.ConditionFalse, "ConnectionError", fmt.Sprintf("cannot extract credentials: %v", err)); err != nil {
+			return ctrl.Result{}, err
 		}
 		return ctrl.Result{RequeueAfter: pollInterval}, nil
 	}
@@ -70,10 +69,8 @@ func (r *reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	creds := map[string]string{}
 	if err := json.Unmarshal(data, &creds); err != nil {
 		log.Error(err, "cannot unmarshal credentials")
-		if r.setCondition(pc, corev1.ConditionFalse, "ConnectionError", fmt.Sprintf("cannot unmarshal credentials: %v", err)) {
-			if err := r.kube.Status().Update(ctx, pc); err != nil {
-				return ctrl.Result{}, err
-			}
+		if err := r.updateReadyCondition(ctx, req.NamespacedName, corev1.ConditionFalse, "ConnectionError", fmt.Sprintf("cannot unmarshal credentials: %v", err)); err != nil {
+			return ctrl.Result{}, err
 		}
 		return ctrl.Result{RequeueAfter: pollInterval}, nil
 	}
@@ -82,10 +79,8 @@ func (r *reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	if !ok {
 		errMsg := "libvirt URI not found in credentials (expected \"uri\" key)"
 		log.Error(errors.New(errMsg), "invalid credentials")
-		if r.setCondition(pc, corev1.ConditionFalse, "ConnectionError", errMsg) {
-			if err := r.kube.Status().Update(ctx, pc); err != nil {
-				return ctrl.Result{}, err
-			}
+		if err := r.updateReadyCondition(ctx, req.NamespacedName, corev1.ConditionFalse, "ConnectionError", errMsg); err != nil {
+			return ctrl.Result{}, err
 		}
 		return ctrl.Result{RequeueAfter: pollInterval}, nil
 	}
@@ -94,10 +89,8 @@ func (r *reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	conn, err := libvirt.NewConnect(uri)
 	if err != nil {
 		log.Error(err, "cannot connect to libvirt", "uri", uri)
-		if r.setCondition(pc, corev1.ConditionFalse, "ConnectionError", fmt.Sprintf("cannot connect to %s: %v", uri, err)) {
-			if err := r.kube.Status().Update(ctx, pc); err != nil {
-				return ctrl.Result{}, err
-			}
+		if err := r.updateReadyCondition(ctx, req.NamespacedName, corev1.ConditionFalse, "ConnectionError", fmt.Sprintf("cannot connect to %s: %v", uri, err)); err != nil {
+			return ctrl.Result{}, err
 		}
 		return ctrl.Result{RequeueAfter: pollInterval}, nil
 	}
@@ -108,13 +101,31 @@ func (r *reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	}
 
 	log.Info("libvirt connection successful", "uri", uri)
-	if r.setCondition(pc, corev1.ConditionTrue, "Connected", fmt.Sprintf("Successfully connected to %s", uri)) {
-		if err := r.kube.Status().Update(ctx, pc); err != nil {
-			return ctrl.Result{}, err
-		}
+	if err := r.updateReadyCondition(ctx, req.NamespacedName, corev1.ConditionTrue, "Connected", fmt.Sprintf("Successfully connected to %s", uri)); err != nil {
+		return ctrl.Result{}, err
 	}
 
 	return ctrl.Result{RequeueAfter: pollInterval}, nil
+}
+
+// updateReadyCondition sets the Ready condition and writes it, retrying on
+// resourceVersion conflicts by re-fetching and reapplying in-process rather
+// than returning an error. A returned error causes controller-runtime to
+// requeue via a brand new Reconcile() call - which would open another
+// libvirt connection just to retry a status write - so conflicts are
+// resolved here instead, without needing another connection attempt. If the
+// condition already matches the latest object, no write is made at all.
+func (r *reconciler) updateReadyCondition(ctx context.Context, key client.ObjectKey, status corev1.ConditionStatus, reason xpv1.ConditionReason, message string) error {
+	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		latest := &v1beta1.ProviderConfig{}
+		if err := r.kube.Get(ctx, key, latest); err != nil {
+			return err
+		}
+		if !r.setCondition(latest, status, reason, message) {
+			return nil
+		}
+		return r.kube.Status().Update(ctx, latest)
+	})
 }
 
 // setCondition sets a condition on the ProviderConfig status. It returns
