@@ -1,9 +1,11 @@
 package domain
 
 import (
+	"context"
+	"testing"
+
 	"github.com/rossigee/provider-libvirt/apis/v1beta1"
 	"libvirt.org/go/libvirt"
-	"testing"
 )
 
 // Error path and validation tests for domain controller
@@ -14,7 +16,10 @@ func TestGenerateDomainXMLEmptyName(t *testing.T) {
 		d.Spec.ForProvider.Name = ""
 	})
 
-	xml := ext.generateDomainXML(domain)
+	xml, err := ext.generateDomainXML(context.Background(), domain)
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
 	if len(xml) == 0 {
 		t.Error("Expected XML to be generated even with empty name")
 	}
@@ -26,7 +31,10 @@ func TestGenerateDomainXMLZeroMemory(t *testing.T) {
 		d.Spec.ForProvider.Memory = 0
 	})
 
-	xml := ext.generateDomainXML(domain)
+	xml, err := ext.generateDomainXML(context.Background(), domain)
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
 	if !contains(xml, "0") {
 		t.Error("Expected zero memory to be in XML")
 	}
@@ -38,7 +46,10 @@ func TestGenerateDomainXMLZeroVCPU(t *testing.T) {
 		d.Spec.ForProvider.Vcpu = 0
 	})
 
-	xml := ext.generateDomainXML(domain)
+	xml, err := ext.generateDomainXML(context.Background(), domain)
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
 	// Should still generate XML
 	if len(xml) == 0 {
 		t.Error("Expected XML to be generated with zero vCPU")
@@ -51,7 +62,10 @@ func TestGenerateDomainXMLEmptyType(t *testing.T) {
 		d.Spec.ForProvider.Type = ""
 	})
 
-	xml := ext.generateDomainXML(domain)
+	xml, err := ext.generateDomainXML(context.Background(), domain)
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
 	// Should default to kvm
 	if !contains(xml, "type='kvm'") {
 		t.Error("Expected default type 'kvm' when empty")
@@ -64,7 +78,10 @@ func TestGenerateDomainXMLEmptyArch(t *testing.T) {
 		d.Spec.ForProvider.Arch = ""
 	})
 
-	xml := ext.generateDomainXML(domain)
+	xml, err := ext.generateDomainXML(context.Background(), domain)
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
 	// Should default to x86_64
 	if !contains(xml, "arch='x86_64'") {
 		t.Error("Expected default arch 'x86_64' when empty")
@@ -85,7 +102,10 @@ func TestGenerateDomainXMLLargeDiskCount(t *testing.T) {
 		d.Spec.ForProvider.Disk = disks
 	})
 
-	xml := ext.generateDomainXML(domain)
+	xml, err := ext.generateDomainXML(context.Background(), domain)
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
 	// All disks should be represented
 	for i := 0; i < 10; i++ {
 		diskFile := "/var/lib/libvirt/images/disk" + string(rune('a'+i)) + ".qcow2"
@@ -109,7 +129,10 @@ func TestGenerateDomainXMLLargeNetworkCount(t *testing.T) {
 		d.Spec.ForProvider.NetworkInterface = networks
 	})
 
-	xml := ext.generateDomainXML(domain)
+	xml, err := ext.generateDomainXML(context.Background(), domain)
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
 	// All networks should be represented
 	for i := 0; i < 5; i++ {
 		netName := "net" + string(rune('0'+i))
@@ -125,7 +148,10 @@ func TestGenerateDomainXMLSpecialCharacters(t *testing.T) {
 		d.Spec.ForProvider.Name = "test-vm-123"
 	})
 
-	xml := ext.generateDomainXML(domain)
+	xml, err := ext.generateDomainXML(context.Background(), domain)
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
 	if !contains(xml, "test-vm-123") {
 		t.Error("Expected domain name with special characters in XML")
 	}
@@ -137,7 +163,10 @@ func TestGenerateDomainXMLUtf8Name(t *testing.T) {
 		d.Spec.ForProvider.Name = "test-vm-ñ"
 	})
 
-	xml := ext.generateDomainXML(domain)
+	xml, err := ext.generateDomainXML(context.Background(), domain)
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
 	if !contains(xml, "test-vm") {
 		t.Error("Expected domain name in XML with UTF-8 characters")
 	}
@@ -187,8 +216,14 @@ func TestGenerateDomainXMLConsistency(t *testing.T) {
 	domain := testDomain()
 
 	// Same domain should produce same XML twice
-	xml1 := ext.generateDomainXML(domain)
-	xml2 := ext.generateDomainXML(domain)
+	xml1, err := ext.generateDomainXML(context.Background(), domain)
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+	xml2, err := ext.generateDomainXML(context.Background(), domain)
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
 
 	if xml1 != xml2 {
 		t.Error("Same domain should produce identical XML")
@@ -204,8 +239,14 @@ func TestGenerateDomainXMLDifferentDomains(t *testing.T) {
 		d.Spec.ForProvider.Memory = 2147483648
 	})
 
-	xml1 := ext.generateDomainXML(domain1)
-	xml2 := ext.generateDomainXML(domain2)
+	xml1, err := ext.generateDomainXML(context.Background(), domain1)
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+	xml2, err := ext.generateDomainXML(context.Background(), domain2)
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
 
 	if xml1 == xml2 {
 		t.Error("Different domains should produce different XML")

@@ -1,14 +1,16 @@
 package domain
 
 import (
+	"context"
 	"fmt"
+	"testing"
+
 	"github.com/google/go-cmp/cmp"
 	"github.com/pkg/errors"
 
 	"github.com/rossigee/provider-libvirt/apis/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"libvirt.org/go/libvirt"
-	"testing"
 )
 
 type domainModifier func(*v1beta1.Domain)
@@ -177,7 +179,11 @@ func TestGenerateDomainXML(t *testing.T) {
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
 			ext := &external{client: nil}
-			got := ext.generateDomainXML(tc.domain)
+			got, err := ext.generateDomainXML(context.Background(), tc.domain)
+			if err != nil {
+				t.Errorf("Unexpected error: %v", err)
+				return
+			}
 			if !contains(got, tc.want) {
 				t.Errorf("generateDomainXML(...): expected to contain %q, got:\n%s", tc.want, got)
 			}
@@ -307,7 +313,11 @@ func TestGenerateDomainXMLDefaultType(t *testing.T) {
 		d.Spec.ForProvider.Type = ""
 	})
 
-	xml := ext.generateDomainXML(domain)
+	xml, err := ext.generateDomainXML(context.Background(), domain)
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+		return
+	}
 	if !contains(xml, "type='kvm'") {
 		t.Errorf("Expected default type 'kvm' in XML, got:\n%s", xml)
 	}
@@ -319,7 +329,11 @@ func TestGenerateDomainXMLCustomType(t *testing.T) {
 		d.Spec.ForProvider.Type = "qemu"
 	})
 
-	xml := ext.generateDomainXML(domain)
+	xml, err := ext.generateDomainXML(context.Background(), domain)
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+		return
+	}
 	if !contains(xml, "type='qemu'") {
 		t.Errorf("Expected type 'qemu' in XML, got:\n%s", xml)
 	}
@@ -331,7 +345,11 @@ func TestGenerateDomainXMLDefaultArch(t *testing.T) {
 		d.Spec.ForProvider.Arch = ""
 	})
 
-	xml := ext.generateDomainXML(domain)
+	xml, err := ext.generateDomainXML(context.Background(), domain)
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+		return
+	}
 	if !contains(xml, "arch='x86_64'") {
 		t.Errorf("Expected default arch 'x86_64' in XML, got:\n%s", xml)
 	}
@@ -343,7 +361,11 @@ func TestGenerateDomainXMLCustomArch(t *testing.T) {
 		d.Spec.ForProvider.Arch = "aarch64"
 	})
 
-	xml := ext.generateDomainXML(domain)
+	xml, err := ext.generateDomainXML(context.Background(), domain)
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+		return
+	}
 	if !contains(xml, "arch='aarch64'") {
 		t.Errorf("Expected arch 'aarch64' in XML, got:\n%s", xml)
 	}
@@ -362,7 +384,11 @@ func TestGenerateDomainXMLMemory(t *testing.T) {
 			domain := testDomain(func(d *v1beta1.Domain) {
 				d.Spec.ForProvider.Memory = mem
 			})
-			xml := ext.generateDomainXML(domain)
+			xml, err := ext.generateDomainXML(context.Background(), domain)
+			if err != nil {
+				t.Errorf("Unexpected error: %v", err)
+				return
+			}
 			if !contains(xml, memStr(mem)) {
 				t.Errorf("Expected memory %d in XML", mem)
 			}
@@ -388,7 +414,11 @@ func TestGenerateDomainXMLVCPU(t *testing.T) {
 			domain := testDomain(func(d *v1beta1.Domain) {
 				d.Spec.ForProvider.Vcpu = cpu
 			})
-			xml := ext.generateDomainXML(domain)
+			xml, err := ext.generateDomainXML(context.Background(), domain)
+			if err != nil {
+				t.Errorf("Unexpected error: %v", err)
+				return
+			}
 			if !contains(xml, fmt.Sprintf("%d", cpu)) {
 				t.Errorf("Expected vcpu %d in XML", cpu)
 			}
@@ -404,7 +434,11 @@ func TestGenerateDomainXMLConsole(t *testing.T) {
 		}
 	})
 
-	xml := ext.generateDomainXML(domain)
+	xml, err := ext.generateDomainXML(context.Background(), domain)
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+		return
+	}
 	if !contains(xml, "console") {
 		t.Errorf("Expected console in XML, got:\n%s", xml)
 	}
@@ -419,7 +453,11 @@ func TestGenerateDomainXMLGraphics(t *testing.T) {
 		}
 	})
 
-	xml := ext.generateDomainXML(domain)
+	xml, err := ext.generateDomainXML(context.Background(), domain)
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+		return
+	}
 	if !contains(xml, "graphics") {
 		t.Errorf("Expected graphics in XML, got:\n%s", xml)
 	}
@@ -434,7 +472,11 @@ func TestGenerateDomainXMLMultipleDiskks(t *testing.T) {
 		}
 	})
 
-	xml := ext.generateDomainXML(domain)
+	xml, err := ext.generateDomainXML(context.Background(), domain)
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+		return
+	}
 	if !contains(xml, "disk1.qcow2") || !contains(xml, "disk2.qcow2") {
 		t.Errorf("Expected both disks in XML, got:\n%s", xml)
 	}
@@ -453,7 +495,11 @@ func TestGenerateDomainXMLDiskAttributes(t *testing.T) {
 		}
 	})
 
-	xml := ext.generateDomainXML(domain)
+	xml, err := ext.generateDomainXML(context.Background(), domain)
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+		return
+	}
 	if !contains(xml, "virtio") {
 		t.Errorf("Expected disk type virtio in XML, got:\n%s", xml)
 	}
@@ -546,7 +592,11 @@ func TestGenerateDomainXMLMinimalConfig(t *testing.T) {
 		d.Spec.ForProvider.Graphics = nil
 	})
 
-	xml := ext.generateDomainXML(domain)
+	xml, err := ext.generateDomainXML(context.Background(), domain)
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+		return
+	}
 	if !contains(xml, "test-vm") || !contains(xml, "kvm") {
 		t.Errorf("Expected minimal domain XML, got:\n%s", xml)
 	}
@@ -568,7 +618,11 @@ func TestGenerateDomainXMLComplexConfig(t *testing.T) {
 		d.Spec.ForProvider.Graphics = []v1beta1.DomainGraphics{{Type: "vnc", Port: &port}}
 	})
 
-	xml := ext.generateDomainXML(domain)
+	xml, err := ext.generateDomainXML(context.Background(), domain)
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+		return
+	}
 	if !contains(xml, "root.qcow2") || !contains(xml, "data.qcow2") {
 		t.Errorf("Expected all disks in XML")
 	}

@@ -1,8 +1,10 @@
 package domain
 
 import (
-	"github.com/rossigee/provider-libvirt/apis/v1beta1"
+	"context"
 	"testing"
+
+	"github.com/rossigee/provider-libvirt/apis/v1beta1"
 )
 
 // Phase 1 API Tests - WWN, Console Target, Boot Devices, Machine Type
@@ -19,7 +21,11 @@ func TestGenerateDomainXMLWithDiskWWN(t *testing.T) {
 		}
 	})
 
-	xml := ext.generateDomainXML(cr)
+	xml, err := ext.generateDomainXML(context.Background(), cr)
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+		return
+	}
 	if !contains(xml, "6001405abc1234567890") {
 		t.Error("Domain XML should contain disk WWN")
 	}
@@ -39,7 +45,11 @@ func TestGenerateDomainXMLWithoutDiskWWN(t *testing.T) {
 		}
 	})
 
-	xml := ext.generateDomainXML(cr)
+	xml, err := ext.generateDomainXML(context.Background(), cr)
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+		return
+	}
 	// Should not have WWN element when not specified
 	diskSection := extractDiskSection(xml)
 	if contains(diskSection, "<wwn>") {
@@ -58,7 +68,11 @@ func TestGenerateDomainXMLWithConsoleTarget(t *testing.T) {
 		}
 	})
 
-	xml := ext.generateDomainXML(cr)
+	xml, err := ext.generateDomainXML(context.Background(), cr)
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+		return
+	}
 	if !contains(xml, `<target type='virtio'/>`) {
 		t.Error("Domain XML should contain console target")
 	}
@@ -74,7 +88,11 @@ func TestGenerateDomainXMLWithDefaultConsoleTarget(t *testing.T) {
 		}
 	})
 
-	xml := ext.generateDomainXML(cr)
+	xml, err := ext.generateDomainXML(context.Background(), cr)
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+		return
+	}
 	if !contains(xml, `<target type='virtio'/>`) {
 		t.Error("Domain XML should have default virtio console target")
 	}
@@ -86,7 +104,11 @@ func TestGenerateDomainXMLWithBootDevices(t *testing.T) {
 		d.Spec.ForProvider.Boot = []string{"disk", "network"}
 	})
 
-	xml := ext.generateDomainXML(cr)
+	xml, err := ext.generateDomainXML(context.Background(), cr)
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+		return
+	}
 	if !contains(xml, `<boot dev='disk'/>`) {
 		t.Error("Domain XML should contain disk boot device")
 	}
@@ -99,7 +121,11 @@ func TestGenerateDomainXMLWithoutBootDevices(t *testing.T) {
 	ext := &external{client: nil}
 	cr := testDomain()
 
-	xml := ext.generateDomainXML(cr)
+	xml, err := ext.generateDomainXML(context.Background(), cr)
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+		return
+	}
 	// Should not have boot element when not specified
 	osSection := extractOSSection(xml)
 	if contains(osSection, "<boot") {
@@ -113,7 +139,11 @@ func TestGenerateDomainXMLWithMachineType(t *testing.T) {
 		d.Spec.ForProvider.Machine = "q35"
 	})
 
-	xml := ext.generateDomainXML(cr)
+	xml, err := ext.generateDomainXML(context.Background(), cr)
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+		return
+	}
 	if !contains(xml, `machine='q35'`) {
 		t.Error("Domain XML should contain machine type")
 	}
@@ -123,7 +153,11 @@ func TestGenerateDomainXMLWithoutMachineType(t *testing.T) {
 	ext := &external{client: nil}
 	cr := testDomain()
 
-	xml := ext.generateDomainXML(cr)
+	xml, err := ext.generateDomainXML(context.Background(), cr)
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+		return
+	}
 	// Should not have machine attribute when not specified
 	osType := extractOSType(xml)
 	if contains(osType, "machine=") {
@@ -137,7 +171,11 @@ func TestGenerateDomainXMLBootDeviceOrder(t *testing.T) {
 		d.Spec.ForProvider.Boot = []string{"network", "disk", "cdrom"}
 	})
 
-	xml := ext.generateDomainXML(cr)
+	xml, err := ext.generateDomainXML(context.Background(), cr)
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+		return
+	}
 	networkPos := findPosition(xml, `<boot dev='network'/>`)
 	diskPos := findPosition(xml, `<boot dev='disk'/>`)
 	cdromPos := findPosition(xml, `<boot dev='cdrom'/>`)
@@ -167,7 +205,11 @@ func TestGenerateDomainXMLMultipleDiskWWN(t *testing.T) {
 		}
 	})
 
-	xml := ext.generateDomainXML(cr)
+	xml, err := ext.generateDomainXML(context.Background(), cr)
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+		return
+	}
 	if !contains(xml, "6001405abc1234567890") {
 		t.Error("Domain XML should contain first disk WWN")
 	}
@@ -185,7 +227,11 @@ func TestGenerateDomainXMLMachineTypeVariations(t *testing.T) {
 			d.Spec.ForProvider.Machine = machineType
 		})
 
-		xml := ext.generateDomainXML(cr)
+		xml, err := ext.generateDomainXML(context.Background(), cr)
+		if err != nil {
+			t.Errorf("Unexpected error: %v", err)
+			return
+		}
 		if !contains(xml, machineType) {
 			t.Errorf("Domain XML should contain machine type: %s", machineType)
 		}

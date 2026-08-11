@@ -1,8 +1,10 @@
 package domain
 
 import (
-	"github.com/rossigee/provider-libvirt/apis/v1beta1"
+	"context"
 	"testing"
+
+	"github.com/rossigee/provider-libvirt/apis/v1beta1"
 )
 
 // Phase 2 API Tests - WaitForLease
@@ -18,7 +20,11 @@ func TestGenerateDomainXMLWithWaitForLease(t *testing.T) {
 		}
 	})
 
-	xml := ext.generateDomainXML(cr)
+	xml, err := ext.generateDomainXML(context.Background(), cr)
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+		return
+	}
 	if !contains(xml, `waitForLease='yes'`) {
 		t.Error("Domain XML should contain waitForLease attribute when enabled")
 	}
@@ -35,7 +41,11 @@ func TestGenerateDomainXMLWithoutWaitForLease(t *testing.T) {
 		}
 	})
 
-	xml := ext.generateDomainXML(cr)
+	xml, err := ext.generateDomainXML(context.Background(), cr)
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+		return
+	}
 	if contains(xml, "waitForLease") {
 		t.Error("Domain XML should not contain waitForLease attribute when disabled")
 	}
@@ -53,7 +63,11 @@ func TestGenerateDomainXMLWaitForLeaseWithMAC(t *testing.T) {
 		}
 	})
 
-	xml := ext.generateDomainXML(cr)
+	xml, err := ext.generateDomainXML(context.Background(), cr)
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+		return
+	}
 	if !contains(xml, `waitForLease='yes'`) {
 		t.Error("Domain XML should contain waitForLease with MAC address")
 	}
@@ -77,7 +91,11 @@ func TestGenerateDomainXMLMultipleInterfacesWaitForLease(t *testing.T) {
 		}
 	})
 
-	xml := ext.generateDomainXML(cr)
+	xml, err := ext.generateDomainXML(context.Background(), cr)
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+		return
+	}
 	// Should have waitForLease in first interface
 	interfaceCount := 0
 	i := 0
@@ -124,7 +142,11 @@ func TestGenerateDomainXMLWaitForLeaseVariations(t *testing.T) {
 			}
 		})
 
-		xml := ext.generateDomainXML(cr)
+		xml, err := ext.generateDomainXML(context.Background(), cr)
+		if err != nil {
+			t.Errorf("Unexpected error: %v", err)
+			return
+		}
 
 		if scenario.shouldContain != "" && !contains(xml, scenario.shouldContain) {
 			t.Errorf("%s: XML should contain '%s'", scenario.name, scenario.shouldContain)
@@ -147,7 +169,11 @@ func TestGenerateDomainXMLWaitForLeaseWithModel(t *testing.T) {
 		}
 	})
 
-	xml := ext.generateDomainXML(cr)
+	xml, err := ext.generateDomainXML(context.Background(), cr)
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+		return
+	}
 	if !contains(xml, `waitForLease='yes'`) {
 		t.Error("Domain XML should have waitForLease with model")
 	}
@@ -168,7 +194,11 @@ func TestGenerateDomainXMLWaitForLeaseOrdering(t *testing.T) {
 		}
 	})
 
-	xml := ext.generateDomainXML(cr)
+	xml, err := ext.generateDomainXML(context.Background(), cr)
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+		return
+	}
 
 	// Check that waitForLease is in the source element
 	if !contains(xml, `<source network='default' waitForLease='yes'/>`) {
