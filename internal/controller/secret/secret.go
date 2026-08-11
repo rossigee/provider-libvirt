@@ -252,8 +252,7 @@ func (c *external) Delete(ctx context.Context, mg resource.Managed) (managed.Ext
 }
 
 func (c *external) Disconnect(ctx context.Context) error {
-	// Nothing to disconnect for libvirt client
-	return nil
+	return c.service.Close()
 }
 
 // Helper functions

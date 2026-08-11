@@ -78,6 +78,7 @@ type DomainClient interface {
 	DomainShutdown(d *libvirt.Domain) error
 	DomainDestroy(d *libvirt.Domain) error
 	DomainUndefine(d *libvirt.Domain) error
+	Close() error
 }
 
 type external struct {
@@ -418,7 +419,7 @@ func (c *external) Delete(ctx context.Context, mg resource.Managed) (managed.Ext
 }
 
 func (c *external) Disconnect(_ context.Context) error {
-	return nil
+	return c.client.Close()
 }
 
 // generateDomainXML creates libvirt domain XML definition

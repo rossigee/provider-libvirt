@@ -85,5 +85,5 @@ func (c *external) Delete(ctx context.Context, mg resource.Managed) (managed.Ext
 }
 
 func (c *external) Disconnect(_ context.Context) error {
-	return nil
+	return c.client.Close()
 }

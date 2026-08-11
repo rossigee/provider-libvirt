@@ -32,6 +32,7 @@ type NetworkClient interface {
 	NetworkIsPersistent(n *libvirt.Network) (bool, error)
 	NetworkGetAutostart(n *libvirt.Network) (bool, error)
 	NetworkSetAutostart(n *libvirt.Network, autostart bool) error
+	Close() error
 }
 
 // Setup adds a controller that reconciles Network managed resources.
@@ -215,7 +216,7 @@ func (c *external) Delete(ctx context.Context, mg resource.Managed) (managed.Ext
 }
 
 func (c *external) Disconnect(_ context.Context) error {
-	return nil
+	return c.client.Close()
 }
 
 // generateNetworkXML creates libvirt network XML definition

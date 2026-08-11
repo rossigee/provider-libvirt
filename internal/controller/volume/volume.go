@@ -38,6 +38,7 @@ type VolumeClient interface {
 	StorageVolResize(volume *libvirt.StorageVol, capacity uint64, flags libvirt.StorageVolResizeFlags) error
 	StoragePoolLookupByName(name string) (*libvirt.StoragePool, error)
 	NewStream(flags libvirt.StreamFlags) (*libvirt.Stream, error)
+	Close() error
 }
 
 // Setup adds a controller that reconciles Volume managed resources.
@@ -339,7 +340,7 @@ func (c *external) Delete(ctx context.Context, mg resource.Managed) (managed.Ext
 }
 
 func (c *external) Disconnect(_ context.Context) error {
-	return nil
+	return c.client.Close()
 }
 
 // generateVolumeXML creates libvirt volume XML definition

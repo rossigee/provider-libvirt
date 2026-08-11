@@ -100,6 +100,10 @@ func (m *mockStoragePoolClient) StoragePoolBuild(sp *libvirt.StoragePool, flags 
 	return nil
 }
 
+func (m *mockStoragePoolClient) Close() error {
+	return nil
+}
+
 // Error path tests
 
 func TestObserveWrongResourceType(t *testing.T) {

@@ -69,6 +69,10 @@ func (m *mockVolumeClient) NewStream(flags libvirt.StreamFlags) (*libvirt.Stream
 	return &libvirt.Stream{}, nil
 }
 
+func (m *mockVolumeClient) Close() error {
+	return nil
+}
+
 // Error path tests
 
 func TestObserveWrongResourceType(t *testing.T) {

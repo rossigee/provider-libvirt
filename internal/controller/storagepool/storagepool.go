@@ -34,6 +34,7 @@ type StoragePoolClient interface {
 	StoragePoolSetAutostart(sp *libvirt.StoragePool, autostart bool) error
 	StoragePoolGetInfo(sp *libvirt.StoragePool) (*libvirt.StoragePoolInfo, error)
 	StoragePoolBuild(sp *libvirt.StoragePool, flags uint32) error
+	Close() error
 }
 
 // Setup adds a controller that reconciles StoragePool managed resources.
@@ -238,7 +239,7 @@ func (c *external) Delete(ctx context.Context, mg resource.Managed) (managed.Ext
 }
 
 func (c *external) Disconnect(_ context.Context) error {
-	return nil
+	return c.client.Close()
 }
 
 // generatePoolXML creates libvirt storage pool XML definition

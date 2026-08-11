@@ -85,6 +85,10 @@ func (m *mockNetworkClient) NetworkSetAutostart(n *libvirt.Network, autostart bo
 	return nil
 }
 
+func (m *mockNetworkClient) Close() error {
+	return nil
+}
+
 // Error path tests
 
 func TestObserveWrongResourceType(t *testing.T) {

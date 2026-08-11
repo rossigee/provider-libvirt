@@ -81,6 +81,10 @@ func (m *mockDomainClient) DomainUndefine(d *libvirt.Domain) error {
 	return nil
 }
 
+func (m *mockDomainClient) Close() error {
+	return nil
+}
+
 func testDomain(m ...domainModifier) *v1beta1.Domain {
 	d := &v1beta1.Domain{
 		TypeMeta: metav1.TypeMeta{
