@@ -58,9 +58,10 @@ func (r *reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	data, err := resource.CommonCredentialExtractor(ctx, pc.Spec.Credentials.Source, r.kube, pc.Spec.Credentials.CommonCredentialSelectors)
 	if err != nil {
 		log.Error(err, "cannot extract credentials")
-		r.setCondition(pc, corev1.ConditionFalse, "ConnectionError", fmt.Sprintf("cannot extract credentials: %v", err))
-		if err := r.kube.Status().Update(ctx, pc); err != nil {
-			return ctrl.Result{}, err
+		if r.setCondition(pc, corev1.ConditionFalse, "ConnectionError", fmt.Sprintf("cannot extract credentials: %v", err)) {
+			if err := r.kube.Status().Update(ctx, pc); err != nil {
+				return ctrl.Result{}, err
+			}
 		}
 		return ctrl.Result{RequeueAfter: pollInterval}, nil
 	}
@@ -69,9 +70,10 @@ func (r *reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	creds := map[string]string{}
 	if err := json.Unmarshal(data, &creds); err != nil {
 		log.Error(err, "cannot unmarshal credentials")
-		r.setCondition(pc, corev1.ConditionFalse, "ConnectionError", fmt.Sprintf("cannot unmarshal credentials: %v", err))
-		if err := r.kube.Status().Update(ctx, pc); err != nil {
-			return ctrl.Result{}, err
+		if r.setCondition(pc, corev1.ConditionFalse, "ConnectionError", fmt.Sprintf("cannot unmarshal credentials: %v", err)) {
+			if err := r.kube.Status().Update(ctx, pc); err != nil {
+				return ctrl.Result{}, err
+			}
 		}
 		return ctrl.Result{RequeueAfter: pollInterval}, nil
 	}
@@ -80,9 +82,10 @@ func (r *reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	if !ok {
 		errMsg := "libvirt URI not found in credentials (expected \"uri\" key)"
 		log.Error(errors.New(errMsg), "invalid credentials")
-		r.setCondition(pc, corev1.ConditionFalse, "ConnectionError", errMsg)
-		if err := r.kube.Status().Update(ctx, pc); err != nil {
-			return ctrl.Result{}, err
+		if r.setCondition(pc, corev1.ConditionFalse, "ConnectionError", errMsg) {
+			if err := r.kube.Status().Update(ctx, pc); err != nil {
+				return ctrl.Result{}, err
+			}
 		}
 		return ctrl.Result{RequeueAfter: pollInterval}, nil
 	}
@@ -91,9 +94,10 @@ func (r *reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	conn, err := libvirt.NewConnect(uri)
 	if err != nil {
 		log.Error(err, "cannot connect to libvirt", "uri", uri)
-		r.setCondition(pc, corev1.ConditionFalse, "ConnectionError", fmt.Sprintf("cannot connect to %s: %v", uri, err))
-		if err := r.kube.Status().Update(ctx, pc); err != nil {
-			return ctrl.Result{}, err
+		if r.setCondition(pc, corev1.ConditionFalse, "ConnectionError", fmt.Sprintf("cannot connect to %s: %v", uri, err)) {
+			if err := r.kube.Status().Update(ctx, pc); err != nil {
+				return ctrl.Result{}, err
+			}
 		}
 		return ctrl.Result{RequeueAfter: pollInterval}, nil
 	}
@@ -104,38 +108,45 @@ func (r *reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	}
 
 	log.Info("libvirt connection successful", "uri", uri)
-	r.setCondition(pc, corev1.ConditionTrue, "Connected", fmt.Sprintf("Successfully connected to %s", uri))
-	if err := r.kube.Status().Update(ctx, pc); err != nil {
-		return ctrl.Result{}, err
+	if r.setCondition(pc, corev1.ConditionTrue, "Connected", fmt.Sprintf("Successfully connected to %s", uri)) {
+		if err := r.kube.Status().Update(ctx, pc); err != nil {
+			return ctrl.Result{}, err
+		}
 	}
 
 	return ctrl.Result{RequeueAfter: pollInterval}, nil
 }
 
-// setCondition sets a condition on the ProviderConfig status
-func (r *reconciler) setCondition(pc *v1beta1.ProviderConfig, status corev1.ConditionStatus, reason xpv1.ConditionReason, message string) {
+// setCondition sets a condition on the ProviderConfig status. It returns
+// false, without modifying pc, if the condition already matches (ignoring
+// LastTransitionTime) - this lets callers skip a no-op Status().Update(),
+// which would otherwise trigger the controller's own watch and cause an
+// immediate re-reconcile far more often than pollInterval intends.
+func (r *reconciler) setCondition(pc *v1beta1.ProviderConfig, status corev1.ConditionStatus, reason xpv1.ConditionReason, message string) bool {
 	condType := xpv1.ConditionType("Ready")
-	now := metav1.Now()
 
-	// Update or add the condition
 	for i, c := range pc.Status.Conditions {
 		if string(c.Type) == string(condType) {
+			if c.Status == status && c.Reason == reason && c.Message == message {
+				return false
+			}
 			pc.Status.Conditions[i] = xpv1.Condition{
 				Type:               condType,
 				Status:             status,
-				LastTransitionTime: now,
+				LastTransitionTime: metav1.Now(),
 				Reason:             reason,
 				Message:            message,
 			}
-			return
+			return true
 		}
 	}
 
 	pc.Status.Conditions = append(pc.Status.Conditions, xpv1.Condition{
 		Type:               condType,
 		Status:             status,
-		LastTransitionTime: now,
+		LastTransitionTime: metav1.Now(),
 		Reason:             reason,
 		Message:            message,
 	})
+	return true
 }
