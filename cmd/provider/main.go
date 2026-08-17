@@ -15,6 +15,7 @@ import (
 	"github.com/crossplane/crossplane-runtime/v2/pkg/logging"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/rossigee/provider-libvirt/internal/clients"
 	"github.com/rossigee/provider-libvirt/internal/controller/domain"
 	"github.com/rossigee/provider-libvirt/internal/controller/network"
 	"github.com/rossigee/provider-libvirt/internal/controller/nodedevice"
@@ -32,6 +33,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
 func main() {
@@ -93,6 +95,7 @@ func main() {
 
 	kingpin.FatalIfError(mgr.AddHealthzCheck("healthz", healthz.Ping), "Cannot add health check")
 	kingpin.FatalIfError(mgr.AddReadyzCheck("readyz", healthz.Ping), "Cannot add ready check")
+	kingpin.FatalIfError(mgr.Add(manager.RunnableFunc(clients.StartConnectionReaper)), "Cannot add libvirt connection reaper")
 
 	log.Info("Starting controller manager")
 	kingpin.FatalIfError(mgr.Start(ctrl.SetupSignalHandler()), "Cannot start controller manager")

@@ -23,6 +23,7 @@ import (
 	"reflect"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -105,18 +106,123 @@ type LibvirtClient struct {
 	uri string
 }
 
-// Close closes the libvirt connection
+// Close releases this client's reference to its pooled connection. The
+// underlying libvirt connection stays open for reuse by other callers
+// (see acquireConnection) until it has been idle past connIdleTTL.
+//
+// Previously every caller (every managed resource reconcile, plus the
+// ProviderConfig health check every 60s across every configured URI) opened
+// a brand new TLS connection via libvirt.NewConnect and closed it via
+// Connect.Close() when done. Each caller's own Go-level bookkeeping was
+// correct - Close() was always called, and its returned reference count was
+// checked - but the sheer churn rate (a full TLS handshake and teardown per
+// reconcile) was still driving steady memory growth over time, eventually
+// hitting the pod's memory limit every few hours. Reusing connections
+// directly reduces that churn rate rather than just closing harder.
 func (c *LibvirtClient) Close() error {
-	if c.Connect != nil {
-		res, err := c.Connect.Close()
-		if err != nil {
-			return err
+	releaseConnection(c.uri)
+	return nil
+}
+
+// pooledConn is a shared, reference-counted libvirt connection cached by
+// URI in connPool.
+type pooledConn struct {
+	conn     *libvirt.Connect
+	refCount int
+	lastUsed time.Time
+}
+
+// connIdleTTL is how long a pooled connection may sit with zero references
+// before reapIdleConnections closes it.
+const connIdleTTL = 5 * time.Minute
+
+var (
+	connPoolMu sync.Mutex
+	connPool   = map[string]*pooledConn{}
+)
+
+// acquireConnection returns a shared libvirt connection for uri, reusing a
+// cached one if it's still alive, opening a fresh one otherwise. Every
+// successful call must be paired with a releaseConnection(uri) call - via
+// LibvirtClient.Close() - when the caller is done with it.
+func acquireConnection(uri string) (*libvirt.Connect, error) {
+	connPoolMu.Lock()
+	defer connPoolMu.Unlock()
+
+	if pc, ok := connPool[uri]; ok {
+		if alive, err := pc.conn.IsAlive(); err == nil && alive {
+			pc.refCount++
+			pc.lastUsed = time.Now()
+			return pc.conn, nil
 		}
-		if res != 0 {
-			return fmt.Errorf("libvirt close returned error code: %d", res)
+		// Stale or dead - drop it and fall through to reconnect.
+		_, _ = pc.conn.Close()
+		delete(connPool, uri)
+	}
+
+	conn, err := libvirt.NewConnect(uri)
+	if err != nil {
+		return nil, err
+	}
+	connPool[uri] = &pooledConn{conn: conn, refCount: 1, lastUsed: time.Now()}
+	return conn, nil
+}
+
+// releaseConnection decrements the reference count for uri's pooled
+// connection. It does not close the connection immediately - see
+// reapIdleConnections.
+func releaseConnection(uri string) {
+	connPoolMu.Lock()
+	defer connPoolMu.Unlock()
+	if pc, ok := connPool[uri]; ok {
+		if pc.refCount > 0 {
+			pc.refCount--
+		}
+		pc.lastUsed = time.Now()
+	}
+}
+
+// reapIdleConnections closes and evicts pooled connections that have had
+// zero references for longer than connIdleTTL.
+func reapIdleConnections() {
+	connPoolMu.Lock()
+	defer connPoolMu.Unlock()
+	for uri, pc := range connPool {
+		if pc.refCount <= 0 && time.Since(pc.lastUsed) > connIdleTTL {
+			_, _ = pc.conn.Close()
+			delete(connPool, uri)
 		}
 	}
-	return nil
+}
+
+// AcquireConnection is the exported form of acquireConnection, for callers
+// outside this package (e.g. the ProviderConfig health-check reconciler)
+// that need a raw *libvirt.Connect without a full LibvirtClient wrapper.
+// Every successful call must be paired with a ReleaseConnection(uri) call.
+func AcquireConnection(uri string) (*libvirt.Connect, error) {
+	return acquireConnection(uri)
+}
+
+// ReleaseConnection is the exported form of releaseConnection.
+func ReleaseConnection(uri string) {
+	releaseConnection(uri)
+}
+
+// StartConnectionReaper periodically closes idle pooled connections until
+// ctx is cancelled. Matches sigs.k8s.io/controller-runtime/pkg/manager's
+// Runnable signature - register it with mgr.Add(manager.RunnableFunc(...))
+// so it starts and stops with the rest of the controller manager.
+func StartConnectionReaper(ctx context.Context) error {
+	ticker := time.NewTicker(time.Minute)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-ticker.C:
+			reapIdleConnections()
+		}
+	}
 }
 
 // GetLibvirtClient establishes a connection to libvirt using provider configuration
@@ -198,9 +304,9 @@ func GetLibvirtClient(ctx context.Context, kube client.Client, mg resource.Manag
 		return nil, errors.New("libvirt URI not found in credentials")
 	}
 
-	// Connect to libvirt using CGO bindings
-	// This uses the same connection logic as virsh and handles TLS automatically
-	conn, err := libvirt.NewConnect(uri)
+	// Acquire a shared connection from the pool, opening a fresh one via
+	// CGO/TLS only if none is cached and alive for this URI.
+	conn, err := acquireConnection(uri)
 	if err != nil {
 		// Record this failure in ProviderConfig and return retriable error
 		recordConnectionFailure(ctx, kube, pc, err)

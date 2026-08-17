@@ -13,10 +13,10 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/rossigee/provider-libvirt/apis/v1beta1"
+	"github.com/rossigee/provider-libvirt/internal/clients"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/util/retry"
-	"libvirt.org/go/libvirt"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -85,20 +85,20 @@ func (r *reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{RequeueAfter: pollInterval}, nil
 	}
 
-	// Attempt libvirt connection
-	conn, err := libvirt.NewConnect(uri)
-	if err != nil {
+	// Acquire a shared, pooled connection rather than opening a fresh TLS
+	// connection on every poll - this reconciler runs every pollInterval
+	// (60s) for every configured ProviderConfig, and repeatedly
+	// opening/closing full libvirt connections at that frequency was the
+	// primary driver of a slow memory leak that OOMed the provider every
+	// few hours.
+	if _, err := clients.AcquireConnection(uri); err != nil {
 		log.Error(err, "cannot connect to libvirt", "uri", uri)
 		if err := r.updateReadyCondition(ctx, req.NamespacedName, corev1.ConditionFalse, "ConnectionError", fmt.Sprintf("cannot connect to %s: %v", uri, err)); err != nil {
 			return ctrl.Result{}, err
 		}
 		return ctrl.Result{RequeueAfter: pollInterval}, nil
 	}
-
-	// Connected - close immediately
-	if _, err := conn.Close(); err != nil {
-		log.Error(err, "error closing test connection")
-	}
+	clients.ReleaseConnection(uri)
 
 	log.Info("libvirt connection successful", "uri", uri)
 	if err := r.updateReadyCondition(ctx, req.NamespacedName, corev1.ConditionTrue, "Connected", fmt.Sprintf("Successfully connected to %s", uri)); err != nil {
