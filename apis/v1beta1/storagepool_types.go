@@ -245,3 +245,13 @@ func (mg *StoragePool) GetManagementPolicies() xpv1.ManagementPolicies {
 func (mg *StoragePool) SetManagementPolicies(p xpv1.ManagementPolicies) {
 	mg.Spec.ManagementPolicies = p
 }
+
+// GetWriteConnectionSecretToReference of this StoragePool.
+func (mg *StoragePool) GetWriteConnectionSecretToReference() *xpv1.LocalSecretReference {
+	return mg.Spec.WriteConnectionSecretToReference
+}
+
+// SetWriteConnectionSecretToReference of this StoragePool.
+func (mg *StoragePool) SetWriteConnectionSecretToReference(r *xpv1.LocalSecretReference) {
+	mg.Spec.WriteConnectionSecretToReference = r
+}
