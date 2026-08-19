@@ -5,16 +5,15 @@ Copyright 2025 Ross Golder
 package v1beta1
 
 import (
+	xpv1 "github.com/crossplane/crossplane/apis/v2/core/v2"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	xpv1 "github.com/crossplane/crossplane/apis/v2/core/v2"
 )
-
 
 // NetworkSpec defines the desired state of Network
 type NetworkSpec struct {
 	xpv1.ManagedResourceSpec `json:",inline"`
-	ForProvider       NetworkParameters `json:"forProvider"`
+	ForProvider              NetworkParameters `json:"forProvider"`
 }
 
 // NetworkParameters are the configurable fields of a Network.
@@ -171,7 +170,7 @@ type NetworkBootp struct {
 // NetworkStatus defines the observed state of Network
 type NetworkStatus struct {
 	xpv1.ManagedResourceStatus `json:",inline"`
-	AtProvider          NetworkObservation `json:"atProvider,omitempty"`
+	AtProvider                 NetworkObservation `json:"atProvider,omitempty"`
 }
 
 // NetworkObservation are the observable fields of a Network.
@@ -228,7 +227,6 @@ var (
 	NetworkGroupVersionKind = SchemeGroupVersion.WithKind(NetworkKind)
 )
 
-
 // GetCondition of this Network.
 func (mg *Network) GetCondition(ct xpv1.ConditionType) xpv1.Condition {
 	return mg.Status.GetCondition(ct)
@@ -238,7 +236,6 @@ func (mg *Network) GetCondition(ct xpv1.ConditionType) xpv1.Condition {
 func (mg *Network) SetConditions(c ...xpv1.Condition) {
 	mg.Status.SetConditions(c...)
 }
-
 
 // GetManagementPolicies of this Resource.
 func (mg *Network) GetManagementPolicies() xpv1.ManagementPolicies {

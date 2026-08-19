@@ -5,16 +5,15 @@ Copyright 2025 Ross Golder
 package v1beta1
 
 import (
+	xpv1 "github.com/crossplane/crossplane/apis/v2/core/v2"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	xpv1 "github.com/crossplane/crossplane/apis/v2/core/v2"
 )
-
 
 // NodeDeviceSpec defines the desired state of NodeDevice
 type NodeDeviceSpec struct {
 	xpv1.ManagedResourceSpec `json:",inline"`
-	ForProvider       NodeDeviceParameters `json:"forProvider"`
+	ForProvider              NodeDeviceParameters `json:"forProvider"`
 }
 
 // NodeDeviceParameters are the configurable fields of a NodeDevice.
@@ -177,7 +176,7 @@ type SCSIDevice struct {
 // NodeDeviceStatus defines the observed state of NodeDevice
 type NodeDeviceStatus struct {
 	xpv1.ManagedResourceStatus `json:",inline"`
-	AtProvider          NodeDeviceObservation `json:"atProvider,omitempty"`
+	AtProvider                 NodeDeviceObservation `json:"atProvider,omitempty"`
 }
 
 // NodeDeviceObservation are the observable fields of a NodeDevice.
@@ -248,7 +247,6 @@ var (
 	NodeDeviceGroupVersionKind = SchemeGroupVersion.WithKind(NodeDeviceKind)
 )
 
-
 // GetCondition of this NodeDevice.
 func (mg *NodeDevice) GetCondition(ct xpv1.ConditionType) xpv1.Condition {
 	return mg.Status.GetCondition(ct)
@@ -258,7 +256,6 @@ func (mg *NodeDevice) GetCondition(ct xpv1.ConditionType) xpv1.Condition {
 func (mg *NodeDevice) SetConditions(c ...xpv1.Condition) {
 	mg.Status.SetConditions(c...)
 }
-
 
 // GetManagementPolicies of this Resource.
 func (mg *NodeDevice) GetManagementPolicies() xpv1.ManagementPolicies {

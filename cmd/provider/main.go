@@ -7,12 +7,12 @@ package main
 import (
 	"context"
 	"github.com/alecthomas/kingpin/v2"
-	"k8s.io/apimachinery/pkg/runtime"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/logging"
+	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
-	rbacv1 "k8s.io/api/rbac/v1"
-	"github.com/crossplane/crossplane-runtime/v2/pkg/logging"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/rossigee/provider-libvirt/internal/clients"
@@ -116,7 +116,7 @@ func setupRBAC(c client.Client, l logging.Logger) error {
 
 	system := &rbacv1.ClusterRole{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "crossplane:provider:provider-libvirt:system",
+			Name:   "crossplane:provider:provider-libvirt:system",
 			Labels: map[string]string{"rbac.crossplane.io/system": "provider-libvirt"},
 		},
 		Rules: rules,
@@ -130,8 +130,8 @@ func setupRBAC(c client.Client, l logging.Logger) error {
 
 	binding := &rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{Name: "crossplane:provider:provider-libvirt:system"},
-		RoleRef: rbacv1.RoleRef{APIGroup: "rbac.authorization.k8s.io", Kind: "ClusterRole", Name: "crossplane:provider:provider-libvirt:system"},
-		Subjects: []rbacv1.Subject{{Kind: "ServiceAccount", Name: "provider-libvirt", Namespace: "crossplane-system"}},
+		RoleRef:    rbacv1.RoleRef{APIGroup: "rbac.authorization.k8s.io", Kind: "ClusterRole", Name: "crossplane:provider:provider-libvirt:system"},
+		Subjects:   []rbacv1.Subject{{Kind: "ServiceAccount", Name: "provider-libvirt", Namespace: "crossplane-system"}},
 	}
 	if err := c.Create(ctx, binding); err != nil && !errors.IsAlreadyExists(err) {
 		return err
@@ -157,7 +157,7 @@ func setupRBAC(c client.Client, l logging.Logger) error {
 
 	view := &rbacv1.ClusterRole{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "crossplane:provider:provider-libvirt:aggregate-to-view",
+			Name:   "crossplane:provider:provider-libvirt:aggregate-to-view",
 			Labels: map[string]string{"rbac.crossplane.io/aggregate-to-view": "true", "rbac.crossplane.io/system": "provider-libvirt"},
 		},
 		Rules: withVerbs(rules, []string{"get", "list", "watch"}),

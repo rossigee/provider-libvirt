@@ -5,16 +5,15 @@ Copyright 2025 Ross Golder
 package v1beta1
 
 import (
+	xpv1 "github.com/crossplane/crossplane/apis/v2/core/v2"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	xpv1 "github.com/crossplane/crossplane/apis/v2/core/v2"
 )
-
 
 // VolumeSpec defines the desired state of Volume
 type VolumeSpec struct {
 	xpv1.ManagedResourceSpec `json:",inline"`
-	ForProvider       VolumeParameters `json:"forProvider"`
+	ForProvider              VolumeParameters `json:"forProvider"`
 }
 
 // VolumeParameters are the configurable fields of a Volume.
@@ -202,7 +201,7 @@ type VolumeFeatures struct {
 // VolumeStatus defines the observed state of Volume
 type VolumeStatus struct {
 	xpv1.ManagedResourceStatus `json:",inline"`
-	AtProvider          VolumeObservation `json:"atProvider,omitempty"`
+	AtProvider                 VolumeObservation `json:"atProvider,omitempty"`
 }
 
 // VolumeObservation are the observable fields of a Volume.
@@ -268,7 +267,6 @@ var (
 	VolumeGroupVersionKind = SchemeGroupVersion.WithKind(VolumeKind)
 )
 
-
 // GetCondition of this Volume.
 func (mg *Volume) GetCondition(ct xpv1.ConditionType) xpv1.Condition {
 	return mg.Status.GetCondition(ct)
@@ -278,7 +276,6 @@ func (mg *Volume) GetCondition(ct xpv1.ConditionType) xpv1.Condition {
 func (mg *Volume) SetConditions(c ...xpv1.Condition) {
 	mg.Status.SetConditions(c...)
 }
-
 
 // GetManagementPolicies of this Resource.
 func (mg *Volume) GetManagementPolicies() xpv1.ManagementPolicies {
