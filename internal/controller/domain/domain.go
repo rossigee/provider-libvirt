@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/xml"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/crossplane/crossplane-runtime/v2/pkg/event"
@@ -73,6 +74,7 @@ func (c *connector) Connect(ctx context.Context, mg resource.Managed) (managed.E
 type DomainClient interface {
 	DomainLookupByName(name string) (*libvirt.Domain, error)
 	DomainDefineXML(xml string) (*libvirt.Domain, error)
+	DomainGetXMLDesc(d *libvirt.Domain, flags uint32) (string, error)
 	DomainCreate(d *libvirt.Domain) error
 	DomainSetAutostart(d *libvirt.Domain, autostart int) error
 	DomainShutdown(d *libvirt.Domain) error
@@ -224,6 +226,49 @@ func (c *external) parseDisksFromXML(xmlData string) ([]v1beta1.DiskInfo, error)
 	return disks, nil
 }
 
+// pcieRootPortTargetRe matches auto-generated <target chassis='N' port='0xNN'/>
+// elements that libvirt adds for pcie-root-port controllers on q35/PCIe domains.
+var pcieRootPortTargetRe = regexp.MustCompile(`<target chassis='(\d+)' port='([^']+)'/>`)
+
+// disableRootPortHotplug adds hotplug='off' to every auto-generated pcie-root-port
+// controller's <target> element.
+//
+// QEMU/libvirt packages installed 2026-08-06 on the itx hypervisors introduced an
+// intermittent ACPI PCIe-hotplug power-sequencing race: during guest boot, the D3cold
+// -> D0 power transition for a hotplug-managed root port randomly fails ("device
+// inaccessible"), and the virtio-pci device behind it never binds. When the affected
+// port happens to carry the network interface, the guest boots with no working NIC.
+// None of these VMs ever hot-add devices, so disabling ACPI hotplug on the
+// libvirt-auto-generated root ports removes the race entirely. Root-caused and
+// verified (4/4 reproducible before/after tests) 2026-08-19.
+func disableRootPortHotplug(domainXML string) string {
+	return pcieRootPortTargetRe.ReplaceAllString(domainXML, `<target chassis='$1' port='$2' hotplug='off'/>`)
+}
+
+// redefineWithHotplugDisabled re-fetches the XML libvirt generated for domain
+// (which now includes its auto-allocated pcie-root-port controllers), patches out
+// ACPI hotplug on those controllers, and redefines the domain with the patched XML.
+// Must be called after DomainDefineXML and before DomainCreate, since the
+// auto-generated controllers only exist once the domain has been defined.
+func (c *external) redefineWithHotplugDisabled(domain *libvirt.Domain) (*libvirt.Domain, error) {
+	currentXML, err := c.client.DomainGetXMLDesc(domain, 0)
+	if err != nil {
+		return nil, errors.Wrap(err, "cannot get domain XML to patch pcie-root-port hotplug")
+	}
+
+	patchedXML := disableRootPortHotplug(currentXML)
+	if patchedXML == currentXML {
+		return domain, nil
+	}
+
+	patchedDomain, err := c.client.DomainDefineXML(patchedXML)
+	if err != nil {
+		return nil, errors.Wrap(err, "cannot redefine domain with pcie-root-port hotplug disabled")
+	}
+
+	return patchedDomain, nil
+}
+
 func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.ExternalCreation, error) {
 	cr, ok := mg.(*v1beta1.Domain)
 	if !ok {
@@ -240,6 +285,11 @@ func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.Ext
 	domain, err := c.client.DomainDefineXML(xml)
 	if err != nil {
 		return managed.ExternalCreation{}, errors.Wrap(err, "cannot define domain")
+	}
+
+	domain, err = c.redefineWithHotplugDisabled(domain)
+	if err != nil {
+		return managed.ExternalCreation{}, err
 	}
 
 	// Start domain if running is true (default)
@@ -337,6 +387,11 @@ func (c *external) Update(ctx context.Context, mg resource.Managed) (managed.Ext
 		newDomain, err := c.client.DomainDefineXML(newXML)
 		if err != nil {
 			return managed.ExternalUpdate{}, errors.Wrap(err, "cannot redefine domain with disks")
+		}
+
+		newDomain, err = c.redefineWithHotplugDisabled(newDomain)
+		if err != nil {
+			return managed.ExternalUpdate{}, err
 		}
 
 		// Start domain if it should be running

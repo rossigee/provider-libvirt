@@ -19,6 +19,7 @@ type domainModifier func(*v1beta1.Domain)
 type mockDomainClient struct {
 	lookupByNameFn func(name string) error
 	defineXMLFn    func(xml string) error
+	getXMLDescFn   func(d interface{}) (string, error)
 	createFn       func(d interface{}) error
 	setAutostartFn func(d interface{}, as int) error
 	shutdownFn     func(d interface{}) error
@@ -46,6 +47,13 @@ func (m *mockDomainClient) DomainDefineXML(xml string) (*libvirt.Domain, error) 
 		}
 	}
 	return &libvirt.Domain{}, nil
+}
+
+func (m *mockDomainClient) DomainGetXMLDesc(d *libvirt.Domain, flags uint32) (string, error) {
+	if m.getXMLDescFn != nil {
+		return m.getXMLDescFn(d)
+	}
+	return "<domain type='kvm'><devices></devices></domain>", nil
 }
 
 func (m *mockDomainClient) DomainCreate(d *libvirt.Domain) error {

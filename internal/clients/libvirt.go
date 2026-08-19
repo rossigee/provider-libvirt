@@ -79,6 +79,7 @@ func (e *RetriableError) Unwrap() error {
 type LibvirtOperations interface {
 	DomainLookupByName(name string) (*libvirt.Domain, error)
 	DomainDefineXML(xml string) (*libvirt.Domain, error)
+	DomainGetXMLDesc(d *libvirt.Domain, flags uint32) (string, error)
 	DomainCreate(d *libvirt.Domain) error
 	DomainSetAutostart(d *libvirt.Domain, autostart int) error
 	DomainShutdown(d *libvirt.Domain) error
@@ -565,6 +566,11 @@ func (c *LibvirtClient) DomainGetInfo(domain *libvirt.Domain) (libvirt.DomainSta
 // DomainDefineXML defines a domain from XML
 func (c *LibvirtClient) DomainDefineXML(xml string) (*libvirt.Domain, error) {
 	return c.Connect.DomainDefineXML(xml)
+}
+
+// DomainGetXMLDesc gets a domain's current XML description
+func (c *LibvirtClient) DomainGetXMLDesc(domain *libvirt.Domain, flags uint32) (string, error) {
+	return domain.GetXMLDesc(libvirt.DomainXMLFlags(flags))
 }
 
 // DomainCreate starts a domain
