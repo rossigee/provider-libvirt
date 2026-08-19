@@ -11,13 +11,15 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+
 	xpv1 "github.com/crossplane/crossplane/apis/v2/core/v2"
+
+	"testing"
 
 	"github.com/rossigee/provider-libvirt/apis/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"testing"
 )
 
 // Helper function to create int64 pointer

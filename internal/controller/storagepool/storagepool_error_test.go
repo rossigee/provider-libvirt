@@ -1,8 +1,9 @@
 package storagepool
 
 import (
-	"github.com/rossigee/provider-libvirt/apis/v1beta1"
 	"testing"
+
+	"github.com/rossigee/provider-libvirt/apis/v1beta1"
 )
 
 // Error path and validation tests for storage pool controller

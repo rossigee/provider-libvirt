@@ -11,20 +11,22 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+
 	"github.com/crossplane/crossplane-runtime/v2/pkg/resource"
 	xpv1 "github.com/crossplane/crossplane/apis/v2/core/v2"
 	"github.com/pkg/errors"
 
 	"github.com/rossigee/provider-libvirt/apis/v1beta1"
 
-	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/util/retry"
-	"libvirt.org/go/libvirt"
 	"reflect"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"strings"
 	"sync"
 	"time"
+
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/util/retry"
+	"libvirt.org/go/libvirt"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // Note: The go-libvirt library automatically includes storage operations

@@ -5,11 +5,12 @@ Copyright 2025 Ross Golder
 package v1beta1
 
 import (
+	"testing"
+
 	xpv1 "github.com/crossplane/crossplane/apis/v2/core/v2"
 	"github.com/google/go-cmp/cmp"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"testing"
 )
 
 func TestDomainSpec(t *testing.T) {

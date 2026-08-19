@@ -10,14 +10,16 @@ package test
 import (
 	"context"
 	"fmt"
+
 	xpv1 "github.com/crossplane/crossplane/apis/v2/core/v2"
+
+	"testing"
 
 	"github.com/rossigee/provider-libvirt/apis/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
-	"testing"
 )
 
 // TestVMLifecycleWorkflows tests complete VM lifecycle scenarios

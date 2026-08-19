@@ -2,13 +2,15 @@ package domain
 
 import (
 	"context"
+
 	xpv1 "github.com/crossplane/crossplane/apis/v2/core/v2"
+
+	"testing"
 
 	"github.com/rossigee/provider-libvirt/apis/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
-	"testing"
 )
 
 // Phase 3 API Tests - Reference Resolution (VolumeRef/NetworkRef)

@@ -2,8 +2,9 @@ package mocks
 
 import (
 	"errors"
-	"libvirt.org/go/libvirt"
 	"sync"
+
+	"libvirt.org/go/libvirt"
 )
 
 // MockLibvirtClient mocks the LibvirtClient for testing

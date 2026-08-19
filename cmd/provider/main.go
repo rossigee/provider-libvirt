@@ -6,6 +6,7 @@ package main
 
 import (
 	"context"
+
 	"github.com/alecthomas/kingpin/v2"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/logging"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -14,6 +15,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"os"
+	"path/filepath"
 
 	"github.com/rossigee/provider-libvirt/internal/clients"
 	"github.com/rossigee/provider-libvirt/internal/controller/domain"
@@ -25,8 +29,6 @@ import (
 	"github.com/rossigee/provider-libvirt/internal/controller/volume"
 	"github.com/rossigee/provider-libvirt/internal/tracing"
 	"github.com/rossigee/provider-libvirt/internal/webhook"
-	"os"
-	"path/filepath"
 
 	"github.com/rossigee/provider-libvirt/apis/v1beta1"
 	ctrl "sigs.k8s.io/controller-runtime"

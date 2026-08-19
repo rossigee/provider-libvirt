@@ -9,14 +9,16 @@ package test
 
 import (
 	"context"
+
 	xpv1 "github.com/crossplane/crossplane/apis/v2/core/v2"
+
+	"testing"
 
 	"github.com/rossigee/provider-libvirt/apis/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
-	"testing"
 )
 
 // TestResourceDependencyValidation tests various dependency scenarios

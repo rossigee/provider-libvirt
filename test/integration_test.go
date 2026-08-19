@@ -9,7 +9,11 @@ package test
 
 import (
 	"context"
+
 	xpv1 "github.com/crossplane/crossplane/apis/v2/core/v2"
+
+	"testing"
+	"time"
 
 	"github.com/rossigee/provider-libvirt/apis/v1beta1"
 	corev1 "k8s.io/api/core/v1"
@@ -17,8 +21,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
-	"testing"
-	"time"
 )
 
 // TestDomainLifecycle tests the complete lifecycle of a Domain resource

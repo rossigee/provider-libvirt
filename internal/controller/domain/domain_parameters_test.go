@@ -3,9 +3,10 @@ package domain
 import (
 	xpv1 "github.com/crossplane/crossplane/apis/v2/core/v2"
 
+	"testing"
+
 	"github.com/rossigee/provider-libvirt/apis/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"testing"
 )
 
 // Parameter validation and configuration tests

@@ -3,8 +3,9 @@ package secret
 import (
 	"context"
 
-	"github.com/rossigee/provider-libvirt/apis/v1beta1"
 	"testing"
+
+	"github.com/rossigee/provider-libvirt/apis/v1beta1"
 )
 
 // Error path tests for secret controller

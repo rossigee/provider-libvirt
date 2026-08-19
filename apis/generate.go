@@ -30,8 +30,3 @@ limitations under the License.
 //go:generate go run -tags generate github.com/crossplane/crossplane-tools/cmd/angryjet generate-methodsets --header-file=../hack/boilerplate.go.txt ./...
 
 package apis
-
-import (
-	"github.com/crossplane/crossplane-tools/cmd/angryjet"
-	"sigs.k8s.io/controller-tools/cmd/controller-gen"
-)
