@@ -100,6 +100,14 @@ jobs:
         env:
           VERSION: ${{ steps.version.outputs.version }}
 
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Release ${{ steps.version.outputs.version }}
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+
       - name: Verify published package contains CRDs
         run: |
           set -e
