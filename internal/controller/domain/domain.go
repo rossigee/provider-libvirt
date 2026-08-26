@@ -110,7 +110,7 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 		return managed.ExternalObservation{}, err
 	}
 
-	domainState := libvirt.DomainState(state)
+	domainState := state
 
 	// Update status
 	cr.Status.AtProvider.State = formatDomainState(domainState)
@@ -334,7 +334,7 @@ func (c *external) Update(ctx context.Context, mg resource.Managed) (managed.Ext
 		return managed.ExternalUpdate{}, err
 	}
 
-	domainState := libvirt.DomainState(state)
+	domainState := state
 
 	// Get current XML to check disk count
 	currentXML, err := domain.GetXMLDesc(0)
@@ -415,7 +415,7 @@ func (c *external) Update(ctx context.Context, mg resource.Managed) (managed.Ext
 
 	// Handle running state (normal update path)
 	running := cr.Spec.ForProvider.Running == nil || *cr.Spec.ForProvider.Running
-	isRunning := libvirt.DomainState(state) == libvirt.DOMAIN_RUNNING
+	isRunning := state == libvirt.DOMAIN_RUNNING
 
 	if running && !isRunning {
 		if err := c.client.DomainCreate(domain); err != nil {
@@ -459,7 +459,7 @@ func (c *external) Delete(ctx context.Context, mg resource.Managed) (managed.Ext
 	}
 
 	// Stop domain if running
-	if libvirt.DomainState(state) == libvirt.DOMAIN_RUNNING {
+	if state == libvirt.DOMAIN_RUNNING {
 		if err := c.client.DomainDestroy(domain); err != nil {
 			return managed.ExternalDelete{}, errors.Wrap(err, "cannot destroy domain")
 		}

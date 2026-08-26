@@ -553,7 +553,7 @@ func (c *LibvirtClient) DomainLookupByName(name string) (*libvirt.Domain, error)
 // DomainGetState gets the state of a domain
 func (c *LibvirtClient) DomainGetState(domain *libvirt.Domain, flags uint32) (libvirt.DomainState, int, error) {
 	state, reason, err := domain.GetState()
-	return libvirt.DomainState(state), reason, err
+	return state, reason, err
 }
 
 // DomainGetInfo gets information about a domain
@@ -562,7 +562,7 @@ func (c *LibvirtClient) DomainGetInfo(domain *libvirt.Domain) (libvirt.DomainSta
 	if err != nil {
 		return 0, 0, 0, 0, 0, err
 	}
-	return libvirt.DomainState(info.State), info.MaxMem, info.Memory, uint16(info.NrVirtCpu), info.CpuTime, nil
+	return info.State, info.MaxMem, info.Memory, uint16(info.NrVirtCpu), info.CpuTime, nil
 }
 
 // DomainDefineXML defines a domain from XML
