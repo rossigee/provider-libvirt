@@ -738,10 +738,9 @@ func testConcurrentVMOperations(t *testing.T, ctx context.Context, k8sClient cli
 		}
 	}
 
-	// Create all VMs concurrently
+	// Create all VMs
 	for i, domain := range domains {
 		t.Run(fmt.Sprintf("CreateVM%d", i), func(t *testing.T) {
-			t.Parallel() // Run in parallel
 			createResource(t, ctx, k8sClient, domain)
 			makeResourceReady(t, ctx, k8sClient, domain)
 		})
