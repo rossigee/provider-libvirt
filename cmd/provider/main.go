@@ -9,6 +9,7 @@ import (
 
 	"github.com/alecthomas/kingpin/v2"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/logging"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/statemetrics"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -36,13 +37,17 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/metrics"
+	metricserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 )
 
 func main() {
 	var (
-		app            = kingpin.New(filepath.Base(os.Args[0]), "A Crossplane provider for libvirt").DefaultEnvars()
-		debug          = app.Flag("debug", "Run with debug logging.").Short('d').Bool()
-		enableWebhooks = app.Flag("enable-webhooks", "Enable validation webhooks.").Default("false").Bool()
+		app                     = kingpin.New(filepath.Base(os.Args[0]), "A Crossplane provider for libvirt").DefaultEnvars()
+		debug                   = app.Flag("debug", "Run with debug logging.").Short('d').Bool()
+		enableWebhooks          = app.Flag("enable-webhooks", "Enable validation webhooks.").Default("false").Bool()
+		pollStateMetricInterval = app.Flag("poll-state-metric", "State metric recording interval").Default("5s").Duration()
+		metricsBindAddress      = app.Flag("metrics-bind-address", "The address the metrics endpoint binds to.").Default(":8080").String()
 	)
 	kingpin.MustParse(app.Parse(os.Args[1:]))
 
@@ -74,6 +79,9 @@ func main() {
 		LeaderElectionID:       "crossplane-leader-election-provider-libvirt",
 		Cache:                  cache.Options{},
 		HealthProbeBindAddress: ":9440",
+		Metrics: metricserver.Options{
+			BindAddress: *metricsBindAddress,
+		},
 	})
 	kingpin.FatalIfError(err, "Cannot create controller manager")
 
@@ -88,6 +96,16 @@ func main() {
 	kingpin.FatalIfError(secret.Setup(mgr, log), "Cannot setup Secret controller")
 	kingpin.FatalIfError(storagepool.Setup(mgr, log), "Cannot setup StoragePool controller")
 	kingpin.FatalIfError(volume.Setup(mgr, log), "Cannot setup Volume controller")
+
+	mrStateMetrics := statemetrics.NewMRStateMetrics()
+	metrics.Registry.MustRegister(mrStateMetrics)
+
+	kingpin.FatalIfError(mgr.Add(statemetrics.NewMRStateRecorder(mgr.GetClient(), log, mrStateMetrics, &v1beta1.DomainList{}, *pollStateMetricInterval)), "Cannot register state metrics for Domain")
+	kingpin.FatalIfError(mgr.Add(statemetrics.NewMRStateRecorder(mgr.GetClient(), log, mrStateMetrics, &v1beta1.NetworkList{}, *pollStateMetricInterval)), "Cannot register state metrics for Network")
+	kingpin.FatalIfError(mgr.Add(statemetrics.NewMRStateRecorder(mgr.GetClient(), log, mrStateMetrics, &v1beta1.VolumeList{}, *pollStateMetricInterval)), "Cannot register state metrics for Volume")
+	kingpin.FatalIfError(mgr.Add(statemetrics.NewMRStateRecorder(mgr.GetClient(), log, mrStateMetrics, &v1beta1.StoragePoolList{}, *pollStateMetricInterval)), "Cannot register state metrics for StoragePool")
+	kingpin.FatalIfError(mgr.Add(statemetrics.NewMRStateRecorder(mgr.GetClient(), log, mrStateMetrics, &v1beta1.NodeDeviceList{}, *pollStateMetricInterval)), "Cannot register state metrics for NodeDevice")
+	kingpin.FatalIfError(mgr.Add(statemetrics.NewMRStateRecorder(mgr.GetClient(), log, mrStateMetrics, &v1beta1.SecretList{}, *pollStateMetricInterval)), "Cannot register state metrics for Secret")
 
 	// Setup webhooks if enabled
 	if *enableWebhooks {
