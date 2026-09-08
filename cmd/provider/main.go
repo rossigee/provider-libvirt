@@ -54,9 +54,9 @@ func main() {
 	// Set up TLS environment variables for libvirt connections
 	// TLS certificates are mounted at /tls/client/ in the container
 	if _, err := os.Stat("/tls/client/ca.crt"); err == nil {
-		os.Setenv("LIBVIRT_CACERT", "/tls/client/ca.crt")
-		os.Setenv("LIBVIRT_TLS_CERT", "/tls/client/tls.crt")
-		os.Setenv("LIBVIRT_TLS_KEY", "/tls/client/tls.key")
+		_ = os.Setenv("LIBVIRT_CACERT", "/tls/client/ca.crt")
+		_ = os.Setenv("LIBVIRT_TLS_CERT", "/tls/client/tls.crt")
+		_ = os.Setenv("LIBVIRT_TLS_KEY", "/tls/client/tls.key")
 	}
 
 	zl := zap.New(zap.UseDevMode(*debug))
