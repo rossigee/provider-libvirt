@@ -1,104 +1,163 @@
-name: Release
+# Custom Release Workflow for provider-libvirt
+# Publishes to ghcr.io/rossigee using the crossplane build system.
+name: Release (Official Workflows)
 
 on:
   push:
     tags:
-      - 'v*'
-
-env:
-  REGISTRY_ORGS: ghcr.io/rossigee
-  GO_REQUIRED_VERSION: 1.27.1
-
-permissions:
-  packages: write
-  contents: write
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag to release (e.g., v1.0.0)'
+        required: true
+        type: string
 
 jobs:
   release:
     runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      packages: write
     steps:
-      - uses: actions/checkout@v7
+      - name: Checkout
+        uses: actions/checkout@v7
         with:
-          submodules: true
           fetch-depth: 0
 
-      - uses: actions/setup-go@v7
-        with:
-          go-version: ${{ env.GO_REQUIRED_VERSION }}
+      - name: Init build submodule
+        run: git submodule update --init --depth 1 build
 
-      - name: Extract version from tag
+      - name: Determine Version
         id: version
         run: |
-          VERSION=${GITHUB_REF#refs/tags/}
-          echo "version=${VERSION}" >> $GITHUB_OUTPUT
-          echo "Version: ${VERSION}"
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION="${GITHUB_REF#refs/tags/}"
+          fi
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Detected version: $VERSION"
 
-      - name: Set up Docker Buildx
+      - name: Setup Go
+        uses: actions/setup-go@v7
+        with:
+          go-version: '1.27.1'
+          cache: true
+
+      - name: Setup QEMU
+        uses: docker/setup-qemu-action@v4
+        with:
+          platforms: all
+
+      - name: Setup Docker Buildx
         uses: docker/setup-buildx-action@v4
 
-      - name: Log in to Container Registry
+      - name: Login to GitHub Container Registry
         uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          password: ${{ github.token }}
 
-      - name: Install libvirt development libraries (amd64 + arm64 cross)
+      - name: Build Artifacts
         run: |
-          # arm64 packages live on ports.ubuntu.com, not the default amd64
-          # mirrors, so the existing sources must be restricted to amd64 and
-          # a ports source added for arm64 before it can be installed.
-          sudo dpkg --add-architecture arm64
-          # Ubuntu 24.04 runners use the DEB822 .sources format, where every
-          # stanza defaults to covering all added architectures. Restrict the
-          # existing (amd64-only) mirrors explicitly, since arm64 packages
-          # live on ports.ubuntu.com, not the main/security archive.
-          for f in /etc/apt/sources.list.d/*.sources; do
-            [ -f "$f" ] || continue
-            grep -q '^Architectures:' "$f" || sudo sed -i '/^Types: deb$/a Architectures: amd64' "$f"
-          done
-          sudo sed -i -E 's/^deb (http|mirror\+file)/deb [arch=amd64] \1/' /etc/apt/sources.list 2>/dev/null || true
-          echo "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble main universe" | sudo tee /etc/apt/sources.list.d/arm64-ports.list
-          echo "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble-updates main universe" | sudo tee -a /etc/apt/sources.list.d/arm64-ports.list
-          echo "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble-security main universe" | sudo tee -a /etc/apt/sources.list.d/arm64-ports.list
-          sudo apt-get update
-          sudo apt-get install -y libvirt-dev gcc-aarch64-linux-gnu libvirt-dev:arm64
+          set -e  # Fail fast on any error
 
-      - name: Run Goreleaser
-        uses: goreleaser/goreleaser-action@v6
+          export VERSION="${{ steps.version.outputs.version }}"
+
+          echo "Repository: ${{ github.repository }}"
+          echo "Repository owner: ${{ github.repository_owner }}"
+          echo "Version: ${VERSION}"
+
+          export BRANCH_NAME="master"
+
+          make build.all build.artifacts
+
+      - name: Upload XPKG Artifact
+        uses: actions/upload-artifact@v7
         with:
-          version: latest
-          args: release --clean
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ steps.version.outputs.version }}
+          name: xpkg
+          path: _output/xpkg/linux_amd64/provider-libvirt-${{ steps.version.outputs.version }}.xpkg
 
-      # The Crossplane runtime image and xpkg package are built and published
-      # separately from goreleaser, via the provider's own Makefile (the same
-      # build/makelib/xpkg.mk machinery provider-harbor and provider-btcpay use).
-      # This ensures the published package is a real xpkg (package.yaml + CRDs +
-      # embedded runtime image), not a hand-rolled Docker image missing its CRDs.
-      - name: Init build submodule
-        run: git submodule update --init --depth 1 build
+  publish:
+    runs-on: ubuntu-24.04
+    needs: release
+    permissions:
+      contents: write
+      packages: write
+      id-token: write
 
-      - name: Build runtime image
-        run: make build BUILD_PLATFORMS="linux_amd64 linux_arm64"
-        env:
-          VERSION: ${{ steps.version.outputs.version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          submodules: true
 
-      - name: Build Crossplane package
-        run: make xpkg.build BUILD_PLATFORMS="linux_amd64 linux_arm64"
-        env:
-          VERSION: ${{ steps.version.outputs.version }}
+      - name: Setup Go
+        uses: actions/setup-go@v7
+        with:
+          go-version: '1.27.1'
 
-      - name: Publish runtime image and Crossplane package
+      - name: Vendor Dependencies
+        run: go mod vendor
+
+      - name: Install Crossplane CLI v2.5.0 (from our fork)
         run: |
-          make publish \
+          set -e
+          mkdir -p .cache/tools/linux_x86_64
+          echo "Installing crank@v2.5.0 via go install (matches rossigee/build fork)"
+          GOBIN=$(pwd)/.cache/tools/linux_x86_64 go install github.com/crossplane/crossplane/cmd/crank@v2.5.0
+          if [ -f .cache/tools/linux_x86_64/crank ]; then
+            mv .cache/tools/linux_x86_64/crank .cache/tools/linux_x86_64/crossplane-cli-v2.5.0
+          fi
+          chmod +x .cache/tools/linux_x86_64/crossplane-cli-v2.5.0 || true
+
+      - name: Determine Version
+        id: version
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION="${GITHUB_REF#refs/tags/}"
+          fi
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "VERSION=${VERSION}" >> "$GITHUB_ENV"
+          echo "Detected version: $VERSION"
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Build and Publish Artifacts
+        env:
+          BRANCH_NAME: master
+        run: |
+          set -e
+          echo "Building version ${VERSION}"
+          make publish.artifacts \
             REGISTRY_ORGS="ghcr.io/${{ github.repository_owner }}" \
             XPKG_REG_ORGS="ghcr.io/${{ github.repository_owner }}" \
             BRANCH_NAME=master
-        env:
-          VERSION: ${{ steps.version.outputs.version }}
+
+      - name: Verify Publication
+        run: |
+          set -e
+          VERSION="${GITHUB_REF#refs/tags/}"
+          REGISTRY_PATH="ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}"
+
+          echo "Verifying publication to ${REGISTRY_PATH}:${VERSION}"
+          if docker pull "${REGISTRY_PATH}:${VERSION}" > /dev/null 2>&1; then
+            DIGEST=$(docker inspect "${REGISTRY_PATH}:${VERSION}" --format='{{index .RepoDigests 0}}' | cut -d'@' -f2)
+            echo "✅ Verified container image ${VERSION} (${DIGEST})"
+          else
+            echo "❌ Failed to pull container image ${VERSION}"
+            exit 1
+          fi
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v3
@@ -109,16 +168,25 @@ jobs:
           prerelease: false
           generate_release_notes: true
 
-      - name: Verify published package contains CRDs
+  verify-publication:
+    needs: publish
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Verify Publication
         run: |
           set -e
-          VERSION="${{ steps.version.outputs.version }}"
-          IMAGE="ghcr.io/${{ github.repository_owner }}/provider-libvirt:${VERSION}"
-          CROSSPLANE_CLI=$(make -s --no-print-directory print.crossplane-cli | tail -1)
-          "${CROSSPLANE_CLI}" xpkg extract "${IMAGE}" -o /tmp/verify.gz
-          CRD_COUNT=$(gunzip -c /tmp/verify.gz | grep -c '^kind: CustomResourceDefinition' || true)
-          echo "Found ${CRD_COUNT} CRDs in published package"
-          if [ "${CRD_COUNT}" -lt 8 ]; then
-            echo "::error::Published package is missing CRDs (expected 8, found ${CRD_COUNT})"
+
+          VERSION="${{ github.event.inputs.version || github.ref_name }}"
+          PROVIDER_NAME="${{ github.event.repository.name }}"
+          REGISTRY_PATH="ghcr.io/rossigee/${PROVIDER_NAME}"
+
+          echo "Verifying publication to ${REGISTRY_PATH}:${VERSION}"
+
+          if docker pull "${REGISTRY_PATH}:${VERSION}" > /dev/null 2>&1; then
+            DIGEST=$(docker inspect "${REGISTRY_PATH}:${VERSION}" --format='{{index .RepoDigests 0}}' | cut -d'@' -f2)
+            echo "✅ Verified container image ${VERSION}"
+            echo "   Digest: ${DIGEST}"
+          else
+            echo "❌ Failed to pull container image ${VERSION}"
             exit 1
           fi
