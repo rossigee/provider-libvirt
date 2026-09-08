@@ -8,7 +8,10 @@ import (
 	"context"
 
 	"github.com/alecthomas/kingpin/v2"
+	xpcontroller "github.com/crossplane/crossplane-runtime/v2/pkg/controller"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/feature"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/logging"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/ratelimiter"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/statemetrics"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -28,6 +31,7 @@ import (
 	"github.com/rossigee/provider-libvirt/internal/controller/secret"
 	"github.com/rossigee/provider-libvirt/internal/controller/storagepool"
 	"github.com/rossigee/provider-libvirt/internal/controller/volume"
+	"github.com/rossigee/provider-libvirt/internal/features"
 	"github.com/rossigee/provider-libvirt/internal/tracing"
 	"github.com/rossigee/provider-libvirt/internal/webhook"
 
@@ -43,11 +47,14 @@ import (
 
 func main() {
 	var (
-		app                     = kingpin.New(filepath.Base(os.Args[0]), "A Crossplane provider for libvirt").DefaultEnvars()
-		debug                   = app.Flag("debug", "Run with debug logging.").Short('d').Bool()
-		enableWebhooks          = app.Flag("enable-webhooks", "Enable validation webhooks.").Default("false").Bool()
-		pollStateMetricInterval = app.Flag("poll-state-metric", "State metric recording interval").Default("5s").Duration()
-		metricsBindAddress      = app.Flag("metrics-bind-address", "The address the metrics endpoint binds to.").Default(":8080").String()
+		app                      = kingpin.New(filepath.Base(os.Args[0]), "A Crossplane provider for libvirt").DefaultEnvars()
+		debug                    = app.Flag("debug", "Run with debug logging.").Short('d').Bool()
+		enableWebhooks           = app.Flag("enable-webhooks", "Enable validation webhooks.").Default("false").Bool()
+		pollInterval             = app.Flag("poll", "Poll interval controls how often an individual resource should be checked for drift.").Default("1m").Duration()
+		maxReconcileRate         = app.Flag("max-reconcile-rate", "The global maximum rate per second at which resources may be checked for drift.").Default("10").Int()
+		pollStateMetricInterval  = app.Flag("poll-state-metric", "State metric recording interval").Default("5s").Duration()
+		metricsBindAddress       = app.Flag("metrics-bind-address", "The address the metrics endpoint binds to.").Default(":8080").String()
+		enableManagementPolicies = app.Flag("enable-management-policies", "Enable support for management policies.").Default("true").Envar("ENABLE_MANAGEMENT_POLICIES").Bool()
 	)
 	kingpin.MustParse(app.Parse(os.Args[1:]))
 
@@ -89,23 +96,43 @@ func main() {
 		log.Info("RBAC setup warning (may be transient)", "error", err)
 	}
 
-	kingpin.FatalIfError(domain.Setup(mgr, log), "Cannot setup Domain controller")
-	kingpin.FatalIfError(network.Setup(mgr, log), "Cannot setup Network controller")
-	kingpin.FatalIfError(nodedevice.Setup(mgr, log), "Cannot setup NodeDevice controller")
-	kingpin.FatalIfError(providerconfig.Setup(mgr), "Cannot setup ProviderConfig controller")
-	kingpin.FatalIfError(secret.Setup(mgr, log), "Cannot setup Secret controller")
-	kingpin.FatalIfError(storagepool.Setup(mgr, log), "Cannot setup StoragePool controller")
-	kingpin.FatalIfError(volume.Setup(mgr, log), "Cannot setup Volume controller")
-
 	mrStateMetrics := statemetrics.NewMRStateMetrics()
 	metrics.Registry.MustRegister(mrStateMetrics)
 
-	kingpin.FatalIfError(mgr.Add(statemetrics.NewMRStateRecorder(mgr.GetClient(), log, mrStateMetrics, &v1beta1.DomainList{}, *pollStateMetricInterval)), "Cannot register state metrics for Domain")
-	kingpin.FatalIfError(mgr.Add(statemetrics.NewMRStateRecorder(mgr.GetClient(), log, mrStateMetrics, &v1beta1.NetworkList{}, *pollStateMetricInterval)), "Cannot register state metrics for Network")
-	kingpin.FatalIfError(mgr.Add(statemetrics.NewMRStateRecorder(mgr.GetClient(), log, mrStateMetrics, &v1beta1.VolumeList{}, *pollStateMetricInterval)), "Cannot register state metrics for Volume")
-	kingpin.FatalIfError(mgr.Add(statemetrics.NewMRStateRecorder(mgr.GetClient(), log, mrStateMetrics, &v1beta1.StoragePoolList{}, *pollStateMetricInterval)), "Cannot register state metrics for StoragePool")
-	kingpin.FatalIfError(mgr.Add(statemetrics.NewMRStateRecorder(mgr.GetClient(), log, mrStateMetrics, &v1beta1.NodeDeviceList{}, *pollStateMetricInterval)), "Cannot register state metrics for NodeDevice")
-	kingpin.FatalIfError(mgr.Add(statemetrics.NewMRStateRecorder(mgr.GetClient(), log, mrStateMetrics, &v1beta1.SecretList{}, *pollStateMetricInterval)), "Cannot register state metrics for Secret")
+	mo := xpcontroller.MetricOptions{
+		PollStateMetricInterval: *pollStateMetricInterval,
+		MRStateMetrics:          mrStateMetrics,
+	}
+
+	featureFlags := &feature.Flags{}
+	if *enableManagementPolicies {
+		featureFlags.Enable(features.EnableAlphaManagementPolicies)
+		log.Info("Alpha feature enabled", "flag", features.EnableAlphaManagementPolicies)
+	}
+
+	o := xpcontroller.Options{
+		Logger:                  log,
+		MaxConcurrentReconciles: *maxReconcileRate,
+		PollInterval:            *pollInterval,
+		GlobalRateLimiter:       ratelimiter.NewGlobal(*maxReconcileRate),
+		Features:                featureFlags,
+		MetricOptions:           &mo,
+	}
+
+	kingpin.FatalIfError(domain.Setup(mgr, o), "Cannot setup Domain controller")
+	kingpin.FatalIfError(network.Setup(mgr, o), "Cannot setup Network controller")
+	kingpin.FatalIfError(nodedevice.Setup(mgr, o), "Cannot setup NodeDevice controller")
+	kingpin.FatalIfError(providerconfig.Setup(mgr), "Cannot setup ProviderConfig controller")
+	kingpin.FatalIfError(secret.Setup(mgr, o), "Cannot setup Secret controller")
+	kingpin.FatalIfError(storagepool.Setup(mgr, o), "Cannot setup StoragePool controller")
+	kingpin.FatalIfError(volume.Setup(mgr, o), "Cannot setup Volume controller")
+
+	kingpin.FatalIfError(mgr.Add(statemetrics.NewMRStateRecorder(mgr.GetClient(), o.Logger, o.MetricOptions.MRStateMetrics, &v1beta1.DomainList{}, o.MetricOptions.PollStateMetricInterval)), "Cannot register state metrics for Domain")
+	kingpin.FatalIfError(mgr.Add(statemetrics.NewMRStateRecorder(mgr.GetClient(), o.Logger, o.MetricOptions.MRStateMetrics, &v1beta1.NetworkList{}, o.MetricOptions.PollStateMetricInterval)), "Cannot register state metrics for Network")
+	kingpin.FatalIfError(mgr.Add(statemetrics.NewMRStateRecorder(mgr.GetClient(), o.Logger, o.MetricOptions.MRStateMetrics, &v1beta1.VolumeList{}, o.MetricOptions.PollStateMetricInterval)), "Cannot register state metrics for Volume")
+	kingpin.FatalIfError(mgr.Add(statemetrics.NewMRStateRecorder(mgr.GetClient(), o.Logger, o.MetricOptions.MRStateMetrics, &v1beta1.StoragePoolList{}, o.MetricOptions.PollStateMetricInterval)), "Cannot register state metrics for StoragePool")
+	kingpin.FatalIfError(mgr.Add(statemetrics.NewMRStateRecorder(mgr.GetClient(), o.Logger, o.MetricOptions.MRStateMetrics, &v1beta1.NodeDeviceList{}, o.MetricOptions.PollStateMetricInterval)), "Cannot register state metrics for NodeDevice")
+	kingpin.FatalIfError(mgr.Add(statemetrics.NewMRStateRecorder(mgr.GetClient(), o.Logger, o.MetricOptions.MRStateMetrics, &v1beta1.SecretList{}, o.MetricOptions.PollStateMetricInterval)), "Cannot register state metrics for Secret")
 
 	// Setup webhooks if enabled
 	if *enableWebhooks {
