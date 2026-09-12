@@ -15,7 +15,6 @@ spec:
         owner: 107   # qemu user
         group: 107   # qemu group
         mode: 0755   # rwxr-xr-x
-  deletionPolicy: Delete
 ---
 apiVersion: libvirt.m.crossplane.io/v1beta1
 kind: StoragePool
@@ -39,7 +38,6 @@ spec:
         path: /dev/sdb1
       format:
         type: ext4
-  deletionPolicy: Delete
 ---
 apiVersion: libvirt.m.crossplane.io/v1beta1
 kind: StoragePool
@@ -61,7 +59,6 @@ spec:
       dir: /exports/libvirt
       format:
         type: nfs
-  deletionPolicy: Delete
 ---
 apiVersion: libvirt.m.crossplane.io/v1beta1
 kind: StoragePool
@@ -88,7 +85,6 @@ spec:
         secret:
           type: iscsi
           usage: libvirt-iscsi-secret
-  deletionPolicy: Delete
 ---
 apiVersion: libvirt.m.crossplane.io/v1beta1
 kind: StoragePool
@@ -112,7 +108,6 @@ spec:
         freeExtents:
           start: 0
           end: 1023
-  deletionPolicy: Delete
 ---
 apiVersion: libvirt.m.crossplane.io/v1beta1
 kind: StoragePool
@@ -131,7 +126,6 @@ spec:
       device:
         path: /dev/sdd
         partTable: gpt
-  deletionPolicy: Delete
 ---
 apiVersion: libvirt.m.crossplane.io/v1beta1
 kind: StoragePool
@@ -157,7 +151,6 @@ spec:
         secret:
           type: ceph
           uuid: 2ec115d7-3a88-3ceb-bc12-67c7b6e4c5e7
-  deletionPolicy: Delete
 ---
 apiVersion: libvirt.m.crossplane.io/v1beta1
 kind: StoragePool
@@ -178,7 +171,6 @@ spec:
         name: gluster1.example.com
         port: 24007
       dir: /libvirt-images
-  deletionPolicy: Delete
 ---
 apiVersion: libvirt.m.crossplane.io/v1beta1
 kind: StoragePool
@@ -197,7 +189,6 @@ spec:
       name: zfs-pool/libvirt
       device:
         path: /dev/sde
-  deletionPolicy: Delete
 ---
 apiVersion: libvirt.m.crossplane.io/v1beta1
 kind: StoragePool
@@ -221,4 +212,3 @@ spec:
         secret:
           type: passphrase
           usage: encrypted-storage-secret
-  deletionPolicy: Delete

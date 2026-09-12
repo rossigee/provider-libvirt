@@ -51,4 +51,3 @@ spec:
       type: spice
       listenAddress: 127.0.0.1
       autoport: true
-  deletionPolicy: Delete

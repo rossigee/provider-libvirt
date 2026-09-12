@@ -11,7 +11,6 @@ spec:
     capacity: 10737418240  # 10GB in bytes
     format: qcow2
     allocation: 1073741824  # 1GB initial allocation (sparse)
-  deletionPolicy: Delete
 ---
 apiVersion: libvirt.m.crossplane.io/v1beta1
 kind: Volume
@@ -28,7 +27,6 @@ spec:
     backingStore:
       path: /var/lib/libvirt/images/base-image.qcow2
       format: qcow2
-  deletionPolicy: Delete
 ---
 apiVersion: libvirt.m.crossplane.io/v1beta1
 kind: Volume
@@ -45,7 +43,6 @@ spec:
     source:
       volume: example-volume
       pool: default
-  deletionPolicy: Delete
 ---
 apiVersion: libvirt.m.crossplane.io/v1beta1
 kind: Volume
@@ -69,4 +66,3 @@ spec:
         owner: 107   # qemu user
         group: 107   # qemu group
         mode: 0600   # rw-------
-  deletionPolicy: Delete

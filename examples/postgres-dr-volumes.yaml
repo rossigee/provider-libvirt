@@ -13,7 +13,6 @@ spec:
     format: qcow2
   providerConfigRef:
     name: timewarp
-  deletionPolicy: Delete
 ---
 # PostgreSQL Primary VM Data Volume
 apiVersion: libvirt.m.crossplane.io/v1beta1
@@ -30,7 +29,6 @@ spec:
     format: qcow2
   providerConfigRef:
     name: timewarp
-  deletionPolicy: Delete
 ---
 # PostgreSQL Secondary VM Root Volume
 apiVersion: libvirt.m.crossplane.io/v1beta1
@@ -47,7 +45,6 @@ spec:
     format: qcow2
   providerConfigRef:
     name: timewarp
-  deletionPolicy: Delete
 ---
 # PostgreSQL Secondary VM Data Volume
 apiVersion: libvirt.m.crossplane.io/v1beta1
@@ -64,4 +61,3 @@ spec:
     format: qcow2
   providerConfigRef:
     name: timewarp
-  deletionPolicy: Delete

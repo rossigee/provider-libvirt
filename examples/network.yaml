@@ -32,7 +32,6 @@ spec:
     forward:
       mode: nat
       managed: true
-  deletionPolicy: Delete
 ---
 apiVersion: libvirt.m.crossplane.io/v1beta1
 kind: Network
@@ -64,7 +63,6 @@ spec:
       hosts:
         - ip: 10.0.0.50
           hostname: test-vm.local
-  deletionPolicy: Delete
 ---
 apiVersion: libvirt.m.crossplane.io/v1beta1
 kind: Network
@@ -82,7 +80,6 @@ spec:
       mode: bridge
       interfaces:
         - dev: eth0
-  deletionPolicy: Delete
 ---
 apiVersion: libvirt.m.crossplane.io/v1beta1
 kind: Network
@@ -121,7 +118,6 @@ spec:
       txt:
         - name: _service._tcp
           value: "path=/service"
-  deletionPolicy: Delete
 ---
 apiVersion: libvirt.m.crossplane.io/v1beta1
 kind: Network
@@ -189,4 +185,3 @@ spec:
         addresses:
           - start: 10.10.0.1
             end: 10.10.0.1
-  deletionPolicy: Delete

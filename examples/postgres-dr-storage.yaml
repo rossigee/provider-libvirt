@@ -17,4 +17,3 @@ spec:
         mode: 0755   # rwxr-xr-x
   providerConfigRef:
     name: timewarp
-  deletionPolicy: Delete
