@@ -60,6 +60,9 @@ jobs:
           # mirrors, so restrict the existing sources to amd64 and add a
           # ports source for arm64.
           sudo dpkg --add-architecture arm64
+          # Ubuntu 24.04 runners use the DEB822 .sources format, where every
+          # stanza defaults to covering all added architectures. Restrict the
+          # existing (amd64-only) mirrors explicitly.
           for f in /etc/apt/sources.list.d/*.sources; do
             [ -f "$f" ] || continue
             grep -q '^Architectures:' "$f" || sudo sed -i '/^Types: deb$/a Architectures: amd64' "$f"
@@ -122,7 +125,13 @@ jobs:
           # See: build/makelib/xpkg.mk:125-127 and build/makelib/common.mk:87
           export BRANCH_NAME="master"
 
-          # Build and publish using make targets that handle Docker + Crossplane packages
+          # Build artifacts (binaries + Docker image)
+          make build.all build.artifacts
+
+          # Build Crossplane package (.xpkg)
+          make xpkg.build
+
+          # Publish to registry (Docker image + .xpkg package)
           make publish \
             REGISTRY_ORGS="ghcr.io/${{ github.repository_owner }}" \
             XPKG_REG_ORGS="ghcr.io/${{ github.repository_owner }}" \
