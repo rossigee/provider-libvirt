@@ -48,6 +48,32 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
 
+      - name: Install libvirt development libraries (amd64 + arm64 cross)
+        run: |
+          # provider-libvirt links libvirt.org/go/libvirt (CGO), so the runner
+          # needs libvirt headers/libs for both target architectures. The
+          # standardized template dropped this step; it was present in the
+          # pre-v0.10.0 release workflow and is required for `make build.all`
+          # to compile the amd64 and arm64 provider binaries.
+          #
+          # arm64 packages live on ports.ubuntu.com, not the default amd64
+          # mirrors, so restrict the existing sources to amd64 and add a
+          # ports source for arm64.
+          sudo dpkg --add-architecture arm64
+          # Ubuntu 24.04 runners use the DEB822 .sources format, where every
+          # stanza defaults to covering all added architectures. Restrict the
+          # existing (amd64-only) mirrors explicitly.
+          for f in /etc/apt/sources.list.d/*.sources; do
+            [ -f "$f" ] || continue
+            grep -q '^Architectures:' "$f" || sudo sed -i '/^Types: deb$/a Architectures: amd64' "$f"
+          done
+          sudo sed -i -E 's/^deb (http|mirror\+file)/deb [arch=amd64] \1/' /etc/apt/sources.list 2>/dev/null || true
+          echo "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble main universe" | sudo tee /etc/apt/sources.list.d/arm64-ports.list
+          echo "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble-updates main universe" | sudo tee -a /etc/apt/sources.list.d/arm64-ports.list
+          echo "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble-security main universe" | sudo tee -a /etc/apt/sources.list.d/arm64-ports.list
+          sudo apt-get update
+          sudo apt-get install -y libvirt-dev gcc-aarch64-linux-gnu libvirt-dev:arm64
+
       - name: Vendor Dependencies
         run: go mod vendor
 
