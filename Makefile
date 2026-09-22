@@ -63,6 +63,20 @@ publish.artifacts:
 	$(foreach r,$(REGISTRY_ORGS), $(foreach i,$(IMAGES),@$(MAKE) img.release.publish.$(r).$(i)))
 	$(foreach r,$(XPKG_REG_ORGS), $(foreach x,$(XPKGS),@$(MAKE) xpkg.release.publish.$(r).$(x)))
 
+# Force the .xpkg for every linux platform to be built before publish pushes
+# the package, then push as a multi-arch OCI image index. The rossigee/build
+# fork's stock xpkg.release.publish.<reg>.<pkg> pushes pre-built files for all
+# of XPKG_LINUX_PLATFORMS but does not depend on xpkg.build.<pkg>, so on a
+# single-arch (amd64) CI runner the linux_arm64 .xpkg would never exist and
+# `crossplane xpkg push` would fail with "--package-files: no such file".
+# Same fix as provider-btcpay.
+xpkg.release.publish.ghcr.io/rossigee.provider-libvirt:
+	@$(foreach p,$(XPKG_LINUX_PLATFORMS),$(MAKE) xpkg.build.provider-libvirt PLATFORM=$(p) || exit 1;)
+	@$(CROSSPLANE_CLI) xpkg push \
+		$(foreach p,$(XPKG_LINUX_PLATFORMS),--package-files $(XPKG_OUTPUT_DIR)/$(p)/provider-libvirt-$(VERSION).xpkg ) \
+		ghcr.io/rossigee/provider-libvirt:$(VERSION)
+	@$(OK) Pushed package ghcr.io/rossigee/provider-libvirt:$(VERSION)
+
 # Setup Package Metadata
 CROSSPLANE_VERSION = 2.3.2
 -include build/makelib/local.xpkg.mk
