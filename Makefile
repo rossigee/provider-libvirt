@@ -60,8 +60,15 @@ xpkg.build.provider-libvirt: do.build.images
 # Crossplane's package manager (and `crossplane xpkg extract`) require -
 # a plain `docker push` after it would silently overwrite those away.
 publish.artifacts:
-	$(foreach r,$(REGISTRY_ORGS), $(foreach i,$(IMAGES),@$(MAKE) img.release.publish.$(r).$(i)))
+	# Only xpkg (plain image publish neutralized below; runtime embedded in xpkg)
 	$(foreach r,$(XPKG_REG_ORGS), $(foreach x,$(XPKGS),@$(MAKE) xpkg.release.publish.$(r).$(x)))
+xpkg.release.publish.ghcr.io/rossigee.provider-libvirt:
+	@$(foreach p,$(XPKG_LINUX_PLATFORMS),$(MAKE) xpkg.build.provider-libvirt PLATFORM=$(p) || exit 1;)
+	@$(CROSSPLANE_CLI) xpkg push \
+		$(foreach p,$(XPKG_LINUX_PLATFORMS),--package-files $(XPKG_OUTPUT_DIR)/$(p)/provider-libvirt-$(VERSION).xpkg ) \
+		ghcr.io/rossigee/provider-libvirt:$(VERSION)
+	@$(OK) Pushed package ghcr.io/rossigee/provider-libvirt:$(VERSION)
+
 
 # Setup Package Metadata
 CROSSPLANE_VERSION = 2.3.2
@@ -140,3 +147,7 @@ delete-examples:
 	kubectl delete --ignore-not-found -f examples/
 
 .PHONY: submodules run install-crds uninstall-crds install-examples delete-examples print.crossplane-cli
+
+# Neutralize plain image publish for ghcr (xpkg uses same ref)
+img.release.publish.ghcr.io/rossigee.provider-libvirt:
+	@:
