@@ -1,6 +1,6 @@
-# Provider-Libvirt v0.2.1 Deployment
+# Provider-Libvirt v0.11.9 Deployment
 
-This directory contains deployment manifests and testing scripts for provider-libvirt v0.2.1, which includes the new **NodeDevice** resource for hardware device passthrough.
+This directory contains deployment manifests and testing scripts for provider-libvirt v0.11.9, which includes the new **NodeDevice** resource for hardware device passthrough.
 
 ## 🎯 New Features in v0.2.1
 

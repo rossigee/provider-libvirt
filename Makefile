@@ -85,7 +85,7 @@ xpkg.release.publish.ghcr.io/rossigee.provider-libvirt:
 	@$(OK) Pushed package ghcr.io/rossigee/provider-libvirt:$(VERSION)
 
 # Setup Package Metadata
-CROSSPLANE_VERSION = 2.3.2
+CROSSPLANE_VERSION = 2.5.0
 -include build/makelib/local.xpkg.mk
 -include build/makelib/controlplane.mk
 
@@ -132,7 +132,7 @@ go.build:
 	@$(INFO) go build $(PLATFORM) with CGO
 	@mkdir -p $(GO_OUT_DIR)
 	$(eval CGO_ARCH := $(word 2,$(subst _, ,$(PLATFORM))))
-	$(foreach p,$(GO_CGO_PACKAGES),@CGO_ENABLED=1 CC=$(CC_$(CGO_ARCH)) CXX=$(CXX_$(CGO_ARCH)) PKG_CONFIG_PATH=$(PKG_CONFIG_PATH_$(CGO_ARCH)) $(GO) build -v -o $(GO_OUT_DIR)/$(lastword $(subst /, ,$(p)))$(GO_OUT_EXT) $(GO_BUILDFLAGS) $(p) || $(FAIL) ${\n})
+	$(foreach p,$(GO_CGO_PACKAGES),@CGO_ENABLED=1 CC=$(CC_$(CGO_ARCH)) CXX=$(CXX_$(CGO_ARCH)) PKG_CONFIG_PATH=$(PKG_CONFIG_PATH_$(CGO_ARCH)) $(GO) build -v -o $(GO_OUT_DIR)/$(lastword $(subst /, ,$(p)))$(GO_OUT_EXT) $(GO_BUILDFLAGS) -tags '$(GO_TAGS)' -trimpath -ldflags '$(GO_LDFLAGS)' $(p) || $(FAIL) ${\n})
 	@$(OK) go build $(PLATFORM) with CGO
 
 # NOTE: we ensure up is installed prior to running platform-specific packaging steps in xpkg.build.

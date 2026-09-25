@@ -2,7 +2,7 @@
 
 set -e
 
-echo "🚀 Deploying provider-libvirt v0.2.1 with NodeDevice support..."
+echo "🚀 Deploying provider-libvirt v0.11.9 with NodeDevice support..."
 
 # Check if kubectl is available
 if ! command -v kubectl &> /dev/null; then

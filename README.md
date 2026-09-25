@@ -4,12 +4,12 @@ A **Crossplane v2 native provider** for libvirt that uses the Go libvirt API dir
 
 ## Container Registry
 
-- **Primary**: `ghcr.io/rossigee/provider-libvirt`
+- **Primary**: `ghcr.io/rossigee/provider-libvirt:v0.11.9`
 
 ## Features
 
-- ✅ **Pure Go Implementation** - No terraform dependencies
-- ✅ **Direct libvirt API** - Uses DigitalOcean's go-libvirt for RPC communication
+- ✅ **Native implementation** - Uses the `libvirt.org/go/libvirt` CGO binding
+- ✅ **Direct libvirt API** - Connects to libvirt over its supported URI transports
 - ✅ **Crossplane v2 Native** - Supports namespaced resources with `.m.` API groups
 - ✅ **Complete Resource Management** - Domains, Volumes, Networks, StoragePools, NodeDevices, Secrets
 - ✅ **Cross-Resource References** - Domain disks can reference Volume resources, network interfaces reference Network resources
@@ -21,11 +21,7 @@ A **Crossplane v2 native provider** for libvirt that uses the Go libvirt API dir
 
 ## Architecture
 
-This provider eliminates the terraform dependency that plagued previous libvirt providers by:
-
-1. **Direct API Access**: Uses `github.com/digitalocean/go-libvirt` for pure Go libvirt RPC communication
-2. **Native Controllers**: Built with `crossplane-runtime` controllers, not terraform wrappers
-3. **Efficient Networking**: Perfect for SSH/TLS connections like `qemu+ssh://user@host/system`
+This provider uses native Crossplane controllers with the `libvirt.org/go/libvirt` binding. The release build requires CGO and the libvirt development headers; the runtime image includes the libvirt client libraries.
 
 ## Getting Started
 
@@ -37,7 +33,7 @@ kind: Provider
 metadata:
   name: provider-libvirt
 spec:
-  package: ghcr.io/rossigee/provider-libvirt:latest
+  package: ghcr.io/rossigee/provider-libvirt:v0.11.9
 ```
 
 ### 2. Create a ProviderConfig
@@ -195,23 +191,20 @@ source:
 
 | Feature | This Provider | terraform-provider-libvirt |
 |---------|---------------|----------------------------|
-| **Architecture** | Pure Go + Crossplane v2 | terraform + dmacvicar/libvirt |
-| **Registry Issues** | ❌ None | ✅ Registry download problems |
-| **Namespace Support** | ✅ v2 native namespaced resources | ❌ Cluster-scoped only |
-| **Cross-Resource Refs** | ✅ Native Kubernetes references | ❌ String-based references |
-| **Cloud-Init** | ✅ URL/file provisioning | ⚠️ Manual setup required |
-| **Container Size** | Smaller | Larger (includes terraform) |
-| **Build Complexity** | Simple | Complex (terraform + provider) |
-| **Connection Types** | All libvirt URIs | All libvirt URIs |
-| **Performance** | Direct RPC | RPC via terraform |
+| **Architecture** | Native Crossplane v2 + libvirt CGO | Terraform + provider |
+| **Registry Issues** | None | Registry download problems |
+| **Namespace Support** | v2 native namespaced resources | Cluster-scoped only |
+| **Cross-Resource Refs** | Native Kubernetes references | String-based references |
+| **Cloud-Init** | URL/file provisioning | Manual setup required |
+| **Build Complexity** | CGO toolchain and libvirt headers | Terraform and provider tooling |
 
 ## Development
 
 ### Prerequisites
 
-- Go 1.24+
+- Go 1.27.1
 - Docker for containerization
-- libvirt development libraries (for local testing)
+- libvirt development libraries and target headers for CGO builds
 
 ### Building
 
@@ -235,13 +228,16 @@ make reviewable
 
 ### Building and Publishing
 
-```bash
-# Build provider and package
-make docker-build
-make xpkg.build
+Release publication is tag-only. After the release PR is merged and `master` is green:
 
-# Publish to registry
-make publish VERSION=v0.3.0
+```bash
+git fetch origin master
+test "$(git rev-parse HEAD)" = "$(git rev-parse origin/master)"
+test "$(<VERSION)" = "v0.11.9"
+test -z "$(git show-ref --tags v0.11.9)"
+test -z "$(git ls-remote --tags origin refs/tags/v0.11.9)"
+git tag -a v0.11.9 -m "Release v0.11.9" HEAD
+git push origin refs/tags/v0.11.9
 ```
 
 ### Testing
@@ -259,7 +255,7 @@ make lint
 make reviewable
 ```
 
-**Current Status**: ✅ All tests passing (133+ test cases), ✅ Clean lint results
+**Current release**: `v0.11.9`
 
 ## Resource Types
 

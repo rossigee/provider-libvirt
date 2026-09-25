@@ -33,6 +33,7 @@ import (
 	"github.com/rossigee/provider-libvirt/internal/controller/volume"
 	"github.com/rossigee/provider-libvirt/internal/features"
 	"github.com/rossigee/provider-libvirt/internal/tracing"
+	"github.com/rossigee/provider-libvirt/internal/version"
 	"github.com/rossigee/provider-libvirt/internal/webhook"
 
 	"github.com/rossigee/provider-libvirt/apis/v1beta1"
@@ -144,7 +145,7 @@ func main() {
 	kingpin.FatalIfError(mgr.AddReadyzCheck("readyz", healthz.Ping), "Cannot add ready check")
 	kingpin.FatalIfError(mgr.Add(manager.RunnableFunc(clients.StartConnectionReaper)), "Cannot add libvirt connection reaper")
 
-	log.Info("Starting controller manager")
+	log.Info("Starting controller manager", "version", version.Version)
 	kingpin.FatalIfError(mgr.Start(ctrl.SetupSignalHandler()), "Cannot start controller manager")
 }
 
