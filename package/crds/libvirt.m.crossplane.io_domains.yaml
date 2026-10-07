@@ -87,6 +87,25 @@ spec:
                           type: string
                       type: object
                     type: array
+                  cpu:
+                    description: CPU configuration
+                    properties:
+                      check:
+                        default: none
+                        description: Check validation mode (e.g., "none", "partial",
+                          "full")
+                        type: string
+                      mode:
+                        default: custom
+                        description: Mode of CPU (e.g., "custom", "host-passthrough",
+                          "host-model")
+                        type: string
+                      model:
+                        default: EPYC
+                        description: Model CPU model name (e.g., "EPYC", "Haswell",
+                          "host")
+                        type: string
+                    type: object
                   disk:
                     description: Disk devices
                     items:
