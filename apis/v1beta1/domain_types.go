@@ -56,6 +56,10 @@ type DomainParameters struct {
 	// +kubebuilder:default="x86_64"
 	Arch string `json:"arch,omitempty"`
 
+	// CPU configuration
+	// +kubebuilder:validation:Optional
+	CPU *DomainCPU `json:"cpu,omitempty"`
+
 	// Running determines if domain should be running
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default=true
@@ -174,6 +178,24 @@ type DomainGraphics struct {
 	// Autoport automatically assigns port
 	// +kubebuilder:validation:Optional
 	Autoport bool `json:"autoport,omitempty"`
+}
+
+// DomainCPU represents CPU configuration
+type DomainCPU struct {
+	// Mode of CPU (e.g., "custom", "host-passthrough", "host-model")
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default="custom"
+	Mode string `json:"mode,omitempty"`
+
+	// Model CPU model name (e.g., "EPYC", "Haswell", "host")
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default="EPYC"
+	Model string `json:"model,omitempty"`
+
+	// Check validation mode (e.g., "none", "partial", "full")
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default="none"
+	Check string `json:"check,omitempty"`
 }
 
 // DomainStatus defines the observed state of Domain

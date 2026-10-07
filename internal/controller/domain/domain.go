@@ -187,6 +187,12 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 
 // domainXML is a minimal struct to parse disk elements from libvirt domain XML
 type domainXML struct {
+	CPU *struct {
+		Mode  string `xml:"mode,attr"`
+		Match string `xml:"match,attr"`
+		Check string `xml:"check,attr"`
+		Model string `xml:"model"`
+	} `xml:"cpu"`
 	Devices struct {
 		Disks []diskXML `xml:"disk"`
 	} `xml:"devices"`
@@ -232,6 +238,65 @@ func (c *external) parseDisksFromXML(xmlData string) ([]v1beta1.DiskInfo, error)
 	}
 
 	return disks, nil
+}
+
+// hasCPUChanged checks if the CPU configuration in the domain XML differs from the desired CPU spec
+func (c *external) hasCPUChanged(xmlData string, desiredCPU *v1beta1.DomainCPU) (bool, error) {
+	var domain domainXML
+	if err := xml.Unmarshal([]byte(xmlData), &domain); err != nil {
+		return false, errors.Wrap(err, "failed to parse domain XML for CPU")
+	}
+
+	// Build desired CPU values with defaults
+	desiredMode := "custom"
+	desiredModel := "EPYC"
+	desiredCheck := "none"
+
+	if desiredCPU != nil {
+		if desiredCPU.Mode != "" {
+			desiredMode = desiredCPU.Mode
+		}
+		if desiredCPU.Model != "" {
+			desiredModel = desiredCPU.Model
+		}
+		if desiredCPU.Check != "" {
+			desiredCheck = desiredCPU.Check
+		}
+	}
+
+	// If no CPU in desired spec and no CPU in current XML, no change
+	if desiredCPU == nil && domain.CPU == nil {
+		return false, nil
+	}
+
+	// If CPU doesn't exist in current XML but is desired, it has changed
+	if domain.CPU == nil {
+		return true, nil
+	}
+
+	// Compare mode
+	currentMode := domain.CPU.Mode
+	if currentMode != desiredMode {
+		return true, nil
+	}
+
+	// For host-passthrough mode, only mode matters
+	if desiredMode == "host-passthrough" {
+		return false, nil
+	}
+
+	// For custom mode, also compare model and check
+	currentModel := domain.CPU.Model
+	if currentModel != desiredModel {
+		return true, nil
+	}
+
+	currentCheck := domain.CPU.Check
+	if currentCheck != desiredCheck {
+		return true, nil
+	}
+
+	return false, nil
 }
 
 // pcieRootPortTargetRe matches auto-generated <target chassis='N' port='0xNN'/>
@@ -421,6 +486,62 @@ func (c *external) Update(ctx context.Context, mg resource.Managed) (managed.Ext
 		return managed.ExternalUpdate{}, nil
 	}
 
+	// Check if CPU configuration has changed
+	cpuChanged, err := c.hasCPUChanged(currentXML, cr.Spec.ForProvider.CPU)
+	if err != nil {
+		c.logger.Info("Failed to check CPU changes", "error", err)
+		// Continue anyway, as this is not critical
+	}
+
+	if cpuChanged {
+		c.logger.Info("CPU configuration changed: destroying and recreating domain", "domain", cr.Name)
+
+		// Destroy the running domain
+		if err := c.client.DomainDestroy(domain); err != nil {
+			return managed.ExternalUpdate{}, errors.Wrap(err, "cannot destroy domain for CPU update")
+		}
+
+		// Undefine the domain
+		if err := c.client.DomainUndefine(domain); err != nil {
+			return managed.ExternalUpdate{}, errors.Wrap(err, "cannot undefine domain for CPU update")
+		}
+
+		// Generate new domain XML with updated CPU
+		newXML, err := c.generateDomainXML(ctx, cr)
+		if err != nil {
+			return managed.ExternalUpdate{}, errors.Wrap(err, "failed to generate domain XML with updated CPU")
+		}
+
+		// Define the new domain
+		newDomain, err := c.client.DomainDefineXML(newXML)
+		if err != nil {
+			return managed.ExternalUpdate{}, errors.Wrap(err, "cannot redefine domain with updated CPU")
+		}
+
+		newDomain, err = c.redefineWithHotplugDisabled(newDomain)
+		if err != nil {
+			return managed.ExternalUpdate{}, err
+		}
+
+		// Start domain if it should be running
+		running := cr.Spec.ForProvider.Running == nil || *cr.Spec.ForProvider.Running
+		if running {
+			if err := c.client.DomainCreate(newDomain); err != nil {
+				return managed.ExternalUpdate{}, errors.Wrap(err, "cannot start domain after CPU update")
+			}
+		}
+
+		// Set autostart if specified
+		if cr.Spec.ForProvider.Autostart != nil && *cr.Spec.ForProvider.Autostart {
+			if err := c.client.DomainSetAutostart(newDomain, 1); err != nil {
+				return managed.ExternalUpdate{}, errors.Wrap(err, "cannot set autostart after CPU update")
+			}
+		}
+
+		c.logger.Info("Successfully updated CPU configuration", "domain", cr.Name)
+		return managed.ExternalUpdate{}, nil
+	}
+
 	// Handle running state (normal update path)
 	running := cr.Spec.ForProvider.Running == nil || *cr.Spec.ForProvider.Running
 	isRunning := state == libvirt.DOMAIN_RUNNING
@@ -529,7 +650,41 @@ func (c *external) generateDomainXML(ctx context.Context, cr *v1beta1.Domain) (s
 	}
 
 	xml += `
-  </os>
+  </os>`
+
+	// Add CPU configuration if specified
+	if params.CPU != nil {
+		cpuMode := params.CPU.Mode
+		if cpuMode == "" {
+			cpuMode = "custom"
+		}
+		cpuModel := params.CPU.Model
+		if cpuModel == "" {
+			cpuModel = "EPYC"
+		}
+		cpuCheck := params.CPU.Check
+		if cpuCheck == "" {
+			cpuCheck = "none"
+		}
+
+		if cpuMode == "host-passthrough" {
+			xml += fmt.Sprintf(`
+  <cpu mode='%s'/>`, cpuMode)
+		} else {
+			xml += fmt.Sprintf(`
+  <cpu mode='%s' match='exact' check='%s'>
+    <model fallback='forbid'>%s</model>
+  </cpu>`, cpuMode, cpuCheck, cpuModel)
+		}
+	} else {
+		// Default CPU configuration for x86-64-v2 support
+		xml += `
+  <cpu mode='custom' match='exact' check='none'>
+    <model fallback='forbid'>EPYC</model>
+  </cpu>`
+	}
+
+	xml += `
   <devices>`
 
 	// Add emulator
