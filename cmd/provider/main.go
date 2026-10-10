@@ -6,6 +6,9 @@ package main
 
 import (
 	"context"
+	"net/http"
+	"net/http/pprof"
+	"time"
 
 	"github.com/alecthomas/kingpin/v2"
 	xpcontroller "github.com/crossplane/crossplane-runtime/v2/pkg/controller"
@@ -54,6 +57,7 @@ func main() {
 		maxReconcileRate         = app.Flag("max-reconcile-rate", "The global maximum rate per second at which resources may be checked for drift.").Default("10").Int()
 		pollStateMetricInterval  = app.Flag("poll-state-metric", "State metric recording interval").Default("5s").Duration()
 		metricsBindAddress       = app.Flag("metrics-bind-address", "The address the metrics endpoint binds to.").Default(":8080").String()
+		pprofBindAddress         = app.Flag("pprof-bind-address", "The address the pprof endpoint binds to. Disabled when empty.").Default("").String()
 		enableManagementPolicies = app.Flag("enable-management-policies", "Enable support for management policies.").Default("true").Envar("ENABLE_MANAGEMENT_POLICIES").Bool()
 	)
 	kingpin.MustParse(app.Parse(os.Args[1:]))
@@ -91,6 +95,10 @@ func main() {
 		},
 	})
 	kingpin.FatalIfError(err, "Cannot create controller manager")
+
+	if *pprofBindAddress != "" {
+		kingpin.FatalIfError(mgr.Add(manager.RunnableFunc(servePprof(*pprofBindAddress))), "Cannot add pprof server")
+	}
 
 	if err := setupRBAC(mgr.GetClient(), log); err != nil {
 		log.Info("RBAC setup warning (may be transient)", "error", err)
@@ -216,6 +224,30 @@ func setupRBAC(c client.Client, l logging.Logger) error {
 
 	l.Info("provider self-managed RBAC roles ensured")
 	return nil
+}
+
+// servePprof returns a Runnable that serves the Go pprof handlers on addr
+// until the manager stops. It runs on its own mux and port so profiles are
+// never exposed on the metrics endpoint.
+func servePprof(addr string) func(ctx context.Context) error {
+	return func(ctx context.Context) error {
+		mux := http.NewServeMux()
+		mux.HandleFunc("/debug/pprof/", pprof.Index)
+		mux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
+		mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
+		mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
+		mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
+
+		srv := &http.Server{Addr: addr, Handler: mux, ReadHeaderTimeout: 10 * time.Second}
+		go func() {
+			<-ctx.Done()
+			_ = srv.Shutdown(context.Background())
+		}()
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			return err
+		}
+		return nil
+	}
 }
 
 func withVerbs(r []rbacv1.PolicyRule, verbs []string) []rbacv1.PolicyRule {
