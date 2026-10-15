@@ -2,6 +2,7 @@
 # Setup Project
 
 PLATFORMS := linux_amd64 linux_arm64
+ROOT_DIR := $(abspath ../../../)
 include ../../../build/makelib/common.mk
 
 # ====================================================================================
@@ -20,7 +21,10 @@ img.build:
 img.build.shared:
 	@cp Dockerfile $(IMAGE_TEMP_DIR)
 	@cp -r $(OUTPUT_DIR)/bin/ $(IMAGE_TEMP_DIR)/
-	@docker build $(BUILD_ARGS) --build-arg TARGETOS=$(TARGETOS) --build-arg TARGETARCH=$(TARGETARCH) -t $(IMAGE) $(IMAGE_TEMP_DIR)
+	@cp $(ROOT_DIR)/go.mod $(ROOT_DIR)/go.sum $(IMAGE_TEMP_DIR)/
+	@cp -r $(ROOT_DIR)/vendor $(IMAGE_TEMP_DIR)/
+	@cp -r $(ROOT_DIR)/cmd $(ROOT_DIR)/internal $(ROOT_DIR)/apis $(IMAGE_TEMP_DIR)/
+	@docker build $(BUILD_ARGS) --build-arg TARGETOS=$(TARGETOS) --build-arg TARGETARCH=$(TARGETARCH) --build-arg VERSION=$(VERSION) -t $(IMAGE) $(IMAGE_TEMP_DIR)
 
 # ====================================================================================
 # Image Publish

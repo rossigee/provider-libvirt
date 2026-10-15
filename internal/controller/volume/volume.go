@@ -211,6 +211,12 @@ func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.Ext
 		cr.Status.AtProvider.Path = path
 		cr.Status.AtProvider.Capacity = int64(info.Capacity)
 		cr.Status.AtProvider.Allocation = int64(info.Allocation)
+		// Volume exists; populate from URL if it is empty/incomplete and a source URL is set
+		if cr.Spec.ForProvider.Source != nil && cr.Spec.ForProvider.Source.URL != "" && int64(info.Allocation) < 1048576 {
+			if err := c.populateFromURL(ctx, vol, cr.Spec.ForProvider.Source.URL); err != nil {
+				return managed.ExternalCreation{}, errors.Wrap(err, "cannot populate volume from URL")
+			}
+		}
 		return managed.ExternalCreation{}, nil
 	}
 
@@ -247,6 +253,12 @@ func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.Ext
 			cr.Status.AtProvider.Path = path
 			cr.Status.AtProvider.Capacity = int64(info.Capacity)
 			cr.Status.AtProvider.Allocation = int64(info.Allocation)
+			// Volume exists; populate from URL if it is empty/incomplete and a source URL is set
+			if cr.Spec.ForProvider.Source != nil && cr.Spec.ForProvider.Source.URL != "" && int64(info.Allocation) < 1048576 {
+				if err := c.populateFromURL(ctx, vol, cr.Spec.ForProvider.Source.URL); err != nil {
+					return managed.ExternalCreation{}, errors.Wrap(err, "cannot populate volume from URL")
+				}
+			}
 			return managed.ExternalCreation{}, nil
 		}
 		return managed.ExternalCreation{}, errors.Wrap(err, "cannot create volume")
@@ -409,7 +421,7 @@ func (c *external) populateFromURL(ctx context.Context, vol *libvirt.StorageVol,
 	}
 
 	httpClient := &http.Client{
-		Timeout: 5 * time.Minute,
+		Timeout: 30 * time.Minute,
 		Transport: &http.Transport{
 			TLSClientConfig: tlsConfig,
 		},
@@ -436,12 +448,18 @@ func (c *external) populateFromURL(ctx context.Context, vol *libvirt.StorageVol,
 	}
 	defer func() { _ = stream.Free() }()
 
-	if err := vol.Upload(stream, 0, 0, 0); err != nil {
+	// Pass actual content length to libvirt so storage backend knows expected size
+	var length uint64
+	if resp.ContentLength > 0 {
+		length = uint64(resp.ContentLength)
+		c.log.Info("Upload content length", "bytes", length)
+	}
+	if err := vol.Upload(stream, 0, length, 0); err != nil {
 		return errors.Wrap(err, "cannot start libvirt upload")
 	}
 
+	buf := make([]byte, 64*1024)
 	if err := stream.SendAll(func(s *libvirt.Stream, _ int) ([]byte, error) {
-		buf := make([]byte, 64*1024)
 		n, readErr := resp.Body.Read(buf)
 		if n > 0 {
 			return buf[:n], nil
@@ -449,7 +467,10 @@ func (c *external) populateFromURL(ctx context.Context, vol *libvirt.StorageVol,
 		if readErr == io.EOF {
 			return nil, nil
 		}
-		return nil, readErr
+		if readErr != nil {
+			return nil, readErr
+		}
+		return nil, nil
 	}); err != nil {
 		return errors.Wrap(err, "cannot send data via libvirt stream")
 	}
