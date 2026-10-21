@@ -22,6 +22,7 @@ import (
 	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -32,6 +33,13 @@ const (
 
 // Setup adds a controller that reconciles ProviderConfig resources
 // and tests libvirt connectivity.
+//
+// The concurrency is raised above the default of 1 deliberately. Every
+// ProviderConfig is health-checked on the same poll interval, and each check
+// opens a connection to that hypervisor. With a single worker, one
+// unreachable hypervisor - whose connect blocks until it times out - delays
+// the health check of every other configured hypervisor behind it, so their
+// Ready conditions go stale even though they are perfectly reachable.
 func Setup(mgr ctrl.Manager) error {
 	name := "providerconfig.libvirt.m.crossplane.io"
 
@@ -42,6 +50,9 @@ func Setup(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		Named(name).
 		For(&v1beta1.ProviderConfig{}).
+		WithOptions(controller.Options{
+			MaxConcurrentReconciles: clients.DefaultMaxConcurrentReconciles,
+		}).
 		Complete(r)
 }
 

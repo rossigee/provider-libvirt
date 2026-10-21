@@ -127,9 +127,17 @@ func (c *LibvirtClient) Close() error {
 	return nil
 }
 
-// pooledConn is a shared, reference-counted libvirt connection cached by
-// URI in connPool.
-type pooledConn struct {
+// connEntry is a shared, reference-counted libvirt connection cached by URI.
+//
+// Each entry carries its own lock. The lock is per-URI on purpose: a connect
+// to an unreachable hypervisor blocks for the whole TCP connect timeout
+// (over two minutes against a blackholed address), and while that connect is
+// in flight every other URI must keep working. A single pool-wide lock made
+// one dead hypervisor stall the entire provider - every Domain, Volume and
+// StoragePool reconcile queued behind the dead host's connect attempt, so the
+// provider advanced at one item per connect timeout.
+type connEntry struct {
+	mu       sync.Mutex
 	conn     *libvirt.Connect
 	refCount int
 	lastUsed time.Time
@@ -139,61 +147,179 @@ type pooledConn struct {
 // before reapIdleConnections closes it.
 const connIdleTTL = 5 * time.Minute
 
+// connTimeout bounds how long a single connect attempt may hold its URI's
+// entry lock.
+//
+// libvirt's NewConnect has no timeout of its own: against a blackholed
+// address the underlying TCP connect blocks until the kernel gives up
+// (tcp_syn_retries), which is over two minutes. Without a bound, one
+// unreachable hypervisor holds its entry lock - and its own reconcile
+// worker - for that entire time, and the ProviderConfig health check for it
+// never reports a failure in any reasonable interval.
+//
+// A healthy hypervisor on a local network connects in milliseconds, so this
+// is generous for a reachable host and only ever trips for an unreachable
+// one.
+const connTimeout = 30 * time.Second
+
 var (
+	// connPoolMu guards the connPool map itself. It is never held across a
+	// connect attempt - see connEntry.mu for that - so it is only ever
+	// contended for the microseconds a map lookup takes.
 	connPoolMu sync.Mutex
-	connPool   = map[string]*pooledConn{}
+	connPool   = map[string]*connEntry{}
+
+	// newLibvirtConnect is the connect call acquireConnection uses. It is a
+	// variable so tests can substitute a stub.
+	newLibvirtConnect = libvirt.NewConnect
 )
+
+// poolEntry returns the pool entry for uri, creating it if it does not exist
+// yet. The returned entry's own lock must be held by the caller when its
+// fields are read or written.
+func poolEntry(uri string) *connEntry {
+	connPoolMu.Lock()
+	defer connPoolMu.Unlock()
+
+	e, ok := connPool[uri]
+	if !ok {
+		e = &connEntry{}
+		connPool[uri] = e
+	}
+	return e
+}
+
+// lookupEntry returns the pool entry for uri and whether one exists. Unlike
+// poolEntry it never creates an entry, so releasing a connection for a URI
+// that was never acquired does not leave one behind.
+func lookupEntry(uri string) (*connEntry, bool) {
+	connPoolMu.Lock()
+	defer connPoolMu.Unlock()
+	e, ok := connPool[uri]
+	return e, ok
+}
 
 // acquireConnection returns a shared libvirt connection for uri, reusing a
 // cached one if it's still alive, opening a fresh one otherwise. Every
 // successful call must be paired with a releaseConnection(uri) call - via
 // LibvirtClient.Close() - when the caller is done with it.
+//
+// Only the entry for uri is locked, so a slow connect to one hypervisor does
+// not block reconciles for any other.
 func acquireConnection(uri string) (*libvirt.Connect, error) {
-	connPoolMu.Lock()
-	defer connPoolMu.Unlock()
+	e := poolEntry(uri)
 
-	if pc, ok := connPool[uri]; ok {
-		if alive, err := pc.conn.IsAlive(); err == nil && alive {
-			pc.refCount++
-			pc.lastUsed = time.Now()
-			return pc.conn, nil
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	if e.conn != nil {
+		if alive, err := e.conn.IsAlive(); err == nil && alive {
+			e.refCount++
+			e.lastUsed = time.Now()
+			return e.conn, nil
 		}
 		// Stale or dead - drop it and fall through to reconnect.
-		_, _ = pc.conn.Close()
-		delete(connPool, uri)
+		_, _ = e.conn.Close()
+		e.conn = nil
 	}
 
-	conn, err := libvirt.NewConnect(uri)
+	conn, err := connectWithTimeout(uri, connTimeout)
 	if err != nil {
 		return nil, err
 	}
-	connPool[uri] = &pooledConn{conn: conn, refCount: 1, lastUsed: time.Now()}
+	e.conn = conn
+	e.refCount = 1
+	e.lastUsed = time.Now()
 	return conn, nil
+}
+
+// connectWithTimeout opens a connection to uri, giving up after timeout.
+//
+// libvirt.NewConnect blocks for the kernel's TCP connect timeout when the
+// address is blackholed, and it cannot be cancelled - the C call has no
+// deadline parameter. The connect is therefore run on its own goroutine and
+// abandoned if it overruns. The abandoned attempt is not leaked: when it
+// eventually completes, its connection is closed rather than left open.
+//
+// The result channel is buffered so the connect goroutine never blocks on
+// send, and abandoned is closed exactly once by the timeout branch, so the
+// cleanup goroutine always completes.
+func connectWithTimeout(uri string, timeout time.Duration) (*libvirt.Connect, error) {
+	type result struct {
+		conn *libvirt.Connect
+		err  error
+	}
+
+	res := make(chan result, 1)
+	go func() {
+		conn, err := newLibvirtConnect(uri)
+		res <- result{conn: conn, err: err}
+	}()
+
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
+
+	select {
+	case r := <-res:
+		return r.conn, r.err
+	case <-timer.C:
+		// The connect overran its budget. Let it finish in the background and
+		// close whatever it produced, so a connection that succeeds late is
+		// not leaked.
+		go func() {
+			r := <-res
+			if r.conn != nil {
+				_, _ = r.conn.Close()
+			}
+		}()
+		return nil, fmt.Errorf("timed out connecting to %s after %s", uri, timeout)
+	}
 }
 
 // releaseConnection decrements the reference count for uri's pooled
 // connection. It does not close the connection immediately - see
 // reapIdleConnections.
 func releaseConnection(uri string) {
-	connPoolMu.Lock()
-	defer connPoolMu.Unlock()
-	if pc, ok := connPool[uri]; ok {
-		if pc.refCount > 0 {
-			pc.refCount--
-		}
-		pc.lastUsed = time.Now()
+	e, ok := lookupEntry(uri)
+	if !ok {
+		return
 	}
+
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if e.refCount > 0 {
+		e.refCount--
+	}
+	e.lastUsed = time.Now()
 }
 
 // reapIdleConnections closes and evicts pooled connections that have had
 // zero references for longer than connIdleTTL.
 func reapIdleConnections() {
 	connPoolMu.Lock()
-	defer connPoolMu.Unlock()
-	for uri, pc := range connPool {
-		if pc.refCount <= 0 && time.Since(pc.lastUsed) > connIdleTTL {
-			_, _ = pc.conn.Close()
-			delete(connPool, uri)
+	entries := make(map[string]*connEntry, len(connPool))
+	for uri, e := range connPool {
+		entries[uri] = e
+	}
+	connPoolMu.Unlock()
+
+	for uri, e := range entries {
+		e.mu.Lock()
+		if e.conn != nil && e.refCount <= 0 && time.Since(e.lastUsed) > connIdleTTL {
+			_, _ = e.conn.Close()
+			e.conn = nil
+		}
+		evict := e.conn == nil && e.refCount <= 0
+		e.mu.Unlock()
+
+		if evict {
+			// Drop the entry only if it is still the one in the map and still
+			// idle. A concurrent acquire may have reconnected it in between.
+			connPoolMu.Lock()
+			if cur, ok := connPool[uri]; ok && cur == e {
+				delete(connPool, uri)
+			}
+			connPoolMu.Unlock()
 		}
 	}
 }
