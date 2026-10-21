@@ -14,8 +14,8 @@ GOLANGCILINT_VERSION ?= 2.14.0
 NPROCS ?= 1
 GO_TEST_PARALLEL := $(shell echo $$(( $(NPROCS) / 2 )))
 GO_LINT_ARGS = ./apis/... ./internal/...
-GO_VERSION = 1.27.2
-GO_REQUIRED_VERSION ?= 1.27.2
+GO_VERSION = 1.27.3
+GO_REQUIRED_VERSION ?= 1.27.3
 # Provider requires CGO for libvirt, so don't use GO_STATIC_PACKAGES
 # GO_STATIC_PACKAGES = $(GO_PROJECT)/cmd/provider
 GO_CGO_PACKAGES = $(GO_PROJECT)/cmd/provider
