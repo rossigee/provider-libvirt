@@ -59,15 +59,17 @@ func main() {
 		metricsBindAddress       = app.Flag("metrics-bind-address", "The address the metrics endpoint binds to.").Default(":8080").String()
 		pprofBindAddress         = app.Flag("pprof-bind-address", "The address the pprof endpoint binds to. Disabled when empty.").Default("").String()
 		enableManagementPolicies = app.Flag("enable-management-policies", "Enable support for management policies.").Default("true").Envar("ENABLE_MANAGEMENT_POLICIES").Bool()
+		leaderElection           = app.Flag("leader-election", "Use leader election for the controller manager.").Short('l').Default("false").Envar("LEADER_ELECTION").Bool()
+		healthAddr               = app.Flag("health-addr", "The address the health endpoint binds to.").Default(":9440").String()
 	)
 	kingpin.MustParse(app.Parse(os.Args[1:]))
 
 	// Set up TLS environment variables for libvirt connections
 	// TLS certificates are mounted at /tls/client/ in the container
 	if _, err := os.Stat("/tls/client/ca.crt"); err == nil {
-		_ = os.Setenv("LIBVIRT_CACERT", "/tls/client/ca.crt")
-		_ = os.Setenv("LIBVIRT_TLS_CERT", "/tls/client/tls.crt")
-		_ = os.Setenv("LIBVIRT_TLS_KEY", "/tls/client/tls.key")
+		kingpin.FatalIfError(os.Setenv("LIBVIRT_CACERT", "/tls/client/ca.crt"), "Cannot set LIBVIRT_CACERT")
+		kingpin.FatalIfError(os.Setenv("LIBVIRT_TLS_CERT", "/tls/client/tls.crt"), "Cannot set LIBVIRT_TLS_CERT")
+		kingpin.FatalIfError(os.Setenv("LIBVIRT_TLS_KEY", "/tls/client/tls.key"), "Cannot set LIBVIRT_TLS_KEY")
 	}
 
 	zl := zap.New(zap.UseDevMode(*debug))
@@ -86,10 +88,10 @@ func main() {
 
 	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
 		Scheme:                 s,
-		LeaderElection:         false,
+		LeaderElection:         *leaderElection,
 		LeaderElectionID:       "crossplane-leader-election-provider-libvirt",
 		Cache:                  cache.Options{},
-		HealthProbeBindAddress: ":9440",
+		HealthProbeBindAddress: *healthAddr,
 		Metrics: metricserver.Options{
 			BindAddress: *metricsBindAddress,
 		},
