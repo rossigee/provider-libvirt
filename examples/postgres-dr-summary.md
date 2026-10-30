@@ -71,13 +71,13 @@ The infrastructure definitions are complete and ready for deployment. The provid
 
 ```bash
 # Deploy volumes
-kubectl --kubeconfig ~/.kube/golder-master-admin.conf apply -f examples/postgres-dr-volumes.yaml
+kubectl --kubeconfig ~/.kube/example-admin.conf apply -f examples/postgres-dr-volumes.yaml
 
 # Deploy VM domains
-kubectl --kubeconfig ~/.kube/golder-master-admin.conf apply -f examples/postgres-dr-domains.yaml
+kubectl --kubeconfig ~/.kube/example-admin.conf apply -f examples/postgres-dr-domains.yaml
 
 # Monitor deployment
-kubectl --kubeconfig ~/.kube/golder-master-admin.conf get volumes,domains -n crossplane-system
+kubectl --kubeconfig ~/.kube/example-admin.conf get volumes,domains -n crossplane-system
 ```
 
 ## Access Information

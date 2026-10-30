@@ -36,7 +36,7 @@ All PostgreSQL disaster recovery infrastructure resources have been successfully
 ### 📊 **Resource Status**
 
 ```bash
-kubectl --kubeconfig ~/.kube/golder-master-admin.conf get volumes,domains,networks -n crossplane-system
+kubectl --kubeconfig ~/.kube/example-admin.conf get volumes,domains,networks -n crossplane-system
 
 NAME                                                   READY   SYNCED   POOL   CAPACITY   FORMAT   AGE
 volume.libvirt.m.crossplane.io/postgres-primary-data             False                               [TIME]
@@ -72,7 +72,7 @@ Resources show `READY: False` and `SYNCED: False` due to the ProviderConfigUsage
 
 1. **Monitor Resource Reconciliation**:
    ```bash
-   kubectl --kubeconfig ~/.kube/golder-master-admin.conf describe domains postgres-primary -n crossplane-system
+   kubectl --kubeconfig ~/.kube/example-admin.conf describe domains postgres-primary -n crossplane-system
    ```
 
 2. **Once VMs are Created**:
