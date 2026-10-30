@@ -62,5 +62,6 @@ examples/**/*-actual.yaml
 # Cache directories
 .cache/
 
-# Generated cluster configuration
-cluster/
+# Generated cluster configuration (images/ holds tracked build inputs)
+/cluster/*
+!/cluster/images/
