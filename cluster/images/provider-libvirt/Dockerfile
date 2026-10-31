@@ -51,4 +51,6 @@ LABEL org.opencontainers.image.documentation="https://github.com/rossigee/provid
 
 COPY --chmod=0755 --from=builder /src/bin/${TARGETOS}_${TARGETARCH}/provider /usr/local/bin/provider
 
+USER 65532:65532
+
 ENTRYPOINT ["/usr/local/bin/provider"]
