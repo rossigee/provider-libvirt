@@ -8,6 +8,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/pprof"
+	"strings"
 	"time"
 
 	"github.com/alecthomas/kingpin/v2"
@@ -203,24 +204,28 @@ func setupRBAC(c client.Client, l logging.Logger) error {
 				"rbac.crossplane.io/aggregate-to-crossplane": "true", "rbac.crossplane.io/system": "provider-libvirt",
 			},
 		},
-		Rules: withVerbs(rules, []string{"*"}),
+		Rules: withVerbs(crossplaneRules(rules), []string{"*"}),
 	}
 	if err := c.Create(ctx, edit); err != nil && !errors.IsAlreadyExists(err) {
 		l.Info("aggregate-to-edit create warning (non-fatal)", "err", err)
 	}
-	_ = c.Update(ctx, edit)
+	if err := c.Update(ctx, edit); err != nil {
+		l.Info("aggregate-to-edit update warning (non-fatal)", "err", err)
+	}
 
 	view := &rbacv1.ClusterRole{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   "crossplane:provider:provider-libvirt:aggregate-to-view",
 			Labels: map[string]string{"rbac.crossplane.io/aggregate-to-view": "true", "rbac.crossplane.io/system": "provider-libvirt"},
 		},
-		Rules: withVerbs(rules, []string{"get", "list", "watch"}),
+		Rules: withVerbs(crossplaneRules(rules), []string{"get", "list", "watch"}),
 	}
 	if err := c.Create(ctx, view); err != nil && !errors.IsAlreadyExists(err) {
 		l.Info("aggregate-to-view create warning (non-fatal)", "err", err)
 	}
-	_ = c.Update(ctx, view)
+	if err := c.Update(ctx, view); err != nil {
+		l.Info("aggregate-to-view update warning (non-fatal)", "err", err)
+	}
 
 	l.Info("provider self-managed RBAC roles ensured")
 	return nil
@@ -248,6 +253,25 @@ func servePprof(addr string) func(ctx context.Context) error {
 		}
 		return nil
 	}
+}
+
+// crossplaneRules keeps only the rules for this provider's own API groups.
+// Core-group rules (secrets, configmaps, events, leases) stay on the system
+// role; they must not be aggregated into the view/edit roles.
+func crossplaneRules(r []rbacv1.PolicyRule) []rbacv1.PolicyRule {
+	out := []rbacv1.PolicyRule{}
+	for _, rule := range r {
+		own := true
+		for _, g := range rule.APIGroups {
+			if !strings.Contains(g, "crossplane.io") {
+				own = false
+			}
+		}
+		if own {
+			out = append(out, rule)
+		}
+	}
+	return out
 }
 
 func withVerbs(r []rbacv1.PolicyRule, verbs []string) []rbacv1.PolicyRule {
